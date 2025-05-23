@@ -19,12 +19,12 @@ This Kanban board helps track the development progress of the app.
 
 - **Project Setup & Configuration**
   - [x] Initialize React Native project with Expo.
-  - [ ] Configure ESLint, Prettier for code quality.
-  - [ ] Set up basic folder structure (components, screens, assets, navigation, services).
-  - [ ] Create `locations.js` file with the defined structure (data to be filled by user).
+  - [x] Configure ESLint, Prettier for code quality.
+  - [x] Set up basic folder structure (components, screens, assets, navigation, services).
+  - [x] Create `locations.js` file with the defined structure (data to be filled by user).
 - **Core App Navigation**
-  - [ ] Implement tab-based navigation (Map Tab, Tour Tab).
-  - [ ] Basic screen setup for Map and Tour tabs.
+  - [x] Implement tab-based navigation (Map Tab, Tour Tab).
+  - [x] Basic screen setup for Map and Tour tabs.
 - **Map Tab Functionality**
   - [ ] Integrate Apple Maps (iOS) / Google Maps (Android).
   - [ ] Display campus buildings as markers from `locations.js`.
