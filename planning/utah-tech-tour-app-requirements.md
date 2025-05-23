@@ -1,4 +1,3 @@
-
 # Utah Tech Campus Tour App — Requirements Document
 
 ## 1. Overview
@@ -8,6 +7,7 @@ The Utah Tech Campus Tour app is a mobile application designed to guide users th
 ## 2. Purpose
 
 The app aims to:
+
 - Introduce prospective students, visitors, and new students to campus buildings.
 - Provide building-specific information such as functions, fun facts, activities, and academic programs.
 - Enable guided, interest-based tours.
@@ -16,7 +16,7 @@ The app aims to:
 
 - Prospective students visiting campus
 - First-year students learning the layout
-- General visitors to Utah Tech University 
+- General visitors to Utah Tech University
 - Family or Friends that come along with prospective students for campus tours
 
 ## 4. Platform Requirements
@@ -31,8 +31,7 @@ The app aims to:
 
 ### 4.1 Build and Testing
 
-This app will be developed on a Windows machine using an Ubuntu WSL. To run and test during development, I will run using `npx expo start --tunnel` and use the Expo Go app on my personal iPhone  
-
+This app will be developed on a Windows machine using an Ubuntu WSL. To run and test during development, I will run using `npx expo start --tunnel` and use the Expo Go app on my personal iPhone
 
 ## 5. Functional Requirements
 

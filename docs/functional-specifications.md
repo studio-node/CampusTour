@@ -63,4 +63,4 @@ The app will feature a simple two-tab navigation system:
   - Add or remove interest tags.
   - Modify associations between buildings and interest tags.
 
-*(Refer to Section 8 of the main requirements document for more details on administrative functionality, which likely involves a backend component.)* 
+_(Refer to Section 8 of the main requirements document for more details on administrative functionality, which likely involves a backend component.)_

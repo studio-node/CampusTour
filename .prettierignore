@@ -1,0 +1,14 @@
+# Ignore artifacts:
+node_modules
+.expo
+.expo-shared
+dist
+build
+coverage
+android
+ios
+web-build
+*.log
+*.lock
+yarn.lock
+package-lock.json 

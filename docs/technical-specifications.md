@@ -6,7 +6,7 @@ This document details the technical aspects of the Utah Tech Campus Tour App, ba
 
 - **Core Framework**: React Native
 - **Development Environment**: Expo
-- **Mapping Services**: 
+- **Mapping Services**:
   - Apple Maps (for iOS platform)
   - Google Maps (for Android platform)
 
@@ -50,4 +50,4 @@ This document details the technical aspects of the Utah Tech Campus Tour App, ba
 ## 7. Admin Functionality (Backend Considerations)
 
 - The ability to update building data and manage interest tags remotely suggests the need for a simple backend API or a remote configuration file (e.g., JSON hosted servicio) that the app can fetch and parse.
-- The specifics of this backend or remote configuration are marked as TBD in the main requirements document. 
+- The specifics of this backend or remote configuration are marked as TBD in the main requirements document.

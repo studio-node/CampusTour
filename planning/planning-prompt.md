@@ -18,30 +18,28 @@ The app's purpose is to walk users through a guided tour of our campus. This tou
 ### Tabs
 
 - Map tab
-    - Labeled points on it that show campus buildings 
-    - Points can be clicked on and it will open a building information page
-    - Shows the user's location on the map
-    - A button that refocuses the map on the user's location
-    - Uses apple maps on iOS and Google Maps on Android
+  - Labeled points on it that show campus buildings
+  - Points can be clicked on and it will open a building information page
+  - Shows the user's location on the map
+  - A button that refocuses the map on the user's location
+  - Uses apple maps on iOS and Google Maps on Android
 - Tour tab
-    - Starts by having the user select some of their interests
-        - Some example interests
-            - Computing
-            - Excercise science 
-            - Rock climbing
-            - Medical sciences
-            - Arts
-            - etc.
-        - When they confirm their choices, it adds those stops to the tour
-        - They can also skip this section
-    - After setting up a tour, it shows the stops in order and what buildings they're at, a picture, etc.
-        - Two buttons on each step
-            - Details
-                - Pulls up the same info page that comes when clicking on a building on the map
-            - Location
-                - Takes you the map tab and zooms in to the building
-
-
+  - Starts by having the user select some of their interests
+    - Some example interests
+      - Computing
+      - Excercise science
+      - Rock climbing
+      - Medical sciences
+      - Arts
+      - etc.
+    - When they confirm their choices, it adds those stops to the tour
+    - They can also skip this section
+  - After setting up a tour, it shows the stops in order and what buildings they're at, a picture, etc.
+    - Two buttons on each step
+      - Details
+        - Pulls up the same info page that comes when clicking on a building on the map
+      - Location
+        - Takes you the map tab and zooms in to the building
 
 ## Prompt
 

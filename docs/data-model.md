@@ -11,15 +11,15 @@ export const locations = [
   {
     id: 'b001', // Unique identifier for the building
     name: 'Smith Computing Center', // Display name of the building
-    coordinates: { 
+    coordinates: {
       latitude: 37.0955, // Latitude for map positioning
-      longitude: -113.5752  // Longitude for map positioning
+      longitude: -113.5752, // Longitude for map positioning
     },
     image: 'https://example.com/images/smith.jpg', // URL to a representative image of the building
     description: 'Focuses on computer science and software engineering programs.', // A concise description for initial display (e.g., on tour stops)
     // detailedDescription: 'A more extensive description including functions, fun facts, activities, and academic programs housed. This could be a separate field if needed for more structured content.', // Optional: Consider if a separate field for detailed info is better.
     interests: ['Computing', 'Technology', 'Engineering'], // Array of strings representing associated interests/tags
-    isTourStop: true // Boolean indicating if this location is a default tour stop or can be part of tours
+    isTourStop: true, // Boolean indicating if this location is a default tour stop or can be part of tours
     // hours: 'Mon-Fri: 8am - 10pm', // Optional: Operating hours, if applicable
     // department: 'College of Science, Engineering & Technology', // Optional: Associated department/college
     // amenities: ['Computer Labs', 'Study Areas', 'Vending Machines'] // Optional: List of amenities
@@ -31,28 +31,34 @@ export const locations = [
 ## Field Descriptions
 
 - **`id`** (String, Required):
+
   - A unique identifier for each location (e.g., `b001`, `lib002`).
   - Used for internal referencing and potentially for linking from other data sources or analytics.
 
 - **`name`** (String, Required):
+
   - The common, displayable name of the building or location.
   - Example: "Smith Computing Center", "Jeffrey R. Holland Centennial Commons".
 
 - **`coordinates`** (Object, Required):
+
   - An object containing the geographical coordinates of the building.
   - **`latitude`** (Number, Required): The latitude of the building.
   - **`longitude`** (Number, Required): The longitude of the building.
 
 - **`image`** (String, Required):
+
   - A URL pointing to an image of the building.
   - This image will be used in the Tour Tab and Building Info Page.
 
 - **`description`** (String, Required):
+
   - A brief description of the building, highlighting its main purpose or key features.
   - Suitable for display in list views or initial tour stop information.
-  - *Note*: The main requirements document mentions providing "building-specific information such as functions, fun facts, activities, and academic programs." Consider if this `description` field is sufficient or if a more structured `detailedDescription` or separate fields for these aspects would be beneficial for clarity and display flexibility. For now, a single `description` field is assumed as per the example.
+  - _Note_: The main requirements document mentions providing "building-specific information such as functions, fun facts, activities, and academic programs." Consider if this `description` field is sufficient or if a more structured `detailedDescription` or separate fields for these aspects would be beneficial for clarity and display flexibility. For now, a single `description` field is assumed as per the example.
 
 - **`interests`** (Array of Strings, Required):
+
   - A list of keywords or tags that categorize the building by areas of interest.
   - Used for generating interest-based tours.
   - Examples: `["Computing"]`, `["Arts", "Performance"]`, `["Student Services", "Administration"]`.
@@ -78,4 +84,4 @@ The initial `locations.js` format is lean. Depending on evolving needs, addition
 
 These additional fields can be incorporated as needed to enrich the app experience. For the initial build, the core fields defined above will be used.
 
-> **Note to Developer (as per requirements doc)**: This file structure needs to be created. The actual data (filling in the details for each building) will be provided separately. 
+> **Note to Developer (as per requirements doc)**: This file structure needs to be created. The actual data (filling in the details for each building) will be provided separately.

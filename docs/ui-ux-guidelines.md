@@ -74,4 +74,4 @@ This document provides User Interface (UI) and User Experience (UX) guidelines f
   - Approved fonts and their usage
   - Logo assets and usage guidelines (if any are to be used in-app)
 
-These guidelines will be refined as mockups and prototypes are developed. 
+These guidelines will be refined as mockups and prototypes are developed.

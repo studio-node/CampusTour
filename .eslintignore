@@ -1,0 +1,14 @@
+# Ignore artifacts:
+node_modules
+.expo
+.expo-shared
+dist
+build
+coverage
+android
+ios
+web-build
+*.log
+*.lock
+babel.config.js
+metro.config.js 
