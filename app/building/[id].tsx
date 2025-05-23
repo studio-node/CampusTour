@@ -85,7 +85,7 @@ export default function BuildingInfoScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-          <IconSymbol name="chevron.left" size={24} color="#333333" />
+          <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerText}>{building.name}</Text>
       </View>
@@ -123,21 +123,22 @@ export default function BuildingInfoScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#282828',
   },
   header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    paddingBottom: 10,
+    borderBottomWidth: 3,
+    borderBottomColor: '#990000',
     flexDirection: 'row',
     alignItems: 'center',
   },
   headerText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#242424',
+    color: '#FFFFFF',
     marginLeft: 8,
     flex: 1,
+    textAlign: 'center',
   },
   backButton: {
     padding: 4,
@@ -166,12 +167,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 8,
     marginTop: 16,
-    color: '#242424',
+    color: '#FFFFFF',
   },
   description: {
     fontSize: 16,
     lineHeight: 24,
-    color: '#333333',
+    color: '#FFFFFF',
   },
   interestsContainer: {
     flexDirection: 'row',

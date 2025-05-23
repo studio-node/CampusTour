@@ -1,37 +1,148 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { locations } from '@/locations';
+import * as Location from 'expo-location';
+import { useEffect, useRef, useState } from 'react';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// Define the location type based on our locations.js structure
+type LocationItem = {
+  id: string;
+  name: string;
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  };
+  image: string;
+  description: string;
+  interests: string[];
+  isTourStop: boolean;
+};
+
 export default function MapScreen() {
+  const mapRef = useRef<MapView | null>(null);
+  const [userLocation, setUserLocation] = useState<Region | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [locationPermissionStatus, setLocationPermissionStatus] = useState<string | null>(null);
+
+  // Default to Utah Tech University campus center if no user location is available
+  const DEFAULT_REGION: Region = {
+    latitude: 37.10191426300314, 
+    longitude: -113.56546471154138,
+    latitudeDelta: 0.007,
+    longitudeDelta: 0.007,
+  };
+
+  // Request location permissions and get user location
+  const requestLocationPermission = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      setLocationPermissionStatus(status);
+      
+      if (status === 'granted') {
+        try {
+          const location = await Location.getCurrentPositionAsync({});
+          setUserLocation({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            latitudeDelta: 0.004,
+            longitudeDelta: 0.004,
+          });
+        } catch (error) {
+          console.error('Error getting location:', error);
+          // No need to set error - we'll just default to the campus center
+        }
+      }
+    } catch (error) {
+      console.error('Error requesting location permission:', error);
+      setErrorMsg('Error requesting location permissions');
+    }
+  };
+
+  useEffect(() => {
+    requestLocationPermission();
+  }, []);
+
   // Function to handle the "recenter map" button press
   const handleRecenterPress = () => {
-    // This will be implemented when we add the actual map functionality
-    console.warn('Recenter button pressed - will be implemented with actual map');
+    if (mapRef.current) {
+      if (userLocation) {
+        mapRef.current.animateToRegion(userLocation, 500);
+      } else {
+        // If user location is not available, center on the default region
+        mapRef.current.animateToRegion(DEFAULT_REGION, 500);
+      }
+    }
   };
+
+  // Function to handle the "Zoom Out" button press
+  const handleZoomOut = () => {
+    if (mapRef.current) {
+      mapRef.current.animateToRegion(DEFAULT_REGION, 500);
+    }
+  };
+  
+  // Handle marker press
+  const handleMarkerPress = (location: LocationItem) => {
+    console.log(`Selected location: ${location.name}`);
+    // This will be expanded in future tasks to navigate to the building info page
+  };
+
+  // Determine which map provider to use based on platform
+  const mapProvider = Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>Utah Tech Campus Map</Text>
+        <Text style={styles.headerText}>Campus Map</Text>
+        <TouchableOpacity
+            style={styles.resetButton}
+            onPress={handleZoomOut}
+          >
+            <Text style={styles.resetButtonText}>See Campus</Text>
+          </TouchableOpacity>
       </View>
+      
       <View style={styles.mapContainer}>
-        <View style={styles.mapPlaceholder}>
-          <Text style={styles.placeholderText}>
-            Map View{'\n'}(Coming soon: Interactive campus map with building markers)
-          </Text>
-          <IconSymbol 
-            name="map" 
-            size={60} 
-            color="#AAAAAA" 
-            style={styles.mapIcon} 
-          />
-        </View>
+        {errorMsg ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{errorMsg}</Text>
+          </View>
+        ) : (
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            provider={mapProvider}
+            mapType="standard"
+            initialRegion={userLocation || DEFAULT_REGION}
+            showsUserLocation={locationPermissionStatus === 'granted'}
+            showsMyLocationButton={false}
+            showsCompass={true}
+            rotateEnabled={true}
+            scrollEnabled={true}
+            zoomEnabled={true}
+            onMapReady={() => setMapReady(true)}
+          >
+            {locations.map((location) => (
+              <Marker
+                key={location.id}
+                coordinate={location.coordinates}
+                title={location.name}
+                description={location.description}
+                onPress={() => handleMarkerPress(location)}
+              />
+            ))}
+          </MapView>
+        )}
+        
         <TouchableOpacity 
           style={styles.recenterButton}
           onPress={handleRecenterPress}
         >
           <IconSymbol name="location.fill" size={16} color="white" style={styles.buttonIcon} />
-          <Text style={styles.buttonText}>Recenter Map</Text>
+          <Text style={styles.buttonText}>Show my Location</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -41,44 +152,57 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#282828',
   },
   header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    paddingBottom: 10,
+    borderBottomWidth: 3,
+    borderBottomColor: '#990000',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   headerText: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#242424',
+    color: '#FFFFFF',
+    marginLeft: 15,
+  },
+  resetButton: {
+    backgroundColor: '#EEEEEE',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    marginRight: 15,
+  },
+  resetButtonText: {
+    fontSize: 12,
+    color: '#666666',
   },
   mapContainer: {
     flex: 1,
     position: 'relative',
   },
-  mapPlaceholder: {
+  map: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+  },
+  errorContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F5F5F5',
     margin: 16,
     borderRadius: 8,
   },
-  placeholderText: {
+  errorText: {
     fontSize: 16,
-    color: '#666666',
+    color: '#FF3B30',
     textAlign: 'center',
-    marginBottom: 20,
-  },
-  mapIcon: {
-    marginTop: 20,
-    opacity: 0.5,
+    padding: 16,
   },
   recenterButton: {
     position: 'absolute',
-    bottom: 100, // Increased to be above tab bar
-    right: 24,
+    bottom: 70, // Increased to be above tab bar
+    right: 20,
     backgroundColor: '#990000', // Utah Tech red color
     paddingVertical: 12,
     paddingHorizontal: 16,

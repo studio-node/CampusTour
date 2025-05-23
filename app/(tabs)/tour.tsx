@@ -238,26 +238,27 @@ export default function TourScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#282828',
   },
   header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    paddingBottom: 10,
+    borderBottomWidth: 3,
+    borderBottomColor: '#990000',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
   },
   headerText: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#242424',
+    color: '#FFFFFF',
+    marginLeft: 15,
   },
   resetButton: {
     backgroundColor: '#EEEEEE',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
+    marginRight: 15,
   },
   resetButtonText: {
     fontSize: 12,
