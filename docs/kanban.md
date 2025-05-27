@@ -27,10 +27,10 @@ This Kanban board helps track the development progress of the app.
   - [x] Basic screen setup for Map and Tour tabs.
 - **Map Tab Functionality**
   - [x] Integrate Apple Maps (iOS) / Google Maps (Android).
-  - [ ] Display campus buildings as markers from `locations.js`.
-  - [ ] Show user's current location.
-  - [ ] Implement "recenter map" button.
-  - [ ] Handle marker click to navigate to Building Info Page (placeholder).
+  - [x] Display campus buildings as markers from `locations.js`.
+  - [x] Show user's current location.
+  - [x] Implement "recenter map" button.
+  - [ ] Handle marker click to navigate to Building Info Page (placeholder for now).
 - **Building Info Page**
   - [ ] Create Building Info Page screen.
   - [ ] Display building details (name, image, description) from `locations.js`.

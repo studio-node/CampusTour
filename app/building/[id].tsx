@@ -1,55 +1,30 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { locations } from '@/locations';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Define the building interface
-interface Building {
+// Define location type based on locations.js structure
+type LocationItem = {
   id: string;
   name: string;
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  };
   image: string;
   description: string;
-  detailedDescription: string;
   interests: string[];
-}
-
-// This is just a placeholder for now
-// In the future, we'll fetch data from the locations.js file
-const mockBuildings: Record<string, Building> = {
-  '1': {
-    id: '1',
-    name: 'Holland Centennial Commons',
-    image: 'https://via.placeholder.com/150',
-    description: 'Main library and student service center.',
-    detailedDescription: 'The Jeffrey R. Holland Centennial Commons Building houses the library, classrooms, study spaces, and various student services including registration, financial aid, and advisement. The building was dedicated in 2012.',
-    interests: ['academics', 'library', 'student-services'],
-  },
-  '2': {
-    id: '2',
-    name: 'Smith Computer Center',
-    image: 'https://via.placeholder.com/150',
-    description: 'Houses computer science and digital design programs.',
-    detailedDescription: 'The Smith Computer Center is home to the Computing Department and features computer labs, classrooms, faculty offices, and spaces for students to work on projects. It also houses various technology services for the university.',
-    interests: ['computing', 'technology', 'academics'],
-  },
-  '3': {
-    id: '3',
-    name: 'Human Performance Center',
-    image: 'https://via.placeholder.com/150',
-    description: 'Recreation center with climbing wall and swimming pools.',
-    detailedDescription: 'The Human Performance Center features indoor and outdoor recreation facilities, including an Olympic-sized swimming pool, basketball courts, fitness areas, a climbing wall, and track. It also contains classrooms and labs for exercise science programs.',
-    interests: ['sports', 'recreation', 'health-science'],
-  },
+  isTourStop: boolean;
 };
 
 export default function BuildingInfoScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const buildingId = typeof id === 'string' ? id : '1';
+  const buildingId = typeof id === 'string' ? id : '';
   
-  // Get the building data from our mock data
-  // In the future, this will come from locations.js
-  const building = mockBuildings[buildingId];
+  // Find the building from locations.js data
+  const building = locations.find(loc => loc.id.toLowerCase() === buildingId.toLowerCase());
 
   const handleBackPress = () => {
     router.back();
@@ -67,7 +42,7 @@ export default function BuildingInfoScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-            <IconSymbol name="chevron.left" size={24} color="#333333" />
+            <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerText}>Building Not Found</Text>
         </View>
@@ -90,14 +65,27 @@ export default function BuildingInfoScreen() {
         <Text style={styles.headerText}>{building.name}</Text>
       </View>
 
-      <View style={styles.content}>
-        <View style={styles.imagePlaceholder}>
-          <Text style={styles.imagePlaceholderText}>Building Image</Text>
-        </View>
+      <ScrollView style={styles.content}>
+        {building.image ? (
+          <View>  
+            <Image 
+              source={{ uri: building.image }} 
+              style={styles.buildingImage}
+              resizeMode="cover"
+            />
+            
+            
+          </View>
+        ) : (
+          
+          <View style={styles.imagePlaceholder}>
+            <Text style={styles.imagePlaceholderText}>Building Image</Text>
+          </View>
+        )}
 
         <View style={styles.detailsContainer}>
           <Text style={styles.sectionTitle}>Description</Text>
-          <Text style={styles.description}>{building.detailedDescription}</Text>
+          <Text style={styles.description}>{building.description}</Text>
           
           <Text style={styles.sectionTitle}>Interests</Text>
           <View style={styles.interestsContainer}>
@@ -109,9 +97,18 @@ export default function BuildingInfoScreen() {
               </View>
             ))}
           </View>
-        </View>
-      </View>
 
+          {building.isTourStop && (
+            <View style={styles.tourStopContainer}>
+              <IconSymbol name="star.fill" size={14} color="#FFD700" style={styles.tourStopIcon} />
+              <Text style={styles.tourStopText}>This building is a featured tour stop</Text>
+            </View>
+          )}
+        </View>
+
+      </ScrollView>
+
+      
       <TouchableOpacity style={styles.showOnMapButton} onPress={handleShowOnMap}>
         <IconSymbol name="map.fill" size={16} color="white" style={styles.buttonIcon} />
         <Text style={styles.buttonText}>Show on Map</Text>
@@ -126,6 +123,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#282828',
   },
   header: {
+    paddingTop: 10,
     paddingBottom: 10,
     borderBottomWidth: 3,
     borderBottomColor: '#990000',
@@ -139,27 +137,33 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
     textAlign: 'center',
+    marginRight: 36, // Balance the text with the back button
   },
   backButton: {
     padding: 4,
+    marginLeft: 12,
   },
   content: {
-    padding: 16,
     flex: 1,
+  },
+  buildingImage: {
+    height: 200,
+    width: '100%',
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
   },
   imagePlaceholder: {
     height: 200,
-    backgroundColor: '#DDDDDD',
-    borderRadius: 8,
+    backgroundColor: '#3A3A3A',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
   },
   imagePlaceholderText: {
-    color: '#666666',
+    color: '#999999',
     fontSize: 16,
   },
   detailsContainer: {
+    padding: 16,
     flex: 1,
   },
   sectionTitle: {
@@ -178,20 +182,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    marginBottom: 16,
   },
   interestTag: {
-    backgroundColor: '#EEEEEE',
+    backgroundColor: '#454545',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#555555',
   },
   interestTagText: {
     fontSize: 14,
-    color: '#333333',
+    color: '#FFFFFF',
+  },
+  tourStopContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+  },
+  tourStopIcon: {
+    marginRight: 8,
+  },
+  tourStopText: {
+    color: '#FFD700',
+    fontSize: 14,
+    fontWeight: '500',
   },
   showOnMapButton: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 50,
     right: 24,
     backgroundColor: '#990000',
     paddingVertical: 12,
@@ -221,7 +246,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#666666',
+    color: '#FFFFFF',
     marginBottom: 16,
     textAlign: 'center',
   },

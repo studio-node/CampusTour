@@ -1,9 +1,10 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { locations } from '@/locations';
 import * as Location from 'expo-location';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import MapView, { Callout, Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Define the location type based on our locations.js structure
@@ -21,11 +22,14 @@ type LocationItem = {
 };
 
 export default function MapScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
   const mapRef = useRef<MapView | null>(null);
   const [userLocation, setUserLocation] = useState<Region | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<string | null>(null);
+  const [selectedBuilding, setSelectedBuilding] = useState<LocationItem | null>(null);
 
   // Default to Utah Tech University campus center if no user location is available
   const DEFAULT_REGION: Region = {
@@ -34,6 +38,28 @@ export default function MapScreen() {
     latitudeDelta: 0.007,
     longitudeDelta: 0.007,
   };
+
+  // Check if we need to focus on a specific building (from params)
+  useEffect(() => {
+    if (params.building && typeof params.building === 'string') {
+      const buildingId = params.building;
+      const building = locations.find(loc => 
+        loc.id.toLowerCase() === buildingId.toLowerCase()
+      );
+      
+      if (building && mapRef.current && mapReady) {
+        // Focus on the building
+        const region = {
+          latitude: building.coordinates.latitude,
+          longitude: building.coordinates.longitude,
+          latitudeDelta: 0.002,
+          longitudeDelta: 0.002,
+        };
+        mapRef.current.animateToRegion(region, 500);
+        setSelectedBuilding(building);
+      }
+    }
+  }, [params.building, mapReady]);
 
   // Request location permissions and get user location
   const requestLocationPermission = async () => {
@@ -84,10 +110,18 @@ export default function MapScreen() {
     }
   };
   
-  // Handle marker press
+  // Handle marker press - Navigate to building info page
   const handleMarkerPress = (location: LocationItem) => {
     console.log(`Selected location: ${location.name}`);
-    // This will be expanded in future tasks to navigate to the building info page
+    router.push({
+      pathname: '/building/[id]',
+      params: { id: location.id }
+    });
+  };
+
+  // Handle callout press - This provides a backup way to navigate if needed
+  const handleCalloutPress = (location: LocationItem) => {
+    handleMarkerPress(location);
   };
 
   // Determine which map provider to use based on platform
@@ -131,8 +165,23 @@ export default function MapScreen() {
                 coordinate={location.coordinates}
                 title={location.name}
                 description={location.description}
-                onPress={() => handleMarkerPress(location)}
-              />
+              >
+                <Callout tooltip={false} onPress={() => handleCalloutPress(location)}>
+                  <View style={styles.calloutContainer}>
+                    <Text style={styles.calloutTitle}>{location.name}</Text>
+                    <Text style={styles.calloutDescription} numberOfLines={2}>{location.description}</Text>
+                    <View style={styles.calloutButtonContainer}>
+                      <TouchableOpacity 
+                        style={styles.detailsButton}
+                        onPress={() => handleCalloutPress(location)}
+                      >
+                        <Text style={styles.detailsButtonText}>Details</Text>
+                        <IconSymbol name="chevron.right" size={14} color="#990000" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </Callout>
+              </Marker>
             ))}
           </MapView>
         )}
@@ -222,5 +271,36 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
     fontSize: 14,
+  },
+  calloutContainer: {
+    width: 200,
+    padding: 10,
+    borderRadius: 8,
+  },
+  calloutTitle: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  calloutDescription: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+  },
+  calloutButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  detailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  detailsButtonText: {
+    fontSize: 12,
+    color: '#990000',
+    fontWeight: 'bold',
+    marginRight: 4,
   },
 });

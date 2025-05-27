@@ -1,8 +1,19 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { locations } from '@/locations';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// Storage keys
+const STORAGE_KEYS = {
+  TOUR_STOPS: 'tourStops',
+  SELECTED_INTERESTS: 'selectedInterests',
+  SHOW_INTEREST_SELECTION: 'showInterestSelection',
+  VISITED_LOCATIONS: 'visitedLocations'
+};
 
 // Define the interface for a tour stop
 interface TourStop {
@@ -10,6 +21,8 @@ interface TourStop {
   name: string;
   image: string;
   description: string;
+  interests: string[];
+  isTourStop: boolean;
 }
 
 // Define available interests
@@ -18,53 +31,61 @@ interface Interest {
   name: string;
 }
 
-const interests: Interest[] = [
-  { id: 'arts', name: 'Arts' },
-  { id: 'computing', name: 'Computing' },
-  { id: 'med-science', name: 'Medical Sciences' },
-  { id: 'business', name: 'Business' },
-  { id: 'sports', name: 'Sports & Recreation' },
-];
+// Extract unique interests from locations data
+const extractInterests = (): Interest[] => {
+  const uniqueInterests = new Set<string>();
+  
+  locations.forEach(location => {
+    location.interests.forEach(interest => {
+      uniqueInterests.add(interest);
+    });
+  });
+  
+  return Array.from(uniqueInterests).map(interest => ({
+    id: interest.toLowerCase().replace(/\s+/g, '-'),
+    name: interest
+  }));
+};
 
-// Mock data for the tour stops
-const mockTourStops: TourStop[] = [
-  { 
-    id: '1', 
-    name: 'Holland Centennial Commons',
-    image: 'https://via.placeholder.com/150',
-    description: 'Main library and student service center.',
-  },
-  { 
-    id: '2', 
-    name: 'Smith Computer Center',
-    image: 'https://via.placeholder.com/150',
-    description: 'Houses computer science and digital design programs.',
-  },
-  { 
-    id: '3', 
-    name: 'Human Performance Center',
-    image: 'https://via.placeholder.com/150',
-    description: 'Recreation center with climbing wall and swimming pools.',
-  },
-];
+const interests = extractInterests();
 
 // Component for an individual tour stop item
 const TourStopItem = ({ 
   item, 
   onDetailsPress, 
-  onLocationPress 
+  onLocationPress,
+  visited,
+  onToggleVisited
 }: { 
   item: TourStop; 
   onDetailsPress: (id: string) => void;
   onLocationPress: (id: string) => void;
+  visited: boolean;
+  onToggleVisited: (id: string) => void;
 }) => (
   <View style={styles.tourStopCard}>
-    <View style={styles.tourStopImagePlaceholder}>
-      <Text style={styles.imagePlaceholderText}>Building Image</Text>
-    </View>
+    {item.image ? (
+      <Image 
+        source={{ uri: item.image }} 
+        style={styles.tourStopImage}
+        contentFit="cover"
+      />
+    ) : (
+      <View style={styles.tourStopImagePlaceholder}>
+        <Text style={styles.imagePlaceholderText}>Building Image</Text>
+      </View>
+    )}
     <View style={styles.tourStopInfo}>
-      <Text style={styles.tourStopName}>{item.name}</Text>
-      <Text style={styles.tourStopDescription}>{item.description}</Text>
+      <View style={styles.tourStopHeader}>
+        <TouchableOpacity 
+          style={[styles.checkboxContainer, visited && styles.checkboxContainerChecked]} 
+          onPress={() => onToggleVisited(item.id)}
+        >
+          {visited && <IconSymbol name="checkmark" size={14} color="white" />}
+        </TouchableOpacity>
+        <Text style={styles.tourStopName}>{item.name}</Text>
+      </View>
+      <Text style={styles.tourStopDescription} numberOfLines={2}>{item.description}</Text>
       <View style={styles.tourStopButtons}>
         <TouchableOpacity 
           style={styles.detailsButton}
@@ -118,6 +139,81 @@ export default function TourScreen() {
   const [showInterestSelection, setShowInterestSelection] = useState(true);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [tourStops, setTourStops] = useState<TourStop[]>([]);
+  const [visitedLocations, setVisitedLocations] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load saved state when the component mounts
+  useEffect(() => {
+    loadSavedState();
+  }, []);
+
+  // Save state when it changes
+  useEffect(() => {
+    if (!isLoading) {
+      saveTourState();
+    }
+  }, [showInterestSelection, selectedInterests, tourStops, visitedLocations, isLoading]);
+
+  // Load saved state from storage
+  const loadSavedState = async () => {
+    try {
+      setIsLoading(true);
+      
+      const savedShowInterestSelection = await AsyncStorage.getItem(STORAGE_KEYS.SHOW_INTEREST_SELECTION);
+      const savedSelectedInterests = await AsyncStorage.getItem(STORAGE_KEYS.SELECTED_INTERESTS);
+      const savedTourStops = await AsyncStorage.getItem(STORAGE_KEYS.TOUR_STOPS);
+      const savedVisitedLocations = await AsyncStorage.getItem(STORAGE_KEYS.VISITED_LOCATIONS);
+      
+      if (savedShowInterestSelection !== null) {
+        setShowInterestSelection(JSON.parse(savedShowInterestSelection));
+      }
+      
+      if (savedSelectedInterests !== null) {
+        setSelectedInterests(JSON.parse(savedSelectedInterests));
+      }
+      
+      if (savedTourStops !== null) {
+        setTourStops(JSON.parse(savedTourStops));
+      }
+
+      if (savedVisitedLocations !== null) {
+        setVisitedLocations(JSON.parse(savedVisitedLocations));
+      }
+    } catch (error) {
+      console.error('Error loading saved tour state:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Save tour state to storage
+  const saveTourState = async () => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.SHOW_INTEREST_SELECTION, JSON.stringify(showInterestSelection));
+      await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_INTERESTS, JSON.stringify(selectedInterests));
+      await AsyncStorage.setItem(STORAGE_KEYS.TOUR_STOPS, JSON.stringify(tourStops));
+      await AsyncStorage.setItem(STORAGE_KEYS.VISITED_LOCATIONS, JSON.stringify(visitedLocations));
+    } catch (error) {
+      console.error('Error saving tour state:', error);
+    }
+  };
+
+  // Get tour stops from locations
+  const getTourStops = (filterByInterests = false): TourStop[] => {
+    // Get only locations marked as tour stops
+    let stops = locations.filter(location => location.isTourStop);
+    
+    // If interests are selected, filter by those interests
+    if (filterByInterests && selectedInterests.length > 0) {
+      stops = stops.filter(location => 
+        location.interests.some(interest => 
+          selectedInterests.includes(interest.toLowerCase().replace(/\s+/g, '-'))
+        )
+      );
+    }
+    
+    return stops;
+  };
 
   // Toggle interest selection
   const toggleInterest = (interestId: string) => {
@@ -130,40 +226,66 @@ export default function TourScreen() {
 
   // Generate tour based on selected interests
   const generateTour = () => {
-    // For now just show the mockTourStops
-    // Later we'll filter based on selected interests
-    setTourStops(mockTourStops);
+    setTourStops(getTourStops(true));
     setShowInterestSelection(false);
   };
 
   // Skip interest selection and show default tour
   const showDefaultTour = () => {
-    setTourStops(mockTourStops);
+    setTourStops(getTourStops(false));
     setShowInterestSelection(false);
   };
 
   // Reset tour and show interest selection again
   const resetTour = () => {
     setSelectedInterests([]);
+    setVisitedLocations([]);
     setShowInterestSelection(true);
+  };
+
+  // Toggle visited status for a location
+  const toggleVisited = (locationId: string) => {
+    setVisitedLocations(prev => {
+      if (prev.includes(locationId)) {
+        return prev.filter(id => id !== locationId);
+      } else {
+        return [...prev, locationId];
+      }
+    });
   };
 
   // Handle Details button press
   const handleDetailsPress = (buildingId: string) => {
-    console.warn(`Details pressed for building: ${buildingId}`);
+    console.log(`Details pressed for building: ${buildingId}`);
     // Navigate to the building info page
     router.push({
-      pathname: '/building/[id]' as any,
+      pathname: '/building/[id]',
       params: { id: buildingId }
     });
   };
 
   // Handle Location button press
   const handleLocationPress = (buildingId: string) => {
-    console.warn(`Location pressed for building: ${buildingId}`);
-    // Later this will navigate to the map tab and focus on the building
-    // router.push(`/map?building=${buildingId}`);
+    console.log(`Location pressed for building: ${buildingId}`);
+    // Navigate to the map tab and focus on the building
+    router.push({
+      pathname: '/(tabs)/map',
+      params: { building: buildingId }
+    });
   };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerText}>Campus Tour</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading your tour...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -215,9 +337,17 @@ export default function TourScreen() {
               item={item}
               onDetailsPress={handleDetailsPress}
               onLocationPress={handleLocationPress}
+              visited={visitedLocations.includes(item.id)}
+              onToggleVisited={toggleVisited}
             />
           )}
           style={styles.tourList}
+          contentContainerStyle={styles.tourListContent}
+          ListHeaderComponent={
+            <View style={styles.tourHeaderContainer}>
+              <Text style={styles.tourHeaderText}>Your Tour</Text>
+            </View>
+          }
           ListEmptyComponent={
             <View style={styles.emptyTourContainer}>
               <Text style={styles.emptyTourText}>No buildings match your selected interests.</Text>
@@ -241,6 +371,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#282828',
   },
   header: {
+    paddingTop: 10,
     paddingBottom: 10,
     borderBottomWidth: 3,
     borderBottomColor: '#990000',
@@ -321,6 +452,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
   },
+  tourListContent: {
+    paddingBottom: 50, // Adjust this value based on the height of the tab bar
+  },
+  tourHeaderContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  tourHeaderText: {
+    fontSize: 30,
+    fontWeight: '700',
+    textAlign: 'center',
+    color: '#FFFFFF',
+  },
   emptyTourContainer: {
     padding: 24,
     alignItems: 'center',
@@ -344,6 +489,11 @@ const styles = StyleSheet.create({
     shadowRadius: 1,
     overflow: 'hidden',
   },
+  tourStopImage: {
+    width: 100,
+    height: 120,
+    backgroundColor: '#DDDDDD',
+  },
   tourStopImagePlaceholder: {
     width: 100,
     height: 120,
@@ -360,10 +510,16 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 12,
   },
+  tourStopHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   tourStopName: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginLeft: 10,
+    flex: 1,
   },
   tourStopDescription: {
     fontSize: 14,
@@ -398,5 +554,29 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
     fontSize: 14,
+  },
+  checkboxContainer: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: '#990000',
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  checkboxContainerChecked: {
+    backgroundColor: '#990000',
+    borderColor: '#990000',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
 });

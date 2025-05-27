@@ -20,7 +20,7 @@ The app will feature a simple two-tab navigation system:
 - **Platform-Specific Maps**: Utilizes Apple Maps on iOS devices and Google Maps on Android devices.
 - **User Location**: Displays the user's current geographical location on the map.
 - **Recenter Button**: A dedicated button will allow users to recenter the map view on their current location.
-- **Building Information Access**: Clicking on a building point/marker will navigate the user to a detailed information page for that specific building. Data for this page will be sourced from the `locations.js` file.
+- **Building Information Access**: Clicking on a building point/marker will open a little context box for that building. In the right side of that box there will be a right-facing carat that is a button. When clicked, that button will navigate the user to the detailed information page for that specific building that you can get from the "details" button for each building in the tabs page. Data for this page will be sourced from the `locations.js` file.
 
 ### 2.2 Tour Tab
 

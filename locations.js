@@ -9,7 +9,7 @@ export const locations = [
       },
       image: 'https://photos.smugmug.com/Campus-Photography/Smith/2324/i-KsF4GRp/0/KHLP576GTRR29qhgCRVP8CJzC289dgHkK3tG7fvD4/L/DJI_0154-L.jpg',
       description: 'Focuses on computer science and software engineering programs. Many Graphic design classes are held here.', 
-      interests: ['Computing', 'Technology', 'Engineering', 'Graphic Design'], 
+      interests: ['Computers', 'Technology', 'Engineering', 'Graphic Design', 'Programming'], 
       isTourStop: false, 
       
     },
@@ -22,7 +22,7 @@ export const locations = [
         },
         image: 'https://photos.smugmug.com/Campus-Photography/Burns-Arena-/2425/i-p6zFMFq/0/LhH6zV4srXFRRgGGBFnCcjcNs5fznKLnZm8np3RPh/L/DJI_0410%20copy-L.jpg',
         description: 'The Burns Arena is a multi-purpose arena that is home to the men\'s and women\'s basketball, volleyball, and other teams. It is also used for concerts and other events.', 
-        interests: ['Sports', 'Basketball', 'Events', 'Offices', 'Student Life'], 
+        interests: ['Sports', 'Basketball', 'Events', 'Offices', 'Student Life', 'Volleyball'], 
         isTourStop: true, 
         
     },
@@ -35,7 +35,7 @@ export const locations = [
         },
         image: 'https://photos.smugmug.com/Campus-Photography/Holland-Centennial-Commons/2425/i-3vTqfHD/0/Kf93GZhdWbd3CRX37mRSqf7Gw5pgW3257SLd7B4HR/L/_41A9069-L.jpg',
         description: 'The Library is a hub for students to study, read, and learn. It is also home to the several important university offices and recourses.', 
-        interests: ['Library', 'Study', 'Research', 'Archives', 'Special Collections', 'Offices', 'Recourses'], 
+        interests: ['Reading', 'Studying', 'Research', 'Student Recourses'], 
         isTourStop: true 
     },
     {
@@ -59,7 +59,7 @@ export const locations = [
         },
         image: 'https://photos.smugmug.com/Campus-Photography/Gardner-Student-Center/2526/i-DZSDTjS/0/Mk4J3DDqSM85sq58QqHVhDMQPRvNRdQwNsPTLqjc7/L/DJI_0174%20copy-L.jpg',
         description: 'The Gardner Student Center is a hub for students to study, eat, and socialize. It is also home to the University\'s student life offices and recourses.', 
-        interests: ['Student Life', 'Study', 'Food', 'Socializing'], 
+        interests: ['Student Life','Food' ], 
         isTourStop: true, 
     },
     {
@@ -83,7 +83,7 @@ export const locations = [
         },
         image: 'https://photos.smugmug.com/Campus-Photography/Snow-Science/2425/i-tmrBz6b/0/L5ZPQ3C47sZxmWxqB4tqX3Fgg3krNVDZhnXhJSMZ7/L/_41A7956-L.jpg',
         description: 'The Snow Math and Science Center houses the Math and Science departments, as well as some Physics and Chemistry labs.', 
-        interests: ['Science', 'Math', 'Tutoring', 'Labs'], 
+        interests: ['Science', 'Math', 'Labs'], 
         isTourStop: false, 
     },
     {
@@ -95,7 +95,7 @@ export const locations = [
         },
         image: 'https://photos.smugmug.com/Campus-Photography/Graff/2526/i-FvVJSmS/0/K4TddzPM35XRmSmndpw28XQSM8sDP2HChWzMwKzP3/L/_41A3818-L.jpg',
         description: 'The Graff Fine Arts Center is home to the Music, Theatre, and Art departments, as well as the University\'s art gallery.', 
-        interests: ['Music', 'Theatre', 'Art'], 
+        interests: ['Music', 'Theater', 'Art'], 
         isTourStop: true, 
     },
 
