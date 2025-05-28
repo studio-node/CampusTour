@@ -2,7 +2,8 @@ import { School, schoolService } from '@/services/supabase';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { Image, ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { VELOCITY_EPS } from 'react-native-reanimated/lib/typescript/animation/decay/utils';
 
 export default function SchoolSelectionScreen() {
   const [schools, setSchools] = useState<School[]>([]);
@@ -32,13 +33,7 @@ export default function SchoolSelectionScreen() {
         // console.log('Fetched schools:', schoolsData);
         setSchools(schoolsData);
         
-        // Set default selection to first school if available
-        if (schoolsData.length > 0) {
-          setSelectedSchool(schoolsData[0].id);
-          setSelectedSchoolName(`${schoolsData[0].name}`);
-          setselectedSchoolCity(`${schoolsData[0].city}, ${schoolsData[0].state}`);
-          setselectedSchoolLogoUrl(`${schoolsData[0].logo_url}`);
-        }
+      
       } catch (error) {
         console.error('Error loading school data:', error);
       } finally {
@@ -84,14 +79,30 @@ export default function SchoolSelectionScreen() {
         onPress={() => setModalVisible(true)}
         >
         <View>
-          <Text style={styles.dropdownButtonText}>
-            {selectedSchoolName || "Select a school"}
-          </Text>
-          <Text style={styles.cityText}>
-            {selectedSchoolCity || ""}
-          </Text>
+          {selectedSchoolName ? (
+            <View>
+              <Text style={styles.dropdownButtonText}>
+                {selectedSchoolName}
+              </Text>
+              <Text style={styles.cityText}>
+                {selectedSchoolCity}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.dropdownButtonText2}>
+              Select a school
+            </Text>
+          )}
+          
+
         </View>
-        <Image source={{ uri: selectedSchoolLogoUrl }} style={styles.logo} />
+        {selectedSchoolLogoUrl && (
+          <Image 
+            source={{ uri: selectedSchoolLogoUrl }} 
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        )}
       </TouchableOpacity>
       <Modal
         animationType="slide"
@@ -113,14 +124,22 @@ export default function SchoolSelectionScreen() {
                   ]}
                   onPress={() => handleSchoolSelect(school)}
                 >
-                  <Text 
-                    style={[
-                      styles.schoolItemText,
-                      selectedSchool === school.id && styles.selectedSchoolItemText
-                    ]}
-                  >
-                    {school.name} - {school.city}, {school.state}
-                  </Text>
+                  <View>
+                    <Text style={styles.dropdownButtonText}>
+                      {school.name}
+                    </Text>
+                    <Text style={styles.cityText}>
+                      {school.city}, {school.state}
+                    </Text>
+
+                  </View>
+                  {school.logo_url && (
+                    <Image 
+                      source={{ uri: school.logo_url }} 
+                      style={styles.schoolLogoSmall}
+                      resizeMode="contain"
+                    />
+                  )}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -167,19 +186,24 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   dropdownButton: {
-    flexDirection: 'column',
     width: '100%',
     height: 50,
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 5,
     paddingHorizontal: 15,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexDirection: 'row',
     marginBottom: 30,
     backgroundColor: '#f8f8f8',
   },
   dropdownButtonText: {
     fontSize: 16,
+    color: '#333',
+  },
+  dropdownButtonText2: {
+    fontSize: 20,
     color: '#333',
   },
   cityText: {
@@ -188,11 +212,14 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   logo: {
-    width: 100,
-    height: 100,
-    position: 'absolute',
-    left: 150,
-    top: 400,
+    width: 50,
+    height: 50,
+    marginLeft: 10,
+  },
+  schoolLogoSmall: {
+    width: 30,
+    height: 30,
+    marginLeft: 10,
   },
   modalContainer: {
     flex: 1,
@@ -201,7 +228,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    width: '80%',
+    width: '95%',
     maxHeight: '70%',
     backgroundColor: 'white',
     borderRadius: 10,
@@ -225,12 +252,16 @@ const styles = StyleSheet.create({
   schoolList: {
     width: '100%',
     marginBottom: 20,
+    
   },
   schoolItem: {
-    padding: 15,
+    padding: 7,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
     width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   selectedSchoolItem: {
     backgroundColor: '#e6f7ff',
@@ -253,7 +284,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   button: {
-    backgroundColor: '#0ad2d3',
+    backgroundColor: '#000',
     paddingVertical: 12,
     paddingHorizontal: 40,
     borderRadius: 5,
