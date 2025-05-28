@@ -162,7 +162,7 @@ export default function MapScreen() {
             ref={mapRef}
             style={styles.map}
             provider={mapProvider}
-            mapType="standard"
+            mapType="satellite"
             initialRegion={DEFAULT_REGION}
             showsUserLocation={locationPermissionStatus === 'granted'}
             showsMyLocationButton={false}

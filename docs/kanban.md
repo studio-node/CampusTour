@@ -32,8 +32,7 @@ This Kanban board helps track the development progress of the app.
 
 ### To Do
 
-- **Backend/Remote Content**
-  - [ ] Define API/structure for remote building data and tour configurations if different from `locations.js`.
+
 
 
 ### In Progress
@@ -81,7 +80,8 @@ This Kanban board helps track the development progress of the app.
   - [x] Ensure consistent icons and labels.
 - **Backend/Remote Content (Initial Considerations - TBD)**
   - [x] Research options for remote content updates (e.g., JSON file on a server, simple CMS).
-
+- **Backend/Remote Content**
+  - [x] Define API/structure for remote building data and tour configurations if different from `locations.js`.
 
 ### Blocked
 

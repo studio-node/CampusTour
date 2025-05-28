@@ -506,12 +506,10 @@ const styles = StyleSheet.create({
   },
   tourStopImage: {
     width: 100,
-    height: 120,
     backgroundColor: '#DDDDDD',
   },
   tourStopImagePlaceholder: {
     width: 100,
-    height: 120,
     backgroundColor: '#DDDDDD',
     justifyContent: 'center',
     alignItems: 'center',
