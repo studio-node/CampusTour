@@ -70,7 +70,7 @@ export default function SchoolSelectionScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
       <Text style={styles.title}>Campus Tour</Text>
       <Text style={styles.subtitle}>Select your school to begin</Text>
 

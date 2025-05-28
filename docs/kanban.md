@@ -23,16 +23,15 @@ This Kanban board helps track the development progress of the app.
 - **Documentation**
   - [ ] Write README for developers (setup, build, run instructions).
   - [ ] Document any complex components or logic.
-- **Usage Tracking (Initial Considerations - TBD)**
-  - [ ] Research and select an analytics solution (e.g., Firebase Analytics, Expo Analytics).
-  - [ ] Plan what specific events to track for: buildings viewed, tours started/completed, interest selections.
 - **Build & Deployment (Placeholders)**
   - [ ] Configure build process with Expo Application Services (EAS).
   - [ ] Prepare for App Store/Play Store submission (metadata, screenshots).
 
 ### To Do
 
-
+- **Usage Tracking (Initial Considerations - TBD)**
+  - [ ] Research and select an analytics solution (e.g., Firebase Analytics, Expo Analytics).
+  - [ ] Plan what specific events to track for: buildings viewed, tours started/completed, interest selections.
 
 
 ### In Progress

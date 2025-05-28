@@ -540,9 +540,8 @@ const styles = StyleSheet.create({
     paddingBottom: 50, // Adjust this value based on the height of the tab bar
   },
   tourHeaderContainer: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    paddingVertical: 6,
+    marginBottom: 15,
   },
   tourHeaderText: {
     fontSize: 30,
