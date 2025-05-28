@@ -1,14 +1,22 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Location, locationService } from '@/services/supabase';
+import { Location, Region, locationService, schoolService } from '@/services/supabase';
 import * as ExpoLocation from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Callout, Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import MapView, { Callout, Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Define the location type based on our supabase service
 type LocationItem = Location;
+
+// Default fallback region (Utah Tech University campus)
+const FALLBACK_REGION: Region = {
+  latitude: 37.10191426300314, 
+  longitude: -113.56546471154138,
+  latitudeDelta: 0.007,
+  longitudeDelta: 0.007,
+};
 
 export default function MapScreen() {
   const router = useRouter();
@@ -21,21 +29,48 @@ export default function MapScreen() {
   const [selectedBuilding, setSelectedBuilding] = useState<LocationItem | null>(null);
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [schoolId, setSchoolId] = useState<string | null>(null);
+  const [defaultRegion, setDefaultRegion] = useState<Region>(FALLBACK_REGION);
+  const [primaryColor, setPrimaryColor] = useState<string>('#990000'); // Utah Tech red as fallback
 
-  // Default to Utah Tech University campus center if no user location is available
-  const DEFAULT_REGION: Region = {
-    latitude: 37.10191426300314, 
-    longitude: -113.56546471154138,
-    latitudeDelta: 0.007,
-    longitudeDelta: 0.007,
-  };
+  // Get the selected school ID and details
+  useEffect(() => {
+    const getSelectedSchool = async () => {
+      const selectedSchoolId = await schoolService.getSelectedSchool();
+      if (!selectedSchoolId) {
+        // If no school is selected, redirect to the school selection screen
+        router.replace('/');
+        return;
+      }
+      
+      setSchoolId(selectedSchoolId);
+      
+      // Get school details including coordinates and primary color
+      const schoolDetails = await schoolService.getSchoolById(selectedSchoolId);
+      if (schoolDetails) {
+        // Set primary color if available
+        if (schoolDetails.primary_color) {
+          setPrimaryColor(schoolDetails.primary_color);
+        }
+        
+        // Set default region if coordinates are available
+        if (schoolDetails.coordinates) {
+          setDefaultRegion(schoolDetails.coordinates);
+        }
+      }
+    };
+
+    getSelectedSchool();
+  }, [router]);
 
   // Load locations from Supabase
   useEffect(() => {
     const fetchLocations = async () => {
+      if (!schoolId) return;
+      
       try {
         setIsLoading(true);
-        const locationsData = await locationService.getLocations();
+        const locationsData = await locationService.getLocations(schoolId);
         setLocations(locationsData);
       } catch (error) {
         console.error('Error fetching locations:', error);
@@ -46,7 +81,7 @@ export default function MapScreen() {
     };
 
     fetchLocations();
-  }, []);
+  }, [schoolId]);
 
   // Check if we need to focus on a specific building (from params)
   useEffect(() => {
@@ -107,7 +142,7 @@ export default function MapScreen() {
         mapRef.current.animateToRegion(userLocation, 500);
       } else {
         // If user location is not available, center on the default region
-        mapRef.current.animateToRegion(DEFAULT_REGION, 500);
+        mapRef.current.animateToRegion(defaultRegion, 500);
       }
     }
   };
@@ -115,7 +150,7 @@ export default function MapScreen() {
   // Function to handle the "Zoom Out" button press
   const handleZoomOut = () => {
     if (mapRef.current) {
-      mapRef.current.animateToRegion(DEFAULT_REGION, 500);
+      mapRef.current.animateToRegion(defaultRegion, 500);
     }
   };
   
@@ -136,16 +171,50 @@ export default function MapScreen() {
   // Determine which map provider to use based on platform
   const mapProvider = Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT;
 
+  // Handle school change
+  const handleChangeSchool = async () => {
+    await schoolService.clearSelectedSchool();
+    router.replace('/');
+  };
+
+  // Create dynamic styles with the primary color
+  const dynamicStyles = {
+    headerBorder: {
+      borderBottomColor: primaryColor,
+    },
+    detailsButtonText: {
+      color: primaryColor,
+    },
+    recenterButton: {
+      backgroundColor: primaryColor,
+    },
+    changeSchoolButton: {
+      backgroundColor: '#666', // Keep this neutral
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 16,
+      marginRight: 15,
+    },
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, dynamicStyles.headerBorder]}>
         <Text style={styles.headerText}>Campus Map</Text>
-        <TouchableOpacity
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={dynamicStyles.changeSchoolButton}
+            onPress={handleChangeSchool}
+          >
+            <Text style={styles.buttonTextSmall}>Change School</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={styles.resetButton}
             onPress={handleZoomOut}
           >
             <Text style={styles.resetButtonText}>See Campus</Text>
           </TouchableOpacity>
+        </View>
       </View>
       
       <View style={styles.mapContainer}>
@@ -163,7 +232,7 @@ export default function MapScreen() {
             style={styles.map}
             provider={mapProvider}
             mapType="satellite"
-            initialRegion={DEFAULT_REGION}
+            initialRegion={defaultRegion}
             showsUserLocation={locationPermissionStatus === 'granted'}
             showsMyLocationButton={false}
             showsCompass={true}
@@ -188,8 +257,8 @@ export default function MapScreen() {
                         style={styles.detailsButton}
                         onPress={() => handleCalloutPress(location)}
                       >
-                        <Text style={styles.detailsButtonText}>Details</Text>
-                        <IconSymbol name="chevron.right" size={14} color="#990000" />
+                        <Text style={dynamicStyles.detailsButtonText}>Details</Text>
+                        <IconSymbol name="chevron.right" size={14} color={primaryColor} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -198,9 +267,10 @@ export default function MapScreen() {
             ))}
           </MapView>
         )}
-        
-        <TouchableOpacity 
-          style={styles.recenterButton}
+
+        {/* Recenter button */}
+        <TouchableOpacity
+          style={[styles.recenterButton, dynamicStyles.recenterButton]}
           onPress={handleRecenterPress}
         >
           <IconSymbol name="location.fill" size={16} color="white" style={styles.buttonIcon} />
@@ -219,9 +289,7 @@ const styles = StyleSheet.create({
   header: {
     paddingBottom: 10,
     paddingTop: 10,
-
     borderBottomWidth: 3,
-    borderBottomColor: '#990000',
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
@@ -267,7 +335,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 70, // Increased to be above tab bar
     right: 20,
-    backgroundColor: '#990000', // Utah Tech red color
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -312,12 +379,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
   },
-  detailsButtonText: {
-    fontSize: 12,
-    color: '#990000',
-    fontWeight: 'bold',
-    marginRight: 4,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -326,5 +387,14 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: '#FFFFFF',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  buttonTextSmall: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });

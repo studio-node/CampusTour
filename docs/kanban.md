@@ -82,6 +82,12 @@ This Kanban board helps track the development progress of the app.
   - [x] Research options for remote content updates (e.g., JSON file on a server, simple CMS).
 - **Backend/Remote Content**
   - [x] Define API/structure for remote building data and tour configurations if different from `locations.js`.
+- **School Selection Functionality**
+  - [x] Create a new main screen for school selection.
+  - [x] Implement school fetching from Supabase.
+  - [x] Store selected school in AsyncStorage.
+  - [x] Update all components to use the selected school for data fetching.
+  - [x] Add "Change School" option in the app.
 
 ### Blocked
 

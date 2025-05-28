@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import 'react-native-url-polyfill/auto';
 
@@ -8,8 +9,94 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 // Initialize Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Current selected school ID - hardcoded for now 
-export const CURRENT_SCHOOL_ID = 'e5a9dfd2-0c88-419e-b891-0a62283b8abd';
+// Storage keys
+const SELECTED_SCHOOL_KEY = 'SELECTED_SCHOOL_ID';
+
+// Region interface for map coordinates
+export interface Region {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+}
+
+// School interface
+export interface School {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  primary_color?: string;
+  coordinates?: Region;
+  logo_url?: string;
+}
+
+// School service
+export const schoolService = {
+  async getSchools(): Promise<School[]> {
+    try {
+      const { data, error } = await supabase
+        .from('schools')
+        .select('*');
+
+      if (error) {
+        console.error('Error fetching schools:', error);
+        return [];
+      }
+
+      // console.log('schools data:', data);
+      return data;
+    } catch (error) {
+      console.error('Exception fetching schools:', error);
+      return [];
+    }
+  },
+
+  async getSchoolById(schoolId: string): Promise<School | null> {
+    try {
+      const { data, error } = await supabase
+        .from('schools')
+        .select('*')
+        .eq('id', schoolId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching school by ID:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Exception fetching school by ID:', error);
+      return null;
+    }
+  },
+
+  async getSelectedSchool(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem(SELECTED_SCHOOL_KEY);
+    } catch (error) {
+      console.error('Error getting selected school:', error);
+      return null;
+    }
+  },
+
+  async setSelectedSchool(schoolId: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem(SELECTED_SCHOOL_KEY, schoolId);
+    } catch (error) {
+      console.error('Error setting selected school:', error);
+    }
+  },
+
+  async clearSelectedSchool(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(SELECTED_SCHOOL_KEY);
+    } catch (error) {
+      console.error('Error clearing selected school:', error);
+    }
+  }
+};
 
 // Location service
 export interface Location {
@@ -27,19 +114,19 @@ export interface Location {
 }
 
 export const locationService = {
-  async getLocations(): Promise<Location[]> {
+  async getLocations(schoolId: string): Promise<Location[]> {
     try {
       const { data, error } = await supabase
         .from('locations')
         .select('*')
-        .eq('school_id', CURRENT_SCHOOL_ID)
+        .eq('school_id', schoolId)
         .order('order_index', { ascending: true });
 
       if (error) {
         console.error('Error fetching locations:', error);
         return [];
       }
-      // console.log('IN GETLOCATIONS data:', data);
+      
       // Transform database data to match our app's Location interface
       return data.map(item => ({
         id: item.id,
@@ -60,12 +147,12 @@ export const locationService = {
     }
   },
 
-  async getTourStops(): Promise<Location[]> {
+  async getTourStops(schoolId: string): Promise<Location[]> {
     try {
       const { data, error } = await supabase
         .from('locations')
         .select('*')
-        .eq('school_id', CURRENT_SCHOOL_ID)
+        .eq('school_id', schoolId)
         .eq('is_tour_stop', true)
         .order('order_index', { ascending: true });
 

@@ -1,5 +1,5 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Location, locationService } from '@/services/supabase';
+import { Location, locationService, schoolService } from '@/services/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -14,14 +14,40 @@ export default function BuildingInfoScreen() {
   const [building, setBuilding] = useState<LocationItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [schoolId, setSchoolId] = useState<string | null>(null);
+  const [primaryColor, setPrimaryColor] = useState<string>('#990000'); // Utah Tech red as fallback
+
+  // Get the selected school ID and details
+  useEffect(() => {
+    const getSelectedSchool = async () => {
+      const selectedSchoolId = await schoolService.getSelectedSchool();
+      if (!selectedSchoolId) {
+        // If no school is selected, redirect to the school selection screen
+        router.replace('/');
+        return;
+      }
+      
+      setSchoolId(selectedSchoolId);
+      
+      // Get school details including primary color
+      const schoolDetails = await schoolService.getSchoolById(selectedSchoolId);
+      if (schoolDetails && schoolDetails.primary_color) {
+        setPrimaryColor(schoolDetails.primary_color);
+      }
+    };
+
+    getSelectedSchool();
+  }, [router]);
 
   // Fetch the building information
   useEffect(() => {
     const fetchBuilding = async () => {
+      if (!schoolId) return;
+      
       try {
         setIsLoading(true);
         // Get all locations and find the one with matching ID
-        const locations = await locationService.getLocations();
+        const locations = await locationService.getLocations(schoolId);
         const buildingData = locations.find(location => 
           location.id.toLowerCase() === String(id).toLowerCase()
         );
@@ -45,7 +71,7 @@ export default function BuildingInfoScreen() {
       setError('No building ID provided');
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, schoolId]);
 
   // Handle back button press
   const handleBackPress = () => {
@@ -55,16 +81,29 @@ export default function BuildingInfoScreen() {
   // Handle "View on Map" button press
   const handleViewOnMapPress = () => {
     router.push({
-      pathname: '/(tabs)/map',
+      pathname: '/map',
       params: { building: id }
     });
+  };
+
+  // Create dynamic styles with the primary color
+  const dynamicStyles = {
+    headerBorder: {
+      borderBottomColor: primaryColor,
+    },
+    viewOnMapButton: {
+      backgroundColor: primaryColor,
+    },
+    backToMapButton: {
+      backgroundColor: primaryColor,
+    }
   };
 
   // If the building is loading, show a loading indicator
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+        <View style={[styles.header, dynamicStyles.headerBorder]}>
           <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
             <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
             <Text style={styles.backButtonText}>Back</Text>
@@ -82,7 +121,7 @@ export default function BuildingInfoScreen() {
   if (error || !building) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+        <View style={[styles.header, dynamicStyles.headerBorder]}>
           <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
             <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
             <Text style={styles.backButtonText}>Back</Text>
@@ -91,7 +130,10 @@ export default function BuildingInfoScreen() {
         </View>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error || 'Building not found'}</Text>
-          <TouchableOpacity style={styles.backToMapButton} onPress={() => router.push('/(tabs)/map')}>
+          <TouchableOpacity 
+            style={[styles.backToMapButton, dynamicStyles.backToMapButton]} 
+            onPress={() => router.push('/map')}
+          >
             <Text style={styles.backToMapButtonText}>Back to Map</Text>
           </TouchableOpacity>
         </View>
@@ -101,7 +143,7 @@ export default function BuildingInfoScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, dynamicStyles.headerBorder]}>
         <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
           <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
           <Text style={styles.backButtonText}>Back</Text>
@@ -142,7 +184,7 @@ export default function BuildingInfoScreen() {
         </View>
       </ScrollView>
       <TouchableOpacity 
-        style={styles.viewOnMapButton}
+        style={[styles.viewOnMapButton, dynamicStyles.viewOnMapButton]}
         onPress={handleViewOnMapPress}
       >
         <IconSymbol name="location.fill" size={16} color="white" style={styles.buttonIcon} />
@@ -161,7 +203,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 10,
     borderBottomWidth: 3,
-    borderBottomColor: '#990000',
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -169,7 +210,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginLeft: 8,
+    marginLeft: -20,
     flex: 1,
     textAlign: 'center',
     marginRight: 36, // Balance the text with the back button
@@ -253,7 +294,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 50,
     right: 24,
-    backgroundColor: '#990000',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -295,7 +335,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   backToMapButton: {
-    backgroundColor: '#990000',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,

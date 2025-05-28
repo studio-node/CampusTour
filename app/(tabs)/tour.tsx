@@ -1,5 +1,5 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Location, locationService } from '@/services/supabase';
+import { Location, locationService, schoolService } from '@/services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -30,84 +30,117 @@ const TourStopItem = ({
   onDetailsPress, 
   onLocationPress,
   visited,
-  onToggleVisited
+  onToggleVisited,
+  primaryColor
 }: { 
   item: TourStop; 
   onDetailsPress: (id: string) => void;
   onLocationPress: (id: string) => void;
   visited: boolean;
   onToggleVisited: (id: string) => void;
-}) => (
-  <View style={styles.tourStopCard}>
-    {item.image ? (
-      <Image 
-        source={{ uri: item.image }} 
-        style={styles.tourStopImage}
-        contentFit="cover"
-      />
-    ) : (
-      <View style={styles.tourStopImagePlaceholder}>
-        <Text style={styles.imagePlaceholderText}>Building Image</Text>
-      </View>
-    )}
-    <View style={styles.tourStopInfo}>
-      <View style={styles.tourStopHeader}>
-        <TouchableOpacity 
-          style={[styles.checkboxContainer, visited && styles.checkboxContainerChecked]} 
-          onPress={() => onToggleVisited(item.id)}
-        >
-          {visited && <IconSymbol name="checkmark" size={14} color="white" />}
-        </TouchableOpacity>
-        <Text style={styles.tourStopName}>{item.name}</Text>
-      </View>
-      <Text style={styles.tourStopDescription} numberOfLines={2}>{item.description}</Text>
-      <View style={styles.tourStopButtons}>
-        <TouchableOpacity 
-          style={styles.detailsButton}
-          onPress={() => onDetailsPress(item.id)}
-        >
-          <IconSymbol name="info.circle.fill" size={12} color="white" style={styles.buttonIcon} />
-          <Text style={styles.buttonText}>Details</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.locationButton}
-          onPress={() => onLocationPress(item.id)}
-        >
-          <IconSymbol name="location.fill" size={12} color="white" style={styles.buttonIcon} />
-          <Text style={styles.buttonText}>Location</Text>
-        </TouchableOpacity>
+  primaryColor: string;
+}) => {
+  // Create dynamic styles with the primary color
+  const dynamicStyles = {
+    checkboxContainer: {
+      borderColor: primaryColor
+    },
+    checkboxContainerChecked: {
+      backgroundColor: primaryColor,
+      borderColor: primaryColor
+    },
+    locationButton: {
+      backgroundColor: primaryColor
+    }
+  };
+
+  return (
+    <View style={styles.tourStopCard}>
+      {item.image ? (
+        <Image 
+          source={{ uri: item.image }} 
+          style={styles.tourStopImage}
+          contentFit="cover"
+        />
+      ) : (
+        <View style={styles.tourStopImagePlaceholder}>
+          <Text style={styles.imagePlaceholderText}>Building Image</Text>
+        </View>
+      )}
+      <View style={styles.tourStopInfo}>
+        <View style={styles.tourStopHeader}>
+          <TouchableOpacity 
+            style={[
+              styles.checkboxContainer, 
+              dynamicStyles.checkboxContainer,
+              visited && dynamicStyles.checkboxContainerChecked
+            ]} 
+            onPress={() => onToggleVisited(item.id)}
+          >
+            {visited && <IconSymbol name="checkmark" size={14} color="white" />}
+          </TouchableOpacity>
+          <Text style={styles.tourStopName}>{item.name}</Text>
+        </View>
+        <Text style={styles.tourStopDescription} numberOfLines={2}>{item.description}</Text>
+        <View style={styles.tourStopButtons}>
+          <TouchableOpacity 
+            style={styles.detailsButton}
+            onPress={() => onDetailsPress(item.id)}
+          >
+            <IconSymbol name="info.circle.fill" size={12} color="white" style={styles.buttonIcon} />
+            <Text style={styles.buttonText}>Details</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.locationButton, dynamicStyles.locationButton]}
+            onPress={() => onLocationPress(item.id)}
+          >
+            <IconSymbol name="location.fill" size={12} color="white" style={styles.buttonIcon} />
+            <Text style={styles.buttonText}>Location</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
-  </View>
-);
+  );
+};
 
 // Interest tag component
 const InterestTag = ({ 
   interest, 
   selected, 
-  onPress 
+  onPress,
+  primaryColor
 }: { 
   interest: Interest; 
   selected: boolean;
   onPress: () => void;
-}) => (
-  <TouchableOpacity 
-    style={[
-      styles.interestTag,
-      selected && styles.interestTagSelected
-    ]}
-    onPress={onPress}
-  >
-    <Text 
+  primaryColor: string;
+}) => {
+  // Create dynamic styles with the primary color
+  const dynamicStyles = {
+    interestTagSelected: {
+      backgroundColor: primaryColor
+    }
+  };
+
+  return (
+    <TouchableOpacity 
       style={[
-        styles.interestTagText,
-        selected && styles.interestTagTextSelected
+        styles.interestTag,
+        selected && dynamicStyles.interestTagSelected
       ]}
+      onPress={onPress}
     >
-      {interest.name}
-    </Text>
-  </TouchableOpacity>
-);
+      <Text 
+        style={[
+          styles.interestTagText,
+          selected && styles.interestTagTextSelected
+        ]}
+      >
+        {interest.name}
+      </Text>
+    </TouchableOpacity>
+  );
+};
 
 export default function TourScreen() {
   const router = useRouter();
@@ -117,6 +150,30 @@ export default function TourScreen() {
   const [visitedLocations, setVisitedLocations] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [availableInterests, setAvailableInterests] = useState<Interest[]>([]);
+  const [schoolId, setSchoolId] = useState<string | null>(null);
+  const [primaryColor, setPrimaryColor] = useState<string>('#990000'); // Utah Tech red as fallback
+
+  // Get the selected school ID and details
+  useEffect(() => {
+    const getSelectedSchool = async () => {
+      const selectedSchoolId = await schoolService.getSelectedSchool();
+      if (!selectedSchoolId) {
+        // If no school is selected, redirect to the school selection screen
+        router.replace('/');
+        return;
+      }
+      
+      setSchoolId(selectedSchoolId);
+      
+      // Get school details including primary color
+      const schoolDetails = await schoolService.getSchoolById(selectedSchoolId);
+      if (schoolDetails && schoolDetails.primary_color) {
+        setPrimaryColor(schoolDetails.primary_color);
+      }
+    };
+
+    getSelectedSchool();
+  }, [router]);
 
   // Extract unique interests from locations data
   const extractInterests = (locations: Location[]): Interest[] => {
@@ -137,11 +194,13 @@ export default function TourScreen() {
   // Load saved state and fetch data when the component mounts
   useEffect(() => {
     const initializeTourData = async () => {
+      if (!schoolId) return;
+      
       try {
         setIsLoading(true);
         
         // Fetch locations from Supabase
-        const locationsData = await locationService.getLocations();
+        const locationsData = await locationService.getLocations(schoolId);
         
         // Extract interests
         const interests = extractInterests(locationsData);
@@ -157,7 +216,7 @@ export default function TourScreen() {
     };
     
     initializeTourData();
-  }, []);
+  }, [schoolId]);
 
   // Save state when it changes
   useEffect(() => {
@@ -206,29 +265,36 @@ export default function TourScreen() {
     }
   };
 
-  // Get tour stops from locations
+  // Get tour stops, optionally filtering by selected interests
   const getTourStops = async (filterByInterests = false): Promise<TourStop[]> => {
+    if (!schoolId) return [];
+    
     try {
-      // Fetch tour stops from Supabase
-      let stops = await locationService.getTourStops();
+      const allTourStops = await locationService.getTourStops(schoolId);
       
-      // If interests are selected, filter by those interests
-      if (filterByInterests && selectedInterests.length > 0) {
-        stops = stops.filter(location => 
-          location.interests.some(interest => 
-            selectedInterests.includes(interest.toLowerCase().replace(/\s+/g, '-'))
-          )
-        );
+      if (!filterByInterests || selectedInterests.length === 0) {
+        return allTourStops;
       }
       
-      return stops;
+      // Filter by selected interests
+      return allTourStops.filter(stop => 
+        stop.interests.some(interest => 
+          selectedInterests.includes(interest.toLowerCase().replace(/\s+/g, '-'))
+        )
+      );
     } catch (error) {
       console.error('Error getting tour stops:', error);
       return [];
     }
   };
 
-  // Toggle interest selection
+  // Handle changing school
+  const handleChangeSchool = async () => {
+    await schoolService.clearSelectedSchool();
+    router.replace('/');
+  };
+
+  // Toggle an interest
   const toggleInterest = (interestId: string) => {
     if (selectedInterests.includes(interestId)) {
       setSelectedInterests(selectedInterests.filter(id => id !== interestId));
@@ -239,60 +305,65 @@ export default function TourScreen() {
 
   // Generate tour based on selected interests
   const generateTour = async () => {
-    const stops = await getTourStops(true);
-    setTourStops(stops);
+    const filteredTourStops = await getTourStops(true);
+    setTourStops(filteredTourStops);
     setShowInterestSelection(false);
   };
 
-  // Skip interest selection and show default tour
+  // Show default tour
   const showDefaultTour = async () => {
-    const stops = await getTourStops(false);
-    setTourStops(stops);
+    const defaultTourStops = await getTourStops(false);
+    setTourStops(defaultTourStops);
     setShowInterestSelection(false);
   };
 
-  // Reset tour and show interest selection again
+  // Reset tour and go back to interest selection
   const resetTour = () => {
-    setSelectedInterests([]);
-    setVisitedLocations([]);
     setShowInterestSelection(true);
+    setSelectedInterests([]);
+    setTourStops([]);
+    setVisitedLocations([]);
   };
 
-  // Toggle visited status for a location
+  // Toggle the visited status of a location
   const toggleVisited = (locationId: string) => {
-    setVisitedLocations(prev => {
-      if (prev.includes(locationId)) {
-        return prev.filter(id => id !== locationId);
-      } else {
-        return [...prev, locationId];
-      }
-    });
+    if (visitedLocations.includes(locationId)) {
+      setVisitedLocations(visitedLocations.filter(id => id !== locationId));
+    } else {
+      setVisitedLocations([...visitedLocations, locationId]);
+    }
   };
 
-  // Handle Details button press
+  // Handle the "Details" button press
   const handleDetailsPress = (buildingId: string) => {
-    console.log(`Details pressed for building: ${buildingId}`);
-    // Navigate to the building info page
     router.push({
       pathname: '/building/[id]',
       params: { id: buildingId }
     });
   };
 
-  // Handle Location button press
+  // Handle the "Location" button press
   const handleLocationPress = (buildingId: string) => {
-    console.log(`Location pressed for building: ${buildingId}`);
-    // Navigate to the map tab and focus on the building
     router.push({
-      pathname: '/(tabs)/map',
+      pathname: '/map',
       params: { building: buildingId }
     });
+  };
+
+  // Create dynamic styles with the primary color
+  const dynamicStyles = {
+    headerBorder: {
+      borderBottomColor: primaryColor
+    },
+    generateTourButton: {
+      backgroundColor: primaryColor
+    }
   };
 
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+        <View style={[styles.header, dynamicStyles.headerBorder]}>
           <Text style={styles.headerText}>Campus Tour</Text>
         </View>
         <View style={styles.loadingContainer}>
@@ -304,7 +375,7 @@ export default function TourScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, dynamicStyles.headerBorder]}>
         <Text style={styles.headerText}>Campus Tour</Text>
         {!showInterestSelection && (
           <TouchableOpacity
@@ -326,12 +397,14 @@ export default function TourScreen() {
                 interest={interest}
                 selected={selectedInterests.includes(interest.id)}
                 onPress={() => toggleInterest(interest.id)}
+                primaryColor={primaryColor}
               />
             ))}
           </View>
           <TouchableOpacity 
             style={[
               styles.generateTourButton,
+              dynamicStyles.generateTourButton,
               selectedInterests.length === 0 && styles.generateTourButtonDisabled
             ]}
             onPress={generateTour}
@@ -354,6 +427,7 @@ export default function TourScreen() {
               onLocationPress={handleLocationPress}
               visited={visitedLocations.includes(item.id)}
               onToggleVisited={toggleVisited}
+              primaryColor={primaryColor}
             />
           )}
           style={styles.tourList}
@@ -367,7 +441,7 @@ export default function TourScreen() {
             <View style={styles.emptyTourContainer}>
               <Text style={styles.emptyTourText}>No buildings match your selected interests.</Text>
               <TouchableOpacity 
-                style={styles.generateTourButton}
+                style={[styles.generateTourButton, dynamicStyles.generateTourButton]}
                 onPress={resetTour}
               >
                 <Text style={styles.buttonText}>Select Different Interests</Text>
@@ -389,7 +463,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 10,
     borderBottomWidth: 3,
-    borderBottomColor: '#990000',
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
@@ -435,9 +508,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 16,
   },
-  interestTagSelected: {
-    backgroundColor: '#990000',
-  },
   interestTagText: {
     fontSize: 14,
     color: '#333333',
@@ -446,7 +516,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   generateTourButton: {
-    backgroundColor: '#990000', // Utah Tech red color
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
@@ -553,7 +622,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   locationButton: {
-    backgroundColor: '#990000', // Utah Tech red color
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 4,
@@ -572,15 +640,10 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderWidth: 2,
-    borderColor: '#990000',
     borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-  },
-  checkboxContainerChecked: {
-    backgroundColor: '#990000',
-    borderColor: '#990000',
   },
   loadingContainer: {
     flex: 1,
