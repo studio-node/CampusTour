@@ -1,5 +1,5 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { locations } from '@/locations';
+import { Location, locationService } from '@/services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -16,38 +16,13 @@ const STORAGE_KEYS = {
 };
 
 // Define the interface for a tour stop
-interface TourStop {
-  id: string;
-  name: string;
-  image: string;
-  description: string;
-  interests: string[];
-  isTourStop: boolean;
-}
+type TourStop = Location;
 
 // Define available interests
 interface Interest {
   id: string;
   name: string;
 }
-
-// Extract unique interests from locations data
-const extractInterests = (): Interest[] => {
-  const uniqueInterests = new Set<string>();
-  
-  locations.forEach(location => {
-    location.interests.forEach(interest => {
-      uniqueInterests.add(interest);
-    });
-  });
-  
-  return Array.from(uniqueInterests).map(interest => ({
-    id: interest.toLowerCase().replace(/\s+/g, '-'),
-    name: interest
-  }));
-};
-
-const interests = extractInterests();
 
 // Component for an individual tour stop item
 const TourStopItem = ({ 
@@ -141,10 +116,47 @@ export default function TourScreen() {
   const [tourStops, setTourStops] = useState<TourStop[]>([]);
   const [visitedLocations, setVisitedLocations] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [availableInterests, setAvailableInterests] = useState<Interest[]>([]);
 
-  // Load saved state when the component mounts
+  // Extract unique interests from locations data
+  const extractInterests = (locations: Location[]): Interest[] => {
+    const uniqueInterests = new Set<string>();
+    
+    locations.forEach(location => {
+      location.interests.forEach(interest => {
+        uniqueInterests.add(interest);
+      });
+    });
+    
+    return Array.from(uniqueInterests).map(interest => ({
+      id: interest.toLowerCase().replace(/\s+/g, '-'),
+      name: interest
+    }));
+  };
+
+  // Load saved state and fetch data when the component mounts
   useEffect(() => {
-    loadSavedState();
+    const initializeTourData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Fetch locations from Supabase
+        const locationsData = await locationService.getLocations();
+        
+        // Extract interests
+        const interests = extractInterests(locationsData);
+        setAvailableInterests(interests);
+        
+        // Now load saved state
+        await loadSavedState();
+      } catch (error) {
+        console.error('Error initializing tour data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    initializeTourData();
   }, []);
 
   // Save state when it changes
@@ -157,8 +169,6 @@ export default function TourScreen() {
   // Load saved state from storage
   const loadSavedState = async () => {
     try {
-      setIsLoading(true);
-      
       const savedShowInterestSelection = await AsyncStorage.getItem(STORAGE_KEYS.SHOW_INTEREST_SELECTION);
       const savedSelectedInterests = await AsyncStorage.getItem(STORAGE_KEYS.SELECTED_INTERESTS);
       const savedTourStops = await AsyncStorage.getItem(STORAGE_KEYS.TOUR_STOPS);
@@ -181,8 +191,6 @@ export default function TourScreen() {
       }
     } catch (error) {
       console.error('Error loading saved tour state:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -199,20 +207,25 @@ export default function TourScreen() {
   };
 
   // Get tour stops from locations
-  const getTourStops = (filterByInterests = false): TourStop[] => {
-    // Get only locations marked as tour stops
-    let stops = locations.filter(location => location.isTourStop);
-    
-    // If interests are selected, filter by those interests
-    if (filterByInterests && selectedInterests.length > 0) {
-      stops = stops.filter(location => 
-        location.interests.some(interest => 
-          selectedInterests.includes(interest.toLowerCase().replace(/\s+/g, '-'))
-        )
-      );
+  const getTourStops = async (filterByInterests = false): Promise<TourStop[]> => {
+    try {
+      // Fetch tour stops from Supabase
+      let stops = await locationService.getTourStops();
+      
+      // If interests are selected, filter by those interests
+      if (filterByInterests && selectedInterests.length > 0) {
+        stops = stops.filter(location => 
+          location.interests.some(interest => 
+            selectedInterests.includes(interest.toLowerCase().replace(/\s+/g, '-'))
+          )
+        );
+      }
+      
+      return stops;
+    } catch (error) {
+      console.error('Error getting tour stops:', error);
+      return [];
     }
-    
-    return stops;
   };
 
   // Toggle interest selection
@@ -225,14 +238,16 @@ export default function TourScreen() {
   };
 
   // Generate tour based on selected interests
-  const generateTour = () => {
-    setTourStops(getTourStops(true));
+  const generateTour = async () => {
+    const stops = await getTourStops(true);
+    setTourStops(stops);
     setShowInterestSelection(false);
   };
 
   // Skip interest selection and show default tour
-  const showDefaultTour = () => {
-    setTourStops(getTourStops(false));
+  const showDefaultTour = async () => {
+    const stops = await getTourStops(false);
+    setTourStops(stops);
     setShowInterestSelection(false);
   };
 
@@ -305,7 +320,7 @@ export default function TourScreen() {
         <View style={styles.interestSelectionContainer}>
           <Text style={styles.interestSelectionText}>Select Your Interests</Text>
           <View style={styles.interestTagsContainer}>
-            {interests.map(interest => (
+            {availableInterests.map(interest => (
               <InterestTag
                 key={interest.id}
                 interest={interest}

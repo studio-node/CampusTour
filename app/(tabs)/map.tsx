@@ -1,25 +1,14 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { locations } from '@/locations';
-import * as Location from 'expo-location';
+import { Location, locationService } from '@/services/supabase';
+import * as ExpoLocation from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Callout, Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Define the location type based on our locations.js structure
-type LocationItem = {
-  id: string;
-  name: string;
-  coordinates: {
-    latitude: number;
-    longitude: number;
-  };
-  image: string;
-  description: string;
-  interests: string[];
-  isTourStop: boolean;
-};
+// Define the location type based on our supabase service
+type LocationItem = Location;
 
 export default function MapScreen() {
   const router = useRouter();
@@ -30,6 +19,8 @@ export default function MapScreen() {
   const [mapReady, setMapReady] = useState(false);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<string | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<LocationItem | null>(null);
+  const [locations, setLocations] = useState<LocationItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Default to Utah Tech University campus center if no user location is available
   const DEFAULT_REGION: Region = {
@@ -39,9 +30,27 @@ export default function MapScreen() {
     longitudeDelta: 0.007,
   };
 
+  // Load locations from Supabase
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        setIsLoading(true);
+        const locationsData = await locationService.getLocations();
+        setLocations(locationsData);
+      } catch (error) {
+        console.error('Error fetching locations:', error);
+        setErrorMsg('Failed to load location data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLocations();
+  }, []);
+
   // Check if we need to focus on a specific building (from params)
   useEffect(() => {
-    if (params.building && typeof params.building === 'string') {
+    if (params.building && typeof params.building === 'string' && locations.length > 0) {
       const buildingId = params.building;
       const building = locations.find(loc => 
         loc.id.toLowerCase() === buildingId.toLowerCase()
@@ -59,17 +68,17 @@ export default function MapScreen() {
         setSelectedBuilding(building);
       }
     }
-  }, [params.building, mapReady]);
+  }, [params.building, mapReady, locations]);
 
   // Request location permissions and get user location
   const requestLocationPermission = async () => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
       setLocationPermissionStatus(status);
       
       if (status === 'granted') {
         try {
-          const location = await Location.getCurrentPositionAsync({});
+          const location = await ExpoLocation.getCurrentPositionAsync({});
           setUserLocation({
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
@@ -144,6 +153,10 @@ export default function MapScreen() {
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{errorMsg}</Text>
           </View>
+        ) : isLoading ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading map data...</Text>
+          </View>
         ) : (
           <MapView
             ref={mapRef}
@@ -205,6 +218,8 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingBottom: 10,
+    paddingTop: 10,
+
     borderBottomWidth: 3,
     borderBottomColor: '#990000',
     flexDirection: 'row',
@@ -302,5 +317,14 @@ const styles = StyleSheet.create({
     color: '#990000',
     fontWeight: 'bold',
     marginRight: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#FFFFFF',
   },
 });

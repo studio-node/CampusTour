@@ -1,55 +1,98 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { locations } from '@/locations';
+import { Location, locationService } from '@/services/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Define location type based on locations.js structure
-type LocationItem = {
-  id: string;
-  name: string;
-  coordinates: {
-    latitude: number;
-    longitude: number;
-  };
-  image: string;
-  description: string;
-  interests: string[];
-  isTourStop: boolean;
-};
+// Define location type based on Supabase service
+type LocationItem = Location;
 
 export default function BuildingInfoScreen() {
-  const { id } = useLocalSearchParams();
   const router = useRouter();
-  const buildingId = typeof id === 'string' ? id : '';
-  
-  // Find the building from locations.js data
-  const building = locations.find(loc => loc.id.toLowerCase() === buildingId.toLowerCase());
+  const { id } = useLocalSearchParams();
+  const [building, setBuilding] = useState<LocationItem | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Fetch the building information
+  useEffect(() => {
+    const fetchBuilding = async () => {
+      try {
+        setIsLoading(true);
+        // Get all locations and find the one with matching ID
+        const locations = await locationService.getLocations();
+        const buildingData = locations.find(location => 
+          location.id.toLowerCase() === String(id).toLowerCase()
+        );
+        
+        if (buildingData) {
+          setBuilding(buildingData);
+        } else {
+          setError(`Building with ID ${id} not found`);
+        }
+      } catch (err) {
+        console.error('Error fetching building data:', err);
+        setError('Failed to load building information');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchBuilding();
+    } else {
+      setError('No building ID provided');
+      setIsLoading(false);
+    }
+  }, [id]);
+
+  // Handle back button press
   const handleBackPress = () => {
     router.back();
   };
 
-  const handleShowOnMap = () => {
+  // Handle "View on Map" button press
+  const handleViewOnMapPress = () => {
     router.push({
       pathname: '/(tabs)/map',
-      params: { building: buildingId }
+      params: { building: id }
     });
   };
 
-  if (!building) {
+  // If the building is loading, show a loading indicator
+  if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-            <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
+          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+            <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
+            <Text style={styles.backButtonText}>Back</Text>
           </TouchableOpacity>
-          <Text style={styles.headerText}>Building Not Found</Text>
+          <Text style={styles.headerText}>Building Info</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading building information...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // If there's an error, show the error
+  if (error || !building) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+            <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerText}>Building Info</Text>
         </View>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>The requested building could not be found.</Text>
-          <TouchableOpacity style={styles.button} onPress={handleBackPress}>
-            <Text style={styles.buttonText}>Go Back</Text>
+          <Text style={styles.errorText}>{error || 'Building not found'}</Text>
+          <TouchableOpacity style={styles.backToMapButton} onPress={() => router.push('/(tabs)/map')}>
+            <Text style={styles.backToMapButtonText}>Back to Map</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -59,60 +102,52 @@ export default function BuildingInfoScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-          <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
+        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+          <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
+          <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerText}>{building.name}</Text>
+        <Text style={styles.headerText}>Building Info</Text>
       </View>
-
-      <ScrollView style={styles.content}>
+      
+      <ScrollView style={styles.scrollView}>
         {building.image ? (
-          <View>  
-            <Image 
-              source={{ uri: building.image }} 
-              style={styles.buildingImage}
-              resizeMode="cover"
-            />
-            
-            
-          </View>
+          <Image
+            source={{ uri: building.image }}
+            style={styles.buildingImage}
+            resizeMode="cover"
+          />
         ) : (
-          
           <View style={styles.imagePlaceholder}>
-            <Text style={styles.imagePlaceholderText}>Building Image</Text>
+            <Text style={styles.imagePlaceholderText}>No Image Available</Text>
           </View>
         )}
-
-        <View style={styles.detailsContainer}>
-          <Text style={styles.sectionTitle}>Description</Text>
-          <Text style={styles.description}>{building.description}</Text>
+        
+        <View style={styles.buildingInfo}>
+          <Text style={styles.buildingName}>{building.name}</Text>
+          <Text style={styles.buildingDescription}>{building.description}</Text>
           
-          <Text style={styles.sectionTitle}>Interests</Text>
-          <View style={styles.interestsContainer}>
-            {building.interests.map((interest: string, index: number) => (
-              <View key={index} style={styles.interestTag}>
-                <Text style={styles.interestTagText}>
-                  {interest.charAt(0).toUpperCase() + interest.slice(1).replace('-', ' ')}
-                </Text>
+          {building.interests && building.interests.length > 0 && (
+            <View style={styles.interestsSection}>
+              <Text style={styles.sectionTitle}>Points of Interest</Text>
+              <View style={styles.interestTags}>
+                {building.interests.map((interest, index) => (
+                  <View key={index} style={styles.interestTag}>
+                    <Text style={styles.interestTagText}>{interest}</Text>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
-
-          {building.isTourStop && (
-            <View style={styles.tourStopContainer}>
-              <IconSymbol name="star.fill" size={14} color="#FFD700" style={styles.tourStopIcon} />
-              <Text style={styles.tourStopText}>This building is a featured tour stop</Text>
             </View>
           )}
+          
+          <TouchableOpacity 
+            style={styles.viewOnMapButton}
+            onPress={handleViewOnMapPress}
+          >
+            <IconSymbol name="location.fill" size={16} color="white" style={styles.buttonIcon} />
+            <Text style={styles.buttonText}>View on Map</Text>
+          </TouchableOpacity>
         </View>
-
       </ScrollView>
-
-      
-      <TouchableOpacity style={styles.showOnMapButton} onPress={handleShowOnMap}>
-        <IconSymbol name="map.fill" size={16} color="white" style={styles.buttonIcon} />
-        <Text style={styles.buttonText}>Show on Map</Text>
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -143,7 +178,12 @@ const styles = StyleSheet.create({
     padding: 4,
     marginLeft: 12,
   },
-  content: {
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  scrollView: {
     flex: 1,
   },
   buildingImage: {
@@ -162,27 +202,34 @@ const styles = StyleSheet.create({
     color: '#999999',
     fontSize: 16,
   },
-  detailsContainer: {
+  buildingInfo: {
     padding: 16,
     flex: 1,
+  },
+  buildingName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#FFFFFF',
+  },
+  buildingDescription: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#FFFFFF',
+  },
+  interestsSection: {
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 8,
-    marginTop: 16,
     color: '#FFFFFF',
   },
-  description: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#FFFFFF',
-  },
-  interestsContainer: {
+  interestTags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 16,
   },
   interestTag: {
     backgroundColor: '#454545',
@@ -196,25 +243,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FFFFFF',
   },
-  tourStopContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.3)',
-  },
-  tourStopIcon: {
-    marginRight: 8,
-  },
-  tourStopText: {
-    color: '#FFD700',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  showOnMapButton: {
+  viewOnMapButton: {
     position: 'absolute',
     bottom: 50,
     right: 24,
@@ -238,6 +267,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -250,10 +288,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
-  button: {
+  backToMapButton: {
     backgroundColor: '#990000',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
+  },
+  backToMapButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
 }); 
