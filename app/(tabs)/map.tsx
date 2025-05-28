@@ -163,7 +163,7 @@ export default function MapScreen() {
             style={styles.map}
             provider={mapProvider}
             mapType="standard"
-            initialRegion={userLocation || DEFAULT_REGION}
+            initialRegion={DEFAULT_REGION}
             showsUserLocation={locationPermissionStatus === 'granted'}
             showsMyLocationButton={false}
             showsCompass={true}
@@ -288,8 +288,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   calloutContainer: {
-    width: 200,
-    padding: 10,
+    width: 300,
+    padding: 6,
     borderRadius: 8,
   },
   calloutTitle: {

@@ -5,19 +5,10 @@ import 'react-native-url-polyfill/auto';
 const supabaseUrl = 'https://xtntfkpwowsmzfgtjqxe.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0bnRma3B3b3dzbXpmZ3RqcXhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzODM2MjYsImV4cCI6MjA2Mzk1OTYyNn0.SiTNU_aOs5dyLLig6sbgCNlo3pjWw1j3DBl5DjS6RVM';
 
-// Initialize Supabase client with realtime disabled to prevent Node.js dependency issues
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: false,
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 0,
-    },
-  },
-});
+// Initialize Supabase client
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Current selected school ID - hardcoded for now
+// Current selected school ID - hardcoded for now 
 export const CURRENT_SCHOOL_ID = 'e5a9dfd2-0c88-419e-b891-0a62283b8abd';
 
 // Location service
@@ -48,7 +39,7 @@ export const locationService = {
         console.error('Error fetching locations:', error);
         return [];
       }
-
+      // console.log('IN GETLOCATIONS data:', data);
       // Transform database data to match our app's Location interface
       return data.map(item => ({
         id: item.id,

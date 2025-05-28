@@ -128,7 +128,7 @@ export default function BuildingInfoScreen() {
           
           {building.interests && building.interests.length > 0 && (
             <View style={styles.interestsSection}>
-              <Text style={styles.sectionTitle}>Points of Interest</Text>
+              <Text style={styles.sectionTitle}>Interests</Text>
               <View style={styles.interestTags}>
                 {building.interests.map((interest, index) => (
                   <View key={index} style={styles.interestTag}>
@@ -139,15 +139,15 @@ export default function BuildingInfoScreen() {
             </View>
           )}
           
-          <TouchableOpacity 
-            style={styles.viewOnMapButton}
-            onPress={handleViewOnMapPress}
-          >
-            <IconSymbol name="location.fill" size={16} color="white" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>View on Map</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
+      <TouchableOpacity 
+        style={styles.viewOnMapButton}
+        onPress={handleViewOnMapPress}
+      >
+        <IconSymbol name="location.fill" size={16} color="white" style={styles.buttonIcon} />
+        <Text style={styles.buttonText}>View on Map</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -177,6 +177,10 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 4,
     marginLeft: 12,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
   backButtonText: {
     fontSize: 16,
@@ -185,6 +189,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    paddingBottom: 100,
   },
   buildingImage: {
     height: 200,
@@ -218,7 +223,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   interestsSection: {
-    marginBottom: 16,
+    marginBottom: 16, 
+    marginTop: 16,
   },
   sectionTitle: {
     fontSize: 18,

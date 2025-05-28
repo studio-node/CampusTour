@@ -18,29 +18,26 @@ This Kanban board helps track the development progress of the app.
 
 
 
-- **Backend/Remote Content (Initial Considerations - TBD)**
-  - [ ] Research options for remote content updates (e.g., JSON file on a server, simple CMS).
-  - [ ] Define API/structure for remote building data and tour configurations if different from `locations.js`.
+- **Styling & UI Polish**
+  - [ ] Basic responsive UI for different screen sizes.
 - **Documentation**
   - [ ] Write README for developers (setup, build, run instructions).
   - [ ] Document any complex components or logic.
+- **Usage Tracking (Initial Considerations - TBD)**
+  - [ ] Research and select an analytics solution (e.g., Firebase Analytics, Expo Analytics).
+  - [ ] Plan what specific events to track for: buildings viewed, tours started/completed, interest selections.
 - **Build & Deployment (Placeholders)**
   - [ ] Configure build process with Expo Application Services (EAS).
   - [ ] Prepare for App Store/Play Store submission (metadata, screenshots).
 
 ### To Do
 
-- **Usage Tracking (Initial Considerations - TBD)**
-  - [ ] Research and select an analytics solution (e.g., Firebase Analytics, Expo Analytics).
-  - [ ] Plan what specific events to track for: buildings viewed, tours started/completed, interest selections.
+- **Backend/Remote Content**
+  - [ ] Define API/structure for remote building data and tour configurations if different from `locations.js`.
 
-Br00ks-TheB1son
-Br00ks-TheB1son
 
 ### In Progress
 
-- **Styling & UI Polish**
-  - [ ] Basic responsive UI for different screen sizes.
 
 ### Done
 
@@ -82,7 +79,8 @@ Br00ks-TheB1son
 - **Styling & UI Polish**
   - [x] Apply Utah Tech branding (colors, fonts) - _requires branding guidelines_.
   - [x] Ensure consistent icons and labels.
-
+- **Backend/Remote Content (Initial Considerations - TBD)**
+  - [x] Research options for remote content updates (e.g., JSON file on a server, simple CMS).
 
 
 ### Blocked
