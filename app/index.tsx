@@ -2,8 +2,7 @@ import { School, schoolService } from '@/services/supabase';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { VELOCITY_EPS } from 'react-native-reanimated/lib/typescript/animation/decay/utils';
+import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 
 export default function SchoolSelectionScreen() {
   const [schools, setSchools] = useState<School[]>([]);
@@ -51,7 +50,7 @@ export default function SchoolSelectionScreen() {
     }
   };
 
-  const handleSchoolSelect = (school: School) => {
+  function handleSchoolSelect(school: School): void {
     setSelectedSchool(school.id);
     setSelectedSchoolName(`${school.name}`);
     setselectedSchoolCity(`${school.city}, ${school.state}`);
@@ -110,48 +109,50 @@ export default function SchoolSelectionScreen() {
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select a School</Text>
-            
-            <ScrollView style={styles.schoolList}>
-              {schools.map((school) => (
-                <TouchableOpacity
-                  key={school.id}
-                  style={[
-                    styles.schoolItem,
-                    selectedSchool === school.id && styles.selectedSchoolItem
-                  ]}
-                  onPress={() => handleSchoolSelect(school)}
-                >
-                  <View>
-                    <Text style={styles.dropdownButtonText}>
-                      {school.name}
-                    </Text>
-                    <Text style={styles.cityText}>
-                      {school.city}, {school.state}
-                    </Text>
+        <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Select a School</Text>
+              
+              <ScrollView style={styles.schoolList}>
+                {schools.map((school) => (
+                  <TouchableOpacity
+                    key={school.id}
+                    style={[
+                      styles.schoolItem,
+                      selectedSchool === school.id && styles.selectedSchoolItem
+                    ]}
+                    onPress={() => handleSchoolSelect(school)}
+                  >
+                    <View>
+                      <Text style={styles.dropdownButtonText}>
+                        {school.name}
+                      </Text>
+                      <Text style={styles.cityText}>
+                        {school.city}, {school.state}
+                      </Text>
 
-                  </View>
-                  {school.logo_url && (
-                    <Image 
-                      source={{ uri: school.logo_url }} 
-                      style={styles.schoolLogoSmall}
-                      resizeMode="contain"
-                    />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
+                    </View>
+                    {school.logo_url && (
+                      <Image 
+                        source={{ uri: school.logo_url }} 
+                        style={styles.schoolLogoSmall}
+                        resizeMode="contain"
+                      />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
 
       <TouchableOpacity 
