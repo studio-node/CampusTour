@@ -111,6 +111,7 @@ export interface Location {
   interests: string[];
   isTourStop: boolean;
   order_index?: number;
+  type?: string;
 }
 
 export const locationService = {
@@ -139,7 +140,8 @@ export const locationService = {
         description: item.description,
         interests: item.interests || [],
         isTourStop: item.is_tour_stop,
-        order_index: item.order_index
+        order_index: item.order_index,
+        type: item.type
       }));
     } catch (error) {
       console.error('Exception fetching locations:', error);
@@ -173,11 +175,76 @@ export const locationService = {
         description: item.description,
         interests: item.interests || [],
         isTourStop: item.is_tour_stop,
-        order_index: item.order_index
+        order_index: item.order_index,
+        type: item.type
       }));
     } catch (error) {
       console.error('Exception fetching tour stops:', error);
       return [];
     }
+  },
+
+  getMarkerColor(type: string | undefined): string {
+    switch (type) {
+      case 'building':
+        return 'tomato';
+      case 'landmark':
+        return 'orange';
+      case 'housing':
+        return 'yellow';
+      case 'dining':
+        return 'gold';
+      case 'athletics':
+        return 'wheat';
+      case 'academics':
+        return 'tan';
+      case 'administration':
+        return 'linen';
+      case 'outdoor_space':
+        return 'green';
+      case 'historical':
+        return 'aqua';
+      case 'service':
+        return 'violet';
+      default:
+        return 'black';
+    }
   }
-}; 
+};
+
+export const getMarkerColor = (type: string) => {
+  switch (type) {
+    case 'building':
+      return 'red';
+    case 'landmark':
+      return 'white';
+    case 'housing':
+      return 'blue';
+    case 'dining':
+      return 'orange';
+    case 'athletics':
+      return 'green';
+    case 'academics':
+      return 'purple';
+    case 'administration':
+      return 'pink';
+    case 'outdoor_space':
+      return 'brown';
+    case 'historical':
+      return 'yellow';
+    case 'service':
+      return 'lined';
+    default:
+      return 'black';
+  };
+// building
+// landmark
+// housing
+// dining
+// athletics
+// academics
+// administration
+// outdoor_space
+// historical
+// service
+};

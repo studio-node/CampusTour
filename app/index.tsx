@@ -69,7 +69,8 @@ export default function SchoolSelectionScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
+      <Image  style={styles.indexHero}  source={{ uri: "https://images.pexels.com/photos/1438072/pexels-photo-1438072.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" }}/>
       <Text style={styles.title}>Campus Tour</Text>
       <Text style={styles.subtitle}>Select your school to begin</Text>
 
@@ -169,22 +170,31 @@ export default function SchoolSelectionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#282828',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
+  },
+  indexHero: {
+    width: '100%',
+    height: 200,
+    resizeMode: 'cover',
+    borderRadius: 10,
+    marginTop: -150,
+    marginBottom: 50,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 10,
     textAlign: 'center',
+    color: '#fff',
   },
   subtitle: {
     fontSize: 18,
     marginBottom: 30,
     textAlign: 'center',
-    color: '#666',
+    color: '#999',
   },
   dropdownButton: {
     width: '100%',

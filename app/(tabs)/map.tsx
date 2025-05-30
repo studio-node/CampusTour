@@ -4,7 +4,7 @@ import * as ExpoLocation from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Callout, Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Callout, Marker, Overlay, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Define the location type based on our supabase service
@@ -231,7 +231,7 @@ export default function MapScreen() {
             ref={mapRef}
             style={styles.map}
             provider={mapProvider}
-            mapType="satellite"
+            mapType="mutedStandard"
             initialRegion={defaultRegion}
             showsUserLocation={locationPermissionStatus === 'granted'}
             showsMyLocationButton={false}
@@ -241,12 +241,17 @@ export default function MapScreen() {
             zoomEnabled={true}
             onMapReady={() => setMapReady(true)}
           >
+            <Overlay image={require('@/assets/images/buildings_overlay_3.png')} bounds={[
+              [ 37.09798939695663, -113.57067719268706 ],
+              [ 37.097589, -113.572708 ]
+            ]}  />
             {locations.map((location) => (
               <Marker
                 key={location.id}
                 coordinate={location.coordinates}
                 title={location.name}
                 description={location.description}
+                pinColor={locationService.getMarkerColor(location.type)}
               >
                 <Callout tooltip={false} onPress={() => handleCalloutPress(location)}>
                   <View style={styles.calloutContainer}>
