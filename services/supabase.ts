@@ -212,31 +212,6 @@ export const locationService = {
   }
 };
 
-export const getMarkerColor = (type: string) => {
-  switch (type) {
-    case 'building':
-      return 'red';
-    case 'landmark':
-      return 'white';
-    case 'housing':
-      return 'blue';
-    case 'dining':
-      return 'orange';
-    case 'athletics':
-      return 'green';
-    case 'academics':
-      return 'purple';
-    case 'administration':
-      return 'pink';
-    case 'outdoor_space':
-      return 'brown';
-    case 'historical':
-      return 'yellow';
-    case 'service':
-      return 'lined';
-    default:
-      return 'black';
-  };
 // building
 // landmark
 // housing
@@ -247,4 +222,3 @@ export const getMarkerColor = (type: string) => {
 // outdoor_space
 // historical
 // service
-};

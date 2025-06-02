@@ -26,7 +26,7 @@ export default function MapScreen() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<string | null>(null);
-  const [selectedBuilding, setSelectedBuilding] = useState<LocationItem | null>(null);
+  // const [selectedBuilding, setSelectedBuilding] = useState<LocationItem | null>(null);
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [schoolId, setSchoolId] = useState<string | null>(null);
@@ -100,7 +100,7 @@ export default function MapScreen() {
           longitudeDelta: 0.002,
         };
         mapRef.current.animateToRegion(region, 500);
-        setSelectedBuilding(building);
+        // setSelectedBuilding(building);
       }
     }
   }, [params.building, mapReady, locations]);
@@ -231,7 +231,7 @@ export default function MapScreen() {
             ref={mapRef}
             style={styles.map}
             provider={mapProvider}
-            mapType="mutedStandard"
+            mapType="standard"
             initialRegion={defaultRegion}
             showsUserLocation={locationPermissionStatus === 'granted'}
             showsMyLocationButton={false}
@@ -242,8 +242,11 @@ export default function MapScreen() {
             onMapReady={() => setMapReady(true)}
           >
             <Overlay image={require('@/assets/images/buildings_overlay_3.png')} bounds={[
-              [ 37.09798939695663, -113.57067719268706 ],
-              [ 37.097589, -113.572708 ]
+              // [ 37.09798939695663, -113.57067719268706 ],
+              [ 37.09755260505361, -113.57264516743909 ],
+              [ 37.10815778141483, -113.55942540472526 ]
+              // [ 37.097589, -113.572708 ]
+              // new bottom left: 37.10815778141483, -113.55942540472526
             ]}  />
             {locations.map((location) => (
               <Marker

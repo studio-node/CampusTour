@@ -14,33 +14,22 @@ INSERT INTO locations (
 VALUES
     (
         'e5a9dfd2-0c88-419e-b891-0a62283b8abd',
-        'Abby Apartments',
-        37.100020206616755, -113.56366468827675,
-        'https://housing.utahtech.edu/wp-content/uploads/sites/17/2019/08/AbbyBanner3.jpg',
-        'Abby Apartments are a great choice for students looking for on-campus apartment-style living. Conveniently located on the southeast side of campus, Abby Apartments are close to the new sand volleyball pits, recreation field area, fitness center, and football and baseball stadiums.',
-        ARRAY['Housing', 'Student Life'],
-        false,
-        26,
-        'housing'
-    ),
-    (
-        'e5a9dfd2-0c88-419e-b891-0a62283b8abd',
-        'Atwood Innovation Plaza',
-        37.10057641899174, -113.5697264806724,
-        'https://photos.smugmug.com/Campus-Photography/Atwood-Innovation-Plaza/2324/i-kgkHzdw/0/MggJVf5r5vLXnXfQvwtccjLr5ghVR6MXzjrrDfzBd/L/Innovation%20Plaza%201-L.jpg',
-        'Formerly an elementary school, the Atwood Innovation Plaza is home to many local businesses and startups. It has several office spaces and resources for both students and the community.',
-        ARRAY['Business', 'Startups', 'Offices', 'Community', 'Services'],
+        'North Commons Building',
+        37.1075998404184, -113.5632042745055,
+        'https://photos.smugmug.com/Campus-Photography/North-Plaza/2324/i-fZ79Jd5/0/MTc9rfdcRHR7RsG4DK2phC538t5LP36jStqxFVpcJ/L/_41A8108-L.jpg',
+        'The North Commons Building is home to several important departments. The campus testing center, professional testing center, and many arts classrooms call this building home.',
+        ARRAY['Academic', 'Arts'],
         false,
         27,
-        'service'
+        'building'
     ),
     (
         'e5a9dfd2-0c88-419e-b891-0a62283b8abd',
-        'University Plaza',
-        37.106978184066755, -113.56061940087966,
-        'https://chambermaster.blob.core.windows.net/images/customers/1117/members/3071/photos/GALLERY_MAIN/stgeorge_aerial_close_crop.jpg',
-        'University Plaza is 4 different buildings that house several university services.',
-        ARRAY['Services', 'University', 'Offices', 'Community', 'Student Life'],
+        'Alumni House',
+        37.09940277020713, -113.56910887988238,
+        'https://photos.smugmug.com/Campus-Photography/Alumni-House/2425/i-4j757Zh/0/K9xLK6MTT8KrsHhf5pdZRvXJznP34F2v3dj866tGq/L/_41A8130%20copy-L.jpg',
+        'The Stephen & Marcia Wade Alumni House at Utah Tech University offers a charming and elegant space for your next event or meeting and is located just across the street from the Trailblazer Stadium and Innovation Plaza. The great room includes access to the beautiful Truman Gardens, patio, bridal suite and full-size kitchen.',
+        ARRAY['Alumni', 'Community'],
         false,
         28,
         'service'
