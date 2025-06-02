@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Storage keys
@@ -390,17 +390,19 @@ export default function TourScreen() {
       {showInterestSelection ? (
         <View style={styles.interestSelectionContainer}>
           <Text style={styles.interestSelectionText}>Select Your Interests</Text>
-          <View style={styles.interestTagsContainer}>
-            {availableInterests.map(interest => (
-              <InterestTag
-                key={interest.id}
-                interest={interest}
-                selected={selectedInterests.includes(interest.id)}
-                onPress={() => toggleInterest(interest.id)}
-                primaryColor={primaryColor}
-              />
-            ))}
-          </View>
+          <ScrollView style={styles.interestScrollContainer} contentContainerStyle={styles.interestScrollContent}>
+            <View style={styles.interestTagsContainer}>
+              {availableInterests.map(interest => (
+                <InterestTag
+                  key={interest.id}
+                  interest={interest}
+                  selected={selectedInterests.includes(interest.id)}
+                  onPress={() => toggleInterest(interest.id)}
+                  primaryColor={primaryColor}
+                />
+              ))}
+            </View>
+          </ScrollView>
           <TouchableOpacity 
             style={[
               styles.generateTourButton,
@@ -495,12 +497,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 12,
   },
+  interestScrollContainer: {
+    maxHeight: 300,
+    width: '100%',
+  },
+  interestScrollContent: {
+    paddingVertical: 8,
+  },
   interestTagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   interestTag: {
     backgroundColor: '#EEEEEE',
@@ -520,6 +529,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 8,
     marginBottom: 8,
+    marginTop: 8,
     flexDirection: 'row',
     alignItems: 'center',
   },
