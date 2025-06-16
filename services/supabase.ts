@@ -155,7 +155,6 @@ export const locationService = {
         .from('locations')
         .select('*')
         .eq('school_id', schoolId)
-        .eq('is_tour_stop', true)
         .order('order_index', { ascending: true });
 
       if (error) {
@@ -222,3 +221,193 @@ export const locationService = {
 // outdoor_space
 // historical
 // service
+
+// Analytics interface
+export interface AnalyticsEvent {
+  event_type: string;
+  session_id: string;
+  school_id: string;
+  location_id?: string;
+  metadata?: Record<string, any>;
+}
+
+// Analytics service
+export const analyticsService = {
+  // Generate a daily session ID
+  async getSessionId(): Promise<string> {
+    const SESSION_KEY = 'DAILY_SESSION_ID';
+    const SESSION_DATE_KEY = 'SESSION_DATE';
+    
+    try {
+      const storedSessionId = await AsyncStorage.getItem(SESSION_KEY);
+      const storedDate = await AsyncStorage.getItem(SESSION_DATE_KEY);
+      const currentDate = new Date().toDateString();
+      
+      // If we have a session ID and it's from today, use it
+      if (storedSessionId && storedDate === currentDate) {
+        return storedSessionId;
+      }
+      
+      // Generate a new session ID for today
+      const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      await AsyncStorage.setItem(SESSION_KEY, newSessionId);
+      await AsyncStorage.setItem(SESSION_DATE_KEY, currentDate);
+      
+      return newSessionId;
+    } catch (error) {
+      console.error('Error managing session ID:', error);
+      // Fallback to timestamp-based session ID
+      return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+  },
+
+  // Calculate distance between two coordinates in miles
+  calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 3959; // Earth's radius in miles
+    const dLat = this.toRadians(lat2 - lat1);
+    const dLon = this.toRadians(lon2 - lon1);
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c;
+    return distance;
+  },
+
+  // Convert degrees to radians
+  toRadians(degrees: number): number {
+    return degrees * (Math.PI / 180);
+  },
+
+  // Check if user is within geofence radius (0.025 miles) of a location
+  isWithinGeofence(userLat: number, userLon: number, locationLat: number, locationLon: number): boolean {
+    const GEOFENCE_RADIUS_MILES = 0.025;
+    const distance = this.calculateDistance(userLat, userLon, locationLat, locationLon);
+    return distance <= GEOFENCE_RADIUS_MILES;
+  },
+
+  // Export an analytics event
+  async exportEvent(event: AnalyticsEvent): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from('analytics_events')
+        .insert([{
+          event_type: event.event_type,
+          session_id: event.session_id,
+          school_id: event.school_id,
+          location_id: event.location_id || null,
+          metadata: event.metadata || null,
+          timestamp: new Date().toISOString()
+        }]);
+
+      if (error) {
+        console.error('Error exporting analytics event:', error);
+        return false;
+      }
+
+      console.log('Analytics event exported successfully:', event.event_type);
+      return true;
+    } catch (error) {
+      console.error('Exception exporting analytics event:', error);
+      return false;
+    }
+  },
+
+  // Export interests-chosen event
+  async exportInterestsChosen(schoolId: string, selectedInterests: string[]): Promise<boolean> {
+    try {
+      const sessionId = await this.getSessionId();
+      
+      const event: AnalyticsEvent = {
+        event_type: 'interests-chosen',
+        session_id: sessionId,
+        school_id: schoolId,
+        metadata: {
+          selected_interests: selectedInterests,
+          interest_count: selectedInterests.length
+        }
+      };
+
+      return await this.exportEvent(event);
+    } catch (error) {
+      console.error('Error exporting interests-chosen event:', error);
+      return false;
+    }
+  },
+
+  // Export tour-start event
+  async exportTourStart(schoolId: string, firstLocationId: string, firstLocationName: string): Promise<boolean> {
+    try {
+      const sessionId = await this.getSessionId();
+      
+      const event: AnalyticsEvent = {
+        event_type: 'tour-start',
+        session_id: sessionId,
+        school_id: schoolId,
+        location_id: firstLocationId,
+        metadata: {
+          first_location_name: firstLocationName,
+          started_at: new Date().toISOString()
+        }
+      };
+
+      return await this.exportEvent(event);
+    } catch (error) {
+      console.error('Error exporting tour-start event:', error);
+      return false;
+    }
+  },
+
+  // Export tour-finish event
+  async exportTourFinish(schoolId: string, totalStops: number, completedStops: string[]): Promise<boolean> {
+    try {
+      const sessionId = await this.getSessionId();
+      
+      const event: AnalyticsEvent = {
+        event_type: 'tour-finish',
+        session_id: sessionId,
+        school_id: schoolId,
+        metadata: {
+          total_stops: totalStops,
+          completed_stops: completedStops,
+          completed_count: completedStops.length,
+          finished_at: new Date().toISOString()
+        }
+      };
+
+      return await this.exportEvent(event);
+    } catch (error) {
+      console.error('Error exporting tour-finish event:', error);
+      return false;
+    }
+  },
+
+  // Export location duration event (when user leaves a location)
+  async exportLocationDuration(schoolId: string, locationId: string, locationName: string, durationSeconds: number): Promise<boolean> {
+    try {
+      const sessionId = await this.getSessionId();
+      
+      // Convert duration to minutes for better readability
+      const durationMinutes = Math.round(durationSeconds / 60 * 100) / 100; // Round to 2 decimal places
+      
+      const event: AnalyticsEvent = {
+        event_type: 'location-duration',
+        session_id: sessionId,
+        school_id: schoolId,
+        location_id: locationId,
+        metadata: {
+          location_name: locationName,
+          duration: durationSeconds, // Duration in seconds as requested
+          duration_minutes: durationMinutes, // Also include minutes for convenience
+          left_at: new Date().toISOString()
+        }
+      };
+
+      return await this.exportEvent(event);
+    } catch (error) {
+      console.error('Error exporting location-duration event:', error);
+      return false;
+    }
+  }
+};

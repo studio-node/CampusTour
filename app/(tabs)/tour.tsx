@@ -1,7 +1,8 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Location, locationService, schoolService } from '@/services/supabase';
+import { analyticsService, Location, locationService, schoolService } from '@/services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
+import * as ExpoLocation from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -12,7 +13,13 @@ const STORAGE_KEYS = {
   TOUR_STOPS: 'tourStops',
   SELECTED_INTERESTS: 'selectedInterests',
   SHOW_INTEREST_SELECTION: 'showInterestSelection',
-  VISITED_LOCATIONS: 'visitedLocations'
+  VISITED_LOCATIONS: 'visitedLocations',
+  TOUR_STARTED: 'tourStarted',
+  TOUR_FINISHED: 'tourFinished',
+  LOCATION_PERMISSION_STATUS: 'locationPermissionStatus',
+  CURRENT_LOCATION_ID: 'currentLocationId',
+  LOCATION_ENTRY_TIMES: 'locationEntryTimes',
+  PREVIOUSLY_ENTERED_LOCATIONS: 'previouslyEnteredLocations'
 };
 
 // Define the interface for a tour stop
@@ -152,6 +159,19 @@ export default function TourScreen() {
   const [availableInterests, setAvailableInterests] = useState<Interest[]>([]);
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [primaryColor, setPrimaryColor] = useState<string>('#990000'); // Utah Tech red as fallback
+  
+  // Location tracking and geofencing state
+  const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
+  const [locationPermissionStatus, setLocationPermissionStatus] = useState<string | null>(null);
+  const [tourStarted, setTourStarted] = useState<boolean>(false);
+  const [locationWatcher, setLocationWatcher] = useState<any>(null);
+  const [processingTourStart, setProcessingTourStart] = useState<boolean>(false);
+  const [tourFinished, setTourFinished] = useState<boolean>(false);
+  
+  // Duration tracking state
+  const [currentLocationId, setCurrentLocationId] = useState<string | null>(null);
+  const [locationEntryTimes, setLocationEntryTimes] = useState<{[locationId: string]: number}>({});
+  const [previouslyEnteredLocations, setPreviouslyEnteredLocations] = useState<Set<string>>(new Set());
 
   // Get the selected school ID and details
   useEffect(() => {
@@ -223,7 +243,7 @@ export default function TourScreen() {
     if (!isLoading) {
       saveTourState();
     }
-  }, [showInterestSelection, selectedInterests, tourStops, visitedLocations, isLoading]);
+  }, [showInterestSelection, selectedInterests, tourStops, visitedLocations, tourStarted, tourFinished, processingTourStart, locationPermissionStatus, currentLocationId, locationEntryTimes, previouslyEnteredLocations, isLoading]);
 
   // Load saved state from storage
   const loadSavedState = async () => {
@@ -232,6 +252,12 @@ export default function TourScreen() {
       const savedSelectedInterests = await AsyncStorage.getItem(STORAGE_KEYS.SELECTED_INTERESTS);
       const savedTourStops = await AsyncStorage.getItem(STORAGE_KEYS.TOUR_STOPS);
       const savedVisitedLocations = await AsyncStorage.getItem(STORAGE_KEYS.VISITED_LOCATIONS);
+      const savedTourStarted = await AsyncStorage.getItem(STORAGE_KEYS.TOUR_STARTED);
+      const savedTourFinished = await AsyncStorage.getItem(STORAGE_KEYS.TOUR_FINISHED);
+      const savedLocationPermissionStatus = await AsyncStorage.getItem(STORAGE_KEYS.LOCATION_PERMISSION_STATUS);
+      const savedCurrentLocationId = await AsyncStorage.getItem(STORAGE_KEYS.CURRENT_LOCATION_ID);
+      const savedLocationEntryTimes = await AsyncStorage.getItem(STORAGE_KEYS.LOCATION_ENTRY_TIMES);
+      const savedPreviouslyEnteredLocations = await AsyncStorage.getItem(STORAGE_KEYS.PREVIOUSLY_ENTERED_LOCATIONS);
       
       if (savedShowInterestSelection !== null) {
         setShowInterestSelection(JSON.parse(savedShowInterestSelection));
@@ -248,6 +274,31 @@ export default function TourScreen() {
       if (savedVisitedLocations !== null) {
         setVisitedLocations(JSON.parse(savedVisitedLocations));
       }
+
+      if (savedTourStarted !== null) {
+        setTourStarted(JSON.parse(savedTourStarted));
+      }
+
+      if (savedTourFinished !== null) {
+        setTourFinished(JSON.parse(savedTourFinished));
+      }
+
+      if (savedLocationPermissionStatus !== null) {
+        setLocationPermissionStatus(savedLocationPermissionStatus);
+      }
+
+      if (savedCurrentLocationId !== null) {
+        setCurrentLocationId(savedCurrentLocationId);
+      }
+
+      if (savedLocationEntryTimes !== null) {
+        setLocationEntryTimes(JSON.parse(savedLocationEntryTimes));
+      }
+
+      if (savedPreviouslyEnteredLocations !== null) {
+        const locationsArray = JSON.parse(savedPreviouslyEnteredLocations);
+        setPreviouslyEnteredLocations(new Set(locationsArray));
+      }
     } catch (error) {
       console.error('Error loading saved tour state:', error);
     }
@@ -260,6 +311,16 @@ export default function TourScreen() {
       await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_INTERESTS, JSON.stringify(selectedInterests));
       await AsyncStorage.setItem(STORAGE_KEYS.TOUR_STOPS, JSON.stringify(tourStops));
       await AsyncStorage.setItem(STORAGE_KEYS.VISITED_LOCATIONS, JSON.stringify(visitedLocations));
+      await AsyncStorage.setItem(STORAGE_KEYS.TOUR_STARTED, JSON.stringify(tourStarted));
+      await AsyncStorage.setItem(STORAGE_KEYS.TOUR_FINISHED, JSON.stringify(tourFinished));
+      if (locationPermissionStatus) {
+        await AsyncStorage.setItem(STORAGE_KEYS.LOCATION_PERMISSION_STATUS, locationPermissionStatus);
+      }
+      if (currentLocationId) {
+        await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_LOCATION_ID, currentLocationId);
+      }
+      await AsyncStorage.setItem(STORAGE_KEYS.LOCATION_ENTRY_TIMES, JSON.stringify(locationEntryTimes));
+      await AsyncStorage.setItem(STORAGE_KEYS.PREVIOUSLY_ENTERED_LOCATIONS, JSON.stringify(Array.from(previouslyEnteredLocations)));
     } catch (error) {
       console.error('Error saving tour state:', error);
     }
@@ -273,7 +334,7 @@ export default function TourScreen() {
       const allTourStops = await locationService.getTourStops(schoolId);
       
       if (!filterByInterests || selectedInterests.length === 0) {
-        return allTourStops;
+        return allTourStops.filter(stop => stop.isTourStop);
       }
       
       // Filter by selected interests
@@ -305,9 +366,28 @@ export default function TourScreen() {
 
   // Generate tour based on selected interests
   const generateTour = async () => {
-    const filteredTourStops = await getTourStops(true);
-    setTourStops(filteredTourStops);
-    setShowInterestSelection(false);
+    try {
+      // Export analytics event for interests chosen
+      if (schoolId && selectedInterests.length > 0) {
+        // Convert interest IDs back to display names for metadata
+        const selectedInterestNames = selectedInterests.map(interestId => {
+          const interest = availableInterests.find(i => i.id === interestId);
+          return interest ? interest.name : interestId;
+        });
+        
+        await analyticsService.exportInterestsChosen(schoolId, selectedInterestNames);
+      }
+      
+      const filteredTourStops = await getTourStops(true);
+      setTourStops(filteredTourStops);
+      setShowInterestSelection(false);
+    } catch (error) {
+      console.error('Error generating tour or exporting analytics:', error);
+      // Still continue with tour generation even if analytics fails
+      const filteredTourStops = await getTourStops(true);
+      setTourStops(filteredTourStops);
+      setShowInterestSelection(false);
+    }
   };
 
   // Show default tour
@@ -317,12 +397,19 @@ export default function TourScreen() {
     setShowInterestSelection(false);
   };
 
-  // Reset tour and go back to interest selection
+  // Reset tour function - also reset tour started status
   const resetTour = () => {
     setShowInterestSelection(true);
     setSelectedInterests([]);
     setTourStops([]);
     setVisitedLocations([]);
+    setTourStarted(false);
+    setTourFinished(false);
+    setProcessingTourStart(false);
+    setCurrentLocationId(null);
+    setLocationEntryTimes({});
+    setPreviouslyEnteredLocations(new Set());
+    stopLocationTracking();
   };
 
   // Toggle the visited status of a location
@@ -330,7 +417,34 @@ export default function TourScreen() {
     if (visitedLocations.includes(locationId)) {
       setVisitedLocations(visitedLocations.filter(id => id !== locationId));
     } else {
-      setVisitedLocations([...visitedLocations, locationId]);
+      const newVisitedLocations = [...visitedLocations, locationId];
+      setVisitedLocations(newVisitedLocations);
+      
+      // Check if tour is now complete
+      checkTourCompletion(newVisitedLocations);
+    }
+  };
+
+  // Check if all tour stops have been visited
+  const checkTourCompletion = async (currentVisitedLocations: string[]) => {
+    if (!schoolId || tourFinished || tourStops.length === 0) {
+      return;
+    }
+
+    // Check if all tour stops have been visited
+    const allStopsVisited = tourStops.every(stop => currentVisitedLocations.includes(stop.id));
+
+    if (allStopsVisited) {
+      console.log('All tour stops completed! Exporting tour-finish event...');
+      
+      try {
+        const stopNames = tourStops.map(stop => stop.name);
+        await analyticsService.exportTourFinish(schoolId, tourStops.length, stopNames);
+        setTourFinished(true);
+        console.log('Tour finished event exported successfully');
+      } catch (error) {
+        console.error('Error exporting tour-finish event:', error);
+      }
     }
   };
 
@@ -349,6 +463,177 @@ export default function TourScreen() {
       params: { building: buildingId }
     });
   };
+
+  // Request location permissions
+  const requestLocationPermission = async () => {
+    try {
+      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+      setLocationPermissionStatus(status);
+      
+      if (status === 'granted') {
+        await startLocationTracking();
+      }
+    } catch (error) {
+      console.error('Error requesting location permission:', error);
+    }
+  };
+
+  // Start location tracking for geofencing
+  const startLocationTracking = async () => {
+    try {
+      // Get initial location
+      const location = await ExpoLocation.getCurrentPositionAsync({
+        accuracy: ExpoLocation.Accuracy.Balanced
+      });
+      
+      setUserLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      });
+
+      // Start watching location changes
+      const watcher = await ExpoLocation.watchPositionAsync(
+        {
+          accuracy: ExpoLocation.Accuracy.Balanced,
+          timeInterval: 5000, // Check every 5 seconds
+          distanceInterval: 10 // Only update if moved 10 meters
+        },
+        (newLocation) => {
+          setUserLocation({
+            latitude: newLocation.coords.latitude,
+            longitude: newLocation.coords.longitude
+          });
+        }
+      );
+
+      setLocationWatcher(watcher);
+    } catch (error) {
+      console.error('Error starting location tracking:', error);
+    }
+  };
+
+  // Stop location tracking
+  const stopLocationTracking = () => {
+    if (locationWatcher) {
+      locationWatcher.remove();
+      setLocationWatcher(null);
+    }
+  };
+
+  // Check if user is within geofence of any tour stop and handle entry/exit
+  const checkGeofences = async () => {
+    if (!userLocation || !schoolId || tourStops.length === 0) {
+      return;
+    }
+
+    let userIsAtAnyLocation = false;
+    let newCurrentLocationId = null;
+
+    // Check all tour stops to see if user is within any geofence
+    for (const stop of tourStops) {
+      const isWithin = analyticsService.isWithinGeofence(
+        userLocation.latitude,
+        userLocation.longitude,
+        stop.coordinates.latitude,
+        stop.coordinates.longitude
+      );
+
+      if (isWithin) {
+        userIsAtAnyLocation = true;
+        newCurrentLocationId = stop.id;
+
+        // Check if this is a new location entry
+        if (currentLocationId !== stop.id) {
+          // User entered a new location
+          console.log(`User entered geofence for: ${stop.name}`);
+          
+          // Record entry time
+          const entryTime = Date.now();
+          setLocationEntryTimes(prev => ({
+            ...prev,
+            [stop.id]: entryTime
+          }));
+          
+          setPreviouslyEnteredLocations(prev => new Set([...prev, stop.id]));
+
+          // Export tour-start event if this is the first location and tour hasn't started
+          if (!tourStarted && !processingTourStart) {
+            setProcessingTourStart(true);
+            try {
+              await analyticsService.exportTourStart(schoolId, stop.id, stop.name);
+              setTourStarted(true);
+              console.log('Tour started event exported successfully');
+            } catch (error) {
+              console.error('Error exporting tour start event:', error);
+              setProcessingTourStart(false);
+            }
+          }
+        }
+        break; // User can only be at one location at a time
+      }
+    }
+
+    // Handle location exit
+    if (currentLocationId && (!userIsAtAnyLocation || newCurrentLocationId !== currentLocationId)) {
+      // User has left the current location
+      const exitedLocation = tourStops.find(stop => stop.id === currentLocationId);
+      if (exitedLocation && locationEntryTimes[currentLocationId]) {
+        const exitTime = Date.now();
+        const entryTime = locationEntryTimes[currentLocationId];
+        const durationMs = exitTime - entryTime;
+        const durationSeconds = Math.round(durationMs / 1000);
+
+        console.log(`User left ${exitedLocation.name} after ${durationSeconds} seconds`);
+
+        // Export duration event
+        try {
+          await analyticsService.exportLocationDuration(
+            schoolId, 
+            currentLocationId, 
+            exitedLocation.name, 
+            durationSeconds
+          );
+          console.log(`Location duration event exported for ${exitedLocation.name}: ${durationSeconds}s`);
+        } catch (error) {
+          console.error('Error exporting location duration event:', error);
+        }
+
+        // Clean up entry time for this location
+        setLocationEntryTimes(prev => {
+          const newEntryTimes = { ...prev };
+          delete newEntryTimes[currentLocationId];
+          return newEntryTimes;
+        });
+      }
+    }
+
+    // Update current location
+    setCurrentLocationId(newCurrentLocationId);
+  };
+
+  // Effect to handle location tracking when tour is active
+  useEffect(() => {
+    if (!showInterestSelection && tourStops.length > 0 && !tourStarted) {
+      // Tour is active but not started yet - request location permission and start tracking
+      if (locationPermissionStatus !== 'granted') {
+        requestLocationPermission();
+      } else {
+        startLocationTracking();
+      }
+    }
+
+    // Cleanup on unmount or when tour ends
+    return () => {
+      stopLocationTracking();
+    };
+  }, [showInterestSelection, tourStops, locationPermissionStatus]);
+
+  // Effect to check geofences when user location changes
+  useEffect(() => {
+    if (userLocation) {
+      checkGeofences();
+    }
+  }, [userLocation, tourStops, tourStarted, processingTourStart, currentLocationId, locationEntryTimes]);
 
   // Create dynamic styles with the primary color
   const dynamicStyles = {
