@@ -1,0 +1,105 @@
+# Ambassador User Journey
+
+If the ambassador is using the app, it means they are giving a guided tour using the app and those that are on the tour will also have the app open. Both will be discussed here.
+
+
+## Ambassador
+
+### Pre-Tour Section
+
+- User-Type Selection
+    - Self-guided 
+    - Ambassador-led group 
+        - [ ] Tour taker  
+        - [x] Ambassador 
+
+- Sign-In / Sign-Up screen
+    - Sign-In
+        - Amb signs into their account if the this is the first time they've downloaded the app
+    - Sign-Up
+        - Amb creates an account with required info
+            - Email
+            - Name
+            - School (Maybe school needs to add them first to do this succesfully?)
+            - Password (will be stored encrypted) 
+
+- Create Tour 
+    - Create QR Code for tour-group to scan and start tour
+    - Choose minimum/default tour stops (users will be able to add their own after)
+    - Choose tour length
+    - Group Roster
+        - As users join the group session they will be displayed in a list here
+        - Ambassador clicks "done" when all users are in
+
+
+### Actual tour Screen
+
+> For the ambassadors, this app from here will be very similar to standard users, just with extra features.
+
+- Map Tab
+    - This will show all the tour stops **and** all the interest points that might not be shown to standard users and the tour-group
+    - Most detailed map
+
+- Tour Tab
+    - Stops are rearrangeable 
+    - Stops can be deleted
+    - Stops can be added
+
+    - Stop Detail Screen
+        - This will contain all of the data that each stop has, including additional speaker notes to help the ambassador in their tour
+        > The current stop's details screen will be what is broadcasted to the group's devices
+
+- User ping modal
+    - So users don't have to physically raise their hand and for quiter users so they don't have to speak up over a group
+    - When someone in the tour group pings the ambassador it will pop up a little modal with that user's name. It will also vibrate a little bit.
+
+
+
+
+## Guided Tour Group
+
+
+### Pre-Tour Section
+
+- User-Type Selection
+    - Self-guided 
+    - Ambassador-led group 
+        - [x] Tour taker 
+        - [ ] Ambassador 
+
+- QR-Code Scan Screen
+    - Camera will scan the ambassadors phone to join tour-session
+
+- Interest Selection
+    - Users will select their interests here 
+        - Maybe limit them to not add too many stops?
+    - Click done to submit interests and wait for everybody else
+        - Waiting sceen when done
+
+
+### Actual tour Screen
+
+> This will be a more locked down version of the standard-user app
+
+- Map Screen
+    - This will just show the tour stops by default. Users can explore other sections though
+
+- Current Stop Tab (**ASK ABOUT DOING THIS FOR ALL APP USERS**)
+    - Shows the stop detail screen for the current stop
+
+- Tour Screen
+    - Stop cards can only be viewed
+    - Can't do
+        - Rearrange
+        - Delete
+        - Add Stops
+
+    - Stop Detail Screen
+        - This will contain the basic data for each stop, same as standard-user
+        > The current stop's details screen will be what is broadcasted to the group's devices
+
+- Ping Ambassador Button
+    - This will be like a flight-attendant call button where it will ping the ambassador to bring attention that user
+    - Kind of like a "raise hand" button on Zoom
+
+
