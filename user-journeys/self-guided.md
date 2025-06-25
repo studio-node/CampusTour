@@ -2,7 +2,7 @@
 
 This is the user journey for the mobile app as the standard user will be using it.
 
-## [First Screens](./meeting-pics/first-screens.jpeg)
+## [First Screens](../meeting_6-19-25/first-screens.jpeg)
 
 - **Tour-Type Selection**
     - [x] Self-guided 
@@ -43,16 +43,17 @@ This is the user journey for the mobile app as the standard user will be using i
     - Profile (maybe)
 
 - **Build Your Tour**
+    > Auto know where user is located 
     - Interest: use **AI** for this
     - Degree
     - Career
     - Student life
-    - Choose time length:  *Auto know where user is located*
+    - Choose time length:  
 
 
 
 
-## [Output and Tour](./meeting-pics/output&tour.jpeg)
+## [Output and Tour](../meeting_6-19-25/output&tour.jpeg)
 
 On tour Creation include ability to invite others (including for them to select Interests)
 
