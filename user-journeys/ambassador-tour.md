@@ -12,38 +12,40 @@ If the ambassador is using the app, it means they are giving a guided tour using
     - Ambassador-led group 
         - [ ] Tour taker  
         - [x] Ambassador 
+            - Button at top with <button>I'm an ambassador</button> or something like that 
 
 - Sign-In / Sign-Up screen
     - Sign-In
-        - Amb signs into their account if the this is the first time they've downloaded the app
+        - Ambassador signs into their account if the this is the first time they've downloaded the app
     - Sign-Up
-        - Amb creates an account with required info
+        - Ambassador creates an account with required info
             - Email
             - Name
-            - School (Maybe school needs to add them first to do this succesfully?)
             - Password (will be stored encrypted) 
+            - **NOT** school 
+                - Their name and email will be in the system already from school creating ambassador role
 
 - Create Tour 
     - Create QR Code for tour-group to scan and start tour
     - Choose minimum/default tour stops (users will be able to add their own after)
     - Choose tour length
     - Group Roster
-        - As users join the group session they will be displayed in a list here
+        - As users join the group session they will be displayed in a list 
         - Ambassador clicks "done" when all users are in
 
 
 ### Actual tour Screen
 
-> For the ambassadors, this app from here will be very similar to standard users, just with extra features.
+> For the ambassadors, the app from here will be very similar to standard users, just with extra features and sections.
 
 - Map Tab
-    - This will show all the tour stops **and** all the interest points that might not be shown to standard users and the tour-group
+    - This will show all the tour stops **AND** all the interest points that might not be shown to standard users and the tour-group
     - Most detailed map
 
 - Tour Tab
-    - Stops are rearrangeable 
-    - Stops can be deleted
-    - Stops can be added
+    - Stops **are** rearrangeable 
+    - Stops **can** be deleted
+    - Stops **can** be added
 
     - Stop Detail Screen
         - This will contain all of the data that each stop has, including additional speaker notes to help the ambassador in their tour
@@ -82,21 +84,20 @@ If the ambassador is using the app, it means they are giving a guided tour using
 > This will be a more locked down version of the standard-user app
 
 - Map Screen
-    - This will just show the tour stops by default. Users can explore other sections though
+    - This will just show the tour stops by default. Users can use map legend to show additional stops and points of interest
 
 - Current Stop Tab (**ASK ABOUT DOING THIS FOR ALL APP USERS**)
     - Shows the stop detail screen for the current stop
 
 - Tour Screen
     - Stop cards can only be viewed
-    - Can't do
-        - Rearrange
-        - Delete
-        - Add Stops
+    - Stops **aren't** rearrangeable 
+    - Stops **can't** be deleted
+    - Stops **can't** be added
 
     - Stop Detail Screen
         - This will contain the basic data for each stop, same as standard-user
-        > The current stop's details screen will be what is broadcasted to the group's devices
+        > The current stop's details screen will be what is broadcasted to the group's devices (maybe in `Current Stop` tab)
 
 - Ping Ambassador Button
     - This will be like a flight-attendant call button where it will ping the ambassador to bring attention that user

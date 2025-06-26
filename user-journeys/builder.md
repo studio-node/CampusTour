@@ -21,7 +21,7 @@ This will be a web app that will basically have to be accessed on PC (it just wo
     - Cards for each location
         - Delete location
         - Edit location
-        - Image and some info like tags and description
+        - Image and some info like tags and description, similar to tour screen in mobile app
 
 - **Add a Stop**
     - Input Fields

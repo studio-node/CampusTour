@@ -34,7 +34,7 @@ These notes are from the meeting with the three people from what I think was adm
     - Local Favorites 
 
 - **Gamification** 
-    > **Goal:**  Photo Opps during the Tour
+    > **Goal:**  Photo Ops during the Tour
     - Treasure Hunt
     - Easter Eggs
     - Scavenger Hunt
