@@ -24,7 +24,6 @@ There will be a special admin account created for this
         - Tours Started vs Finished
         - Average Tour Length
         - Most Popular Times of Day
-        - Schools Being Visited
         - Tours being taken trends
 
 - **User-Management Tab**
