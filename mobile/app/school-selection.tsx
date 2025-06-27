@@ -70,99 +70,111 @@ export default function SchoolSelectionScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <Image  style={styles.indexHero}  source={{ uri: "https://images.pexels.com/photos/1438072/pexels-photo-1438072.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" }}/>
-      <Text style={styles.title}>Campus Tour</Text>
-      <Text style={styles.subtitle}>Select your school to begin</Text>
-
-      <TouchableOpacity 
-        style={styles.dropdownButton} 
-        onPress={() => setModalVisible(true)}
+      
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => router.back()}
         >
-        <View>
-          {selectedSchoolName ? (
-            <View>
-              <Text style={styles.dropdownButtonText}>
-                {selectedSchoolName}
-              </Text>
-              <Text style={styles.cityText}>
-                {selectedSchoolCity}
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.dropdownButtonText2}>
-              Select a school
-            </Text>
-          )}
-          
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+      </View>
 
-        </View>
-        {selectedSchoolLogoUrl && (
-          <Image 
-            source={{ uri: selectedSchoolLogoUrl }} 
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        )}
-      </TouchableOpacity>
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Select a School</Text>
-              
-              <ScrollView style={styles.schoolList}>
-                {schools.map((school) => (
-                  <TouchableOpacity
-                    key={school.id}
-                    style={[
-                      styles.schoolItem,
-                      selectedSchool === school.id && styles.selectedSchoolItem
-                    ]}
-                    onPress={() => handleSchoolSelect(school)}
-                  >
-                    <View>
-                      <Text style={styles.dropdownButtonText}>
-                        {school.name}
-                      </Text>
-                      <Text style={styles.cityText}>
-                        {school.city}, {school.state}
-                      </Text>
+      <View style={styles.content}>
+        <Image  style={styles.indexHero}  source={{ uri: "https://images.pexels.com/photos/1438072/pexels-photo-1438072.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" }}/>
+        <Text style={styles.title}>Campus Tour</Text>
+        <Text style={styles.subtitle}>Select your school to begin</Text>
 
-                    </View>
-                    {school.logo_url && (
-                      <Image 
-                        source={{ uri: school.logo_url }} 
-                        style={styles.schoolLogoSmall}
-                        resizeMode="contain"
-                      />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={styles.closeButtonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
+        <TouchableOpacity 
+          style={styles.dropdownButton} 
+          onPress={() => setModalVisible(true)}
+          >
+          <View>
+            {selectedSchoolName ? (
+              <View>
+                <Text style={styles.dropdownButtonText}>
+                  {selectedSchoolName}
+                </Text>
+                <Text style={styles.cityText}>
+                  {selectedSchoolCity}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.dropdownButtonText2}>
+                Select a school
+              </Text>
+            )}
+            
+
           </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+          {selectedSchoolLogoUrl && (
+            <Image 
+              source={{ uri: selectedSchoolLogoUrl }} 
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          )}
+        </TouchableOpacity>
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Select a School</Text>
+                
+                <ScrollView style={styles.schoolList}>
+                  {schools.map((school) => (
+                    <TouchableOpacity
+                      key={school.id}
+                      style={[
+                        styles.schoolItem,
+                        selectedSchool === school.id && styles.selectedSchoolItem
+                      ]}
+                      onPress={() => handleSchoolSelect(school)}
+                    >
+                      <View>
+                        <Text style={styles.dropdownButtonText}>
+                          {school.name}
+                        </Text>
+                        <Text style={styles.cityText}>
+                          {school.city}, {school.state}
+                        </Text>
 
-      <TouchableOpacity 
-        style={[styles.button, !selectedSchool && styles.buttonDisabled]} 
-        onPress={handleSelectSchool}
-        disabled={!selectedSchool}
-      >
-        <Text style={styles.buttonText}>Start Tour</Text>
-      </TouchableOpacity>
+                      </View>
+                      {school.logo_url && (
+                        <Image 
+                          source={{ uri: school.logo_url }} 
+                          style={styles.schoolLogoSmall}
+                          resizeMode="contain"
+                        />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text style={styles.closeButtonText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
+        <TouchableOpacity 
+          style={[styles.button, !selectedSchool && styles.buttonDisabled]} 
+          onPress={handleSelectSchool}
+          disabled={!selectedSchool}
+        >
+          <Text style={styles.buttonText}>Start Tour</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -171,6 +183,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#282828',
+  },
+  header: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+  },
+  backButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  content: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,

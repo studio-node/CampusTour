@@ -16,8 +16,12 @@ export default function TourTypeSelectionScreen() {
   const handleContinue = () => {
     if (selectedTourType) {
       // TODO: Store the selected tour type (we'll implement this when you add state management)
-      // For now, navigate to school selection
-      router.push('/school-selection');
+      if (selectedTourType === 'self-guided') {
+        router.push('/lead-capture');
+      } else {
+        // For ambassador-led, go directly to school selection for now
+        router.push('/school-selection');
+      }
     }
   };
 
