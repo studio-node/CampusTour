@@ -1,4 +1,19 @@
-# Research before interview
+# General Ideas with no rhyme or reason
+
+> These are all **maybes**
+
+- Make it so one school can have multiple campuses
+- 
+
+
+
+
+
+
+
+
+
+# vvvvv stuff from prototyping time vvvv
 
 ## Stuff I still want to add
 - Fun facts section

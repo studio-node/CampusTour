@@ -11,11 +11,14 @@ This is the user journey for the mobile app as the standard user will be using i
 - **Lead Capture**
     - Introduce the form
     - Form
+        - Identity (as it pertains to college)
+            - Prospective Student
+            - Friend/Family of Prospective Student
+            - Just Touring Campus
         - Name
         - Address
         - Date of Birth
         - Email 
-        - Student Type 
         - Gender
         - Phone 
         - Grad Year

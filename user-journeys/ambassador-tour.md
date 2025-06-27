@@ -52,7 +52,7 @@ If the ambassador is using the app, it means they are giving a guided tour using
         > The current stop's details screen will be what is broadcasted to the group's devices
 
 - User ping modal
-    - So users don't have to physically raise their hand and for quiter users so they don't have to speak up over a group
+    - So users don't have to physically raise their hand and for quieter users so they don't have to speak up over a group
     - When someone in the tour group pings the ambassador it will pop up a little modal with that user's name. It will also vibrate a little bit.
 
 
@@ -70,13 +70,13 @@ If the ambassador is using the app, it means they are giving a guided tour using
         - [ ] Ambassador 
 
 - QR-Code Scan Screen
-    - Camera will scan the ambassadors phone to join tour-session
+    - Camera will scan the ambassadors phone with the QR code to join tour-session
 
 - Interest Selection
     - Users will select their interests here 
         - Maybe limit them to not add too many stops?
     - Click done to submit interests and wait for everybody else
-        - Waiting sceen when done
+        - Waiting screen when done
 
 
 ### Actual tour Screen
