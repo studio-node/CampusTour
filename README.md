@@ -1,7 +1,8 @@
 # Campus Tour
 
+## TODO
 
-Coming soon...
+- change how university select is structured so it works better with new setup
 
 
 ### Ways to close and reference an issue in commit message:
