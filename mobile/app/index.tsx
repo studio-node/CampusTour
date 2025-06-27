@@ -1,168 +1,104 @@
-import { School, schoolService } from '@/services/supabase';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import React, { useState } from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export default function SchoolSelectionScreen() {
-  const [schools, setSchools] = useState<School[]>([]);
-  const [selectedSchool, setSelectedSchool] = useState<string>('');
-  const [selectedSchoolName, setSelectedSchoolName] = useState<string>('');
-  const [selectedSchoolCity, setselectedSchoolCity] = useState<string>('');
-  const [selectedSchoolLogoUrl, setselectedSchoolLogoUrl] = useState<string>('');
+type TourType = 'self-guided' | 'ambassador-led' | null;
 
-  const [loading, setLoading] = useState(true);
-  const [modalVisible, setModalVisible] = useState(false);
+export default function TourTypeSelectionScreen() {
+  const [selectedTourType, setSelectedTourType] = useState<TourType>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      try {
-        // Check if there's already a selected school
-        const savedSchoolId = await schoolService.getSelectedSchool();
-        if (savedSchoolId) {
-          // Redirect to tabs if a school is already selected
-          router.replace('/map');
-          return;
-        }
+  const handleTourTypeSelect = (tourType: TourType) => {
+    setSelectedTourType(tourType);
+  };
 
-        // Fetch all schools
-        const schoolsData = await schoolService.getSchools();
-        // console.log('Fetched schools:', schoolsData);
-        setSchools(schoolsData);
-        
-      
-      } catch (error) {
-        console.error('Error loading school data:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchData();
-  }, [router]);
-
-  const handleSelectSchool = async () => {
-    if (selectedSchool) {
-      await schoolService.setSelectedSchool(selectedSchool);
-      router.replace('/map');
+  const handleContinue = () => {
+    if (selectedTourType) {
+      // TODO: Store the selected tour type (we'll implement this when you add state management)
+      // For now, navigate to school selection
+      router.push('/school-selection');
     }
   };
 
-  function handleSchoolSelect(school: School): void {
-    setSelectedSchool(school.id);
-    setSelectedSchoolName(`${school.name}`);
-    setselectedSchoolCity(`${school.city}, ${school.state}`);
-    setselectedSchoolLogoUrl(`${school.logo_url}`);
-    setModalVisible(false);
+  const handleAmbassadorAction = () => {
+    // TODO: Implement ambassador functionality
+    console.log('Ambassador button pressed');
   };
-
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text style={styles.loadingText}>Loading schools...</Text>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <Image  style={styles.indexHero}  source={{ uri: "https://images.pexels.com/photos/1438072/pexels-photo-1438072.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" }}/>
-      <Text style={styles.title}>Campus Tour</Text>
-      <Text style={styles.subtitle}>Select your school to begin</Text>
+      
+      {/* Header with Ambassador button */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.ambassadorButton} onPress={handleAmbassadorAction}>
+          <Text style={styles.ambassadorButtonText}>Ambassador</Text>
+        </TouchableOpacity>
+      </View>
 
-      <TouchableOpacity 
-        style={styles.dropdownButton} 
-        onPress={() => setModalVisible(true)}
-        >
-        <View>
-          {selectedSchoolName ? (
-            <View>
-              <Text style={styles.dropdownButtonText}>
-                {selectedSchoolName}
-              </Text>
-              <Text style={styles.cityText}>
-                {selectedSchoolCity}
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.dropdownButtonText2}>
-              Select a school
+      {/* Hero Image */}
+      <Image 
+        style={styles.heroImage} 
+        source={{ uri: "https://images.pexels.com/photos/1438072/pexels-photo-1438072.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" }}
+      />
+
+      {/* Main Content */}
+      <View style={styles.content}>
+        <Text style={styles.title}>Choose your tour type</Text>
+        
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity 
+            style={[
+              styles.tourTypeButton, 
+              selectedTourType === 'self-guided' && styles.selectedButton
+            ]} 
+            onPress={() => handleTourTypeSelect('self-guided')}
+          >
+            <Text style={[
+              styles.tourTypeButtonText,
+              selectedTourType === 'self-guided' && styles.selectedButtonText
+            ]}>
+              Self-Guided
             </Text>
-          )}
-          
+            <Text style={[
+              styles.tourTypeDescription,
+              selectedTourType === 'self-guided' && styles.selectedDescriptionText
+            ]}>
+              Explore at your own pace with interactive maps and audio guides
+            </Text>
+          </TouchableOpacity>
 
+          <TouchableOpacity 
+            style={[
+              styles.tourTypeButton, 
+              selectedTourType === 'ambassador-led' && styles.selectedButton
+            ]} 
+            onPress={() => handleTourTypeSelect('ambassador-led')}
+          >
+            <Text style={[
+              styles.tourTypeButtonText,
+              selectedTourType === 'ambassador-led' && styles.selectedButtonText
+            ]}>
+              Ambassador-Led
+            </Text>
+            <Text style={[
+              styles.tourTypeDescription,
+              selectedTourType === 'ambassador-led' && styles.selectedDescriptionText
+            ]}>
+              Join a guided tour with a student ambassador
+            </Text>
+          </TouchableOpacity>
         </View>
-        {selectedSchoolLogoUrl && (
-          <Image 
-            source={{ uri: selectedSchoolLogoUrl }} 
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        )}
-      </TouchableOpacity>
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Select a School</Text>
-              
-              <ScrollView style={styles.schoolList}>
-                {schools.map((school) => (
-                  <TouchableOpacity
-                    key={school.id}
-                    style={[
-                      styles.schoolItem,
-                      selectedSchool === school.id && styles.selectedSchoolItem
-                    ]}
-                    onPress={() => handleSchoolSelect(school)}
-                  >
-                    <View>
-                      <Text style={styles.dropdownButtonText}>
-                        {school.name}
-                      </Text>
-                      <Text style={styles.cityText}>
-                        {school.city}, {school.state}
-                      </Text>
 
-                    </View>
-                    {school.logo_url && (
-                      <Image 
-                        source={{ uri: school.logo_url }} 
-                        style={styles.schoolLogoSmall}
-                        resizeMode="contain"
-                      />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={styles.closeButtonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      <TouchableOpacity 
-        style={[styles.button, !selectedSchool && styles.buttonDisabled]} 
-        onPress={handleSelectSchool}
-        disabled={!selectedSchool}
-      >
-        <Text style={styles.buttonText}>Start Tour</Text>
-      </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.continueButton, !selectedTourType && styles.continueButtonDisabled]} 
+          onPress={handleContinue}
+          disabled={!selectedTourType}
+        >
+          <Text style={styles.continueButtonText}>Continue</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -171,146 +107,94 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#282828',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
   },
-  indexHero: {
+  header: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    alignItems: 'flex-end',
+  },
+  ambassadorButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  ambassadorButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  heroImage: {
     width: '100%',
     height: 200,
     resizeMode: 'cover',
-    borderRadius: 10,
-    marginTop: -150,
-    marginBottom: 50,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 40,
     textAlign: 'center',
     color: '#fff',
   },
-  subtitle: {
-    fontSize: 18,
-    marginBottom: 30,
-    textAlign: 'center',
-    color: '#999',
-  },
-  dropdownButton: {
+  buttonContainer: {
     width: '100%',
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    paddingHorizontal: 15,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexDirection: 'row',
-    marginBottom: 30,
-    backgroundColor: '#f8f8f8',
+    marginBottom: 40,
   },
-  dropdownButtonText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  dropdownButtonText2: {
-    fontSize: 20,
-    color: '#333',
-  },
-  cityText: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 2,
-  },
-  logo: {
-    width: 50,
-    height: 50,
-    marginLeft: 10,
-  },
-  schoolLogoSmall: {
-    width: 30,
-    height: 30,
-    marginLeft: 10,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    width: '95%',
-    maxHeight: '70%',
-    backgroundColor: 'white',
-    borderRadius: 10,
+  tourTypeButton: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 12,
     padding: 20,
+    marginBottom: 16,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
-  modalTitle: {
-    fontSize: 20,
+  selectedButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: '#fff',
+  },
+  tourTypeButtonText: {
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
+    color: '#fff',
+    marginBottom: 8,
+  },
+  selectedButtonText: {
+    color: '#fff',
+  },
+  tourTypeDescription: {
+    fontSize: 16,
+    color: '#ccc',
     textAlign: 'center',
+    lineHeight: 22,
   },
-  schoolList: {
-    width: '100%',
-    marginBottom: 20,
-    
+  selectedDescriptionText: {
+    color: '#fff',
   },
-  schoolItem: {
-    padding: 7,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+  continueButton: {
+    backgroundColor: '#fff',
+    paddingVertical: 16,
+    paddingHorizontal: 50,
+    borderRadius: 8,
     width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  selectedSchoolItem: {
-    backgroundColor: '#e6f7ff',
+  continueButtonDisabled: {
+    backgroundColor: '#666',
   },
-  schoolItemText: {
-    fontSize: 16,
-  },
-  selectedSchoolItemText: {
-    fontWeight: 'bold',
-    color: '#2196F3',
-  },
-  closeButton: {
-    backgroundColor: '#ddd',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-  },
-  closeButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  button: {
-    backgroundColor: '#000',
-    paddingVertical: 12,
-    paddingHorizontal: 40,
-    borderRadius: 5,
-  },
-  buttonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  buttonText: {
-    color: 'white',
+  continueButtonText: {
+    color: '#282828',
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  loadingText: {
-    marginTop: 20,
-    fontSize: 16,
-    color: '#666',
   },
 }); 
