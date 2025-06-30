@@ -52,7 +52,6 @@ This is the user journey for the mobile app as the standard user will be using i
         > Collapsed just to broad topics that expand when selected (maybe) 
         - Interest
         - Building features
-            - 
         - Degree
         - Career
         - Student life
