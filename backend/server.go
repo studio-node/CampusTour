@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -17,6 +18,7 @@ type User struct {
 var users []User
 
 func main() {
+	fmt.Println("Starting server on port 8080")
 	router := mux.NewRouter()
 	router.HandleFunc("/users", getUsers).Methods("GET")
 	router.HandleFunc("/users", createUser).Methods("POST")
@@ -24,8 +26,8 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
-func getUsers(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(users)
+func getUsers(writer http.ResponseWriter, req *http.Request) {
+	json.NewEncoder(writer).Encode(users)
 }
 
 func createUser(w http.ResponseWriter, r *http.Request) {

@@ -27,6 +27,12 @@ There will be a special admin account created for this
         - Average Tour Length
         - Most Popular Times of Day
 
+- **Leads Tab**
+    - Shows all leads tagged with that school
+        - See newest at top
+        - Basic Sorts
+        - Searches maybe?
+
 - **User-Management Tab**
     - Data Section
         - Some simple data cards 

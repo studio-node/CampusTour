@@ -51,4 +51,21 @@ create table public.analytics_events (
 ) TABLESPACE pg_default;
 ```
 
+## **leads**
+```sql
+create table public.leads (
+  id uuid not null default gen_random_uuid (),
+  created_at timestamp with time zone not null,
+  school_id uuid not null,
+  name text not null,
+  identity text not null default ''::text,
+  address text not null,
+  email text not null,
+  date_of_birth date null,
+  gender text null,
+  grad_year smallint null,
+  constraint leads_pkey primary key (id),
+  constraint leads_school_id_fkey foreign KEY (school_id) references schools (id)
+) TABLESPACE pg_default;
+```
 

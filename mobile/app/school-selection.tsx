@@ -19,18 +19,22 @@ export default function SchoolSelectionScreen() {
     async function fetchData() {
       setLoading(true);
       try {
-        // Check if there's already a selected school
-        const savedSchoolId = await schoolService.getSelectedSchool();
-        if (savedSchoolId) {
-          // Redirect to tabs if a school is already selected
-          router.replace('/(tabs)/map');
-          return;
-        }
-
         // Fetch all schools
         const schoolsData = await schoolService.getSchools();
         // console.log('Fetched schools:', schoolsData);
         setSchools(schoolsData);
+
+        // Check if there's already a selected school and pre-select it
+        const savedSchoolId = await schoolService.getSelectedSchool();
+        if (savedSchoolId) {
+          const savedSchool = schoolsData.find(school => school.id === savedSchoolId);
+          if (savedSchool) {
+            setSelectedSchool(savedSchool.id);
+            setSelectedSchoolName(savedSchool.name);
+            setselectedSchoolCity(`${savedSchool.city}, ${savedSchool.state}`);
+            setselectedSchoolLogoUrl(savedSchool.logo_url || '');
+          }
+        }
         
       
       } catch (error) {
@@ -46,7 +50,9 @@ export default function SchoolSelectionScreen() {
   const handleSelectSchool = async () => {
     if (selectedSchool) {
       await schoolService.setSelectedSchool(selectedSchool);
-      router.replace('/(tabs)/map');
+      // Navigate to lead capture for self-guided users
+      // TODO: Check if user is self-guided vs ambassador-led
+      router.push('/lead-capture');
     }
   };
 
@@ -172,7 +178,7 @@ export default function SchoolSelectionScreen() {
           onPress={handleSelectSchool}
           disabled={!selectedSchool}
         >
-          <Text style={styles.buttonText}>Start Tour</Text>
+          <Text style={styles.buttonText}>Continue</Text>
         </TouchableOpacity>
       </View>
     </View>

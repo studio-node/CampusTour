@@ -77,7 +77,7 @@ export default function LeadCaptureScreen() {
     
     // TODO: Store user info for later use
     console.log('User info collected:', userInfo);
-    router.push('/school-selection');
+    router.replace('/(tabs)/map');
   };
 
   const renderDropdownField = (
