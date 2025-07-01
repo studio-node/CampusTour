@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ScrollView, 
   StyleSheet, 
@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
+import { leadsService, schoolService } from '@/services/supabase';
 
 type Identity = 'prospective-student' | 'friend-family' | 'touring-campus' | '';
 type Gender = 'male' | 'female' | 'non-binary' | 'prefer-not-to-say' | '';
@@ -43,6 +44,24 @@ export default function LeadCaptureScreen() {
 
   const [showIdentityModal, setShowIdentityModal] = useState(false);
   const [showGenderModal, setShowGenderModal] = useState(false);
+  const [schoolId, setSchoolId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Get the selected school ID on component mount
+  useEffect(() => {
+    const getSelectedSchool = async () => {
+      const selectedSchoolId = await schoolService.getSelectedSchool();
+      if (!selectedSchoolId) {
+        // If no school is selected, redirect back
+        Alert.alert('Error', 'No school selected. Please select a school first.');
+        router.back();
+        return;
+      }
+      setSchoolId(selectedSchoolId);
+    };
+
+    getSelectedSchool();
+  }, [router]);
 
   const identityOptions = [
     { value: 'prospective-student', label: 'Prospective Student' },
@@ -65,19 +84,83 @@ export default function LeadCaptureScreen() {
     return userInfo.identity && 
            userInfo.name.trim() && 
            userInfo.address.trim() && 
-           userInfo.email.trim() && 
-           userInfo.phone.trim();
+           userInfo.email.trim();
   };
 
-  const handleContinue = () => {
+  // Helper function to format date for database (YYYY-MM-DD)
+  const formatDateForDatabase = (dateString: string): string | null => {
+    if (!dateString.trim()) return null;
+    
+    // Try to parse MM/DD/YYYY format
+    const parts = dateString.split('/');
+    if (parts.length === 3) {
+      const month = parts[0].padStart(2, '0');
+      const day = parts[1].padStart(2, '0');
+      const year = parts[2];
+      
+      // Basic validation
+      if (year.length === 4 && parseInt(month) >= 1 && parseInt(month) <= 12 && parseInt(day) >= 1 && parseInt(day) <= 31) {
+        return `${year}-${month}-${day}`;
+      }
+    }
+    
+    return null;
+  };
+
+  const handleContinue = async () => {
     if (!isFormValid()) {
       Alert.alert('Missing Information', 'Please fill out all required fields.');
       return;
     }
-    
-    // TODO: Store user info for later use
-    console.log('User info collected:', userInfo);
-    router.replace('/(tabs)/map');
+
+    if (!schoolId) {
+      Alert.alert('Error', 'No school selected. Please try again.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Prepare lead data for database
+      const leadData = {
+        school_id: schoolId,
+        name: userInfo.name.trim(),
+        identity: userInfo.identity,
+        address: userInfo.address.trim(),
+        email: userInfo.email.trim().toLowerCase(),
+        date_of_birth: formatDateForDatabase(userInfo.dateOfBirth),
+        gender: userInfo.gender || null,
+        grad_year: userInfo.gradYear.trim() ? parseInt(userInfo.gradYear.trim()) : null
+      };
+
+      // Save to database
+      const result = await leadsService.createLead(leadData);
+
+      if (result.success) {
+        // Success - navigate to main app
+        router.replace('/(tabs)/map');
+      } else {
+        // Show error
+        Alert.alert(
+          'Error Saving Information', 
+          result.error || 'Failed to save your information. Please try again.',
+          [
+            { text: 'OK' }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error saving lead:', error);
+      Alert.alert(
+        'Error', 
+        'An unexpected error occurred. Please try again.',
+        [
+          { text: 'OK' }
+        ]
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const renderDropdownField = (
@@ -237,17 +320,18 @@ export default function LeadCaptureScreen() {
         )}
 
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>
-            Phone Number <Text style={styles.required}>*</Text>
-          </Text>
+          <Text style={styles.label}>Phone Number</Text>
           <TextInput
             style={styles.textInput}
             value={userInfo.phone}
             onChangeText={(text) => updateUserInfo('phone', text)}
-            placeholder="Enter your phone number"
+            placeholder="Enter your phone number (optional)"
             placeholderTextColor="#999"
             keyboardType="phone-pad"
           />
+          <Text style={styles.fieldNote}>
+            Note: Phone number will not be saved to our database
+          </Text>
         </View>
 
         <View style={styles.fieldContainer}>
@@ -263,11 +347,13 @@ export default function LeadCaptureScreen() {
         </View>
 
         <TouchableOpacity 
-          style={[styles.continueButton, !isFormValid() && styles.continueButtonDisabled]} 
+          style={[styles.continueButton, (!isFormValid() || isSubmitting) && styles.continueButtonDisabled]} 
           onPress={handleContinue}
-          disabled={!isFormValid()}
+          disabled={!isFormValid() || isSubmitting}
         >
-          <Text style={styles.continueButtonText}>Continue</Text>
+          <Text style={styles.continueButtonText}>
+            {isSubmitting ? 'Saving...' : 'Continue'}
+          </Text>
         </TouchableOpacity>
 
         <View style={styles.bottomSpacing} />
@@ -341,6 +427,12 @@ const styles = StyleSheet.create({
   },
   required: {
     color: '#ff6b6b',
+  },
+  fieldNote: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   textInput: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',

@@ -206,7 +206,7 @@ export default function MapScreen() {
             style={dynamicStyles.changeSchoolButton}
             onPress={handleChangeSchool}
           >
-            <Text style={styles.buttonTextSmall}>Change School</Text>
+            <Text style={styles.buttonTextSmall}>Back to Start</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.resetButton}

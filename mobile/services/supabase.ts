@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
-import { supabaseUrl, supabaseAnonKey } from '../../supa';
+import { supabaseUrl, supabaseAnonKey } from './supa.js';
 import 'react-native-url-polyfill/auto';
 
 // Supabase configuration
@@ -221,6 +221,53 @@ export const locationService = {
 // outdoor_space
 // historical
 // service
+
+// Lead interface
+export interface Lead {
+  id?: string;
+  created_at?: string;
+  school_id: string;
+  name: string;
+  identity: string;
+  address: string;
+  email: string;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  grad_year?: number | null;
+}
+
+// Leads service
+export const leadsService = {
+  async createLead(lead: Omit<Lead, 'id' | 'created_at'>): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .insert([{
+          school_id: lead.school_id,
+          name: lead.name,
+          identity: lead.identity,
+          address: lead.address,
+          email: lead.email,
+          date_of_birth: lead.date_of_birth,
+          gender: lead.gender,
+          grad_year: lead.grad_year,
+          created_at: new Date().toISOString()
+        }])
+        .select();
+
+      if (error) {
+        console.error('Error creating lead:', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('Lead created successfully:', data);
+      return { success: true };
+    } catch (error) {
+      console.error('Exception creating lead:', error);
+      return { success: false, error: 'Failed to save lead information' };
+    }
+  }
+};
 
 // Analytics interface
 export interface AnalyticsEvent {

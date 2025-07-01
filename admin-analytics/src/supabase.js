@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { supabaseUrl, supabaseAnonKey } from '../../supa'
+import { supabaseUrl, supabaseAnonKey } from './supa.js'
 
 // Create and export the Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
