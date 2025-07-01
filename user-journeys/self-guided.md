@@ -93,7 +93,7 @@ On tour Creation include ability to invite others (including for them to select 
     - Hidden Easter Eggs / Treasure Hunts / Scavenger items
 
 - **Waypoints**
-    - Colateral
+    - Collateral
         - Any media or talking points provided by the builder profile
         - Any Games
         - VR Experience
