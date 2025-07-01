@@ -3,7 +3,7 @@
 This will be a web app that will basically have to be accessed on PC (it just would a pain to build a tour otherwise). I'm thinking this will be the dashboard for the school. You can build the tour, edit your tour, view your useage data and analytics, set up user profiles for ambassadors and stuff, and any other stuff the school would need to manage. 
 
 
-## Pre-building Section
+### Pre-building Section
 
 - **Sign-up / Sign-in**
     - Sign-up
@@ -15,7 +15,15 @@ This will be a web app that will basically have to be accessed on PC (it just wo
         - Password
 
 
-## Building Section
+# Building Section
+
+## Dept Builder
+
+This is where the dept chairs will be inputting the content and collateral for Waypoints that are assgined to them by "admin" (the recruiting dept).
+
+
+
+## Admin Builder
 
 - **Locations List**
     - Cards for each location
@@ -27,6 +35,9 @@ This will be a web app that will basically have to be accessed on PC (it just wo
     - Input Fields
         - Field Descriptions
         - Required or not
+        - Selecting
+            - Dropdown
+            - Text Input / Search
         - Actual Fields ([table schema here](../supabase_table_schemas.md))
             - Name
             - Coordinates
@@ -36,14 +47,16 @@ This will be a web app that will basically have to be accessed on PC (it just wo
             - Image Url
                 - Must be online fetchable image
             - Description
-            - Interests
-                > Try and avoid multiple of same interest types i.e. `sport vs sports`
-                - Dropdown
-                - Text Input / Search
+            - Features
+            - Tags
+                - Interests
+                - Why go here
+                - History
+                - Fun facts
+                - Traditions
+                - Culture
+                > Try and avoid multiple of same tag types i.e. `sport vs sports`
             - is_tour_stop (change to default tour stop)
             - Order Index
                 - For deciding tour order
-            - **MORE WILL BE ADDED HERE...**
-                - 
-
-        
+    

@@ -95,6 +95,22 @@ export const schoolService = {
     } catch (error) {
       console.error('Error clearing selected school:', error);
     }
+  },
+
+  
+  async getClosestSchools(latitude: number, longitude: number): Promise<School[]> {
+    const { data, error } = await supabase
+      .rpc('schools_ordered_by_distance', {
+        user_lat: latitude,
+        user_lon: longitude
+    });
+
+    if (error) {
+      console.error('Error fetching closest schools:', error);
+      return [];
+    }
+
+    return data;
   }
 };
 

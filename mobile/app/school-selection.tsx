@@ -20,8 +20,9 @@ export default function SchoolSelectionScreen() {
       setLoading(true);
       try {
         // Fetch all schools
-        const schoolsData = await schoolService.getSchools();
-        // console.log('Fetched schools:', schoolsData);
+        const schoolsData = await schoolService.getClosestSchools(37.67885265439308, -113.07511166100154);
+
+        console.log('Fetched schools:', schoolsData);
         setSchools(schoolsData);
 
         // Check if there's already a selected school and pre-select it

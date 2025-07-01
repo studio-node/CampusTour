@@ -25,6 +25,17 @@ If the ambassador is using the app, it means they are giving a guided tour using
             - **NOT** school 
                 - Their name and email will be in the system already from school creating ambassador role
 
+- Tour type (scheduled vs impromptu)
+    - Scheduled
+        - Select Tour groups
+            - Some info about each group
+            - Tap group for details
+            - Can see tour for the group
+    - Impromptu
+        - Creates tour group
+        - Invite tour members
+        - Complete survey
+  
 - Create Tour 
     - Create QR Code for tour-group to scan and start tour
     - Choose minimum/default tour stops (users will be able to add their own after)
@@ -37,6 +48,14 @@ If the ambassador is using the app, it means they are giving a guided tour using
 ### Actual tour Screen
 
 > For the ambassadors, the app from here will be very similar to standard users, just with extra features and sections.
+
+
+- Menu navigation (maybe hamburger menu)
+    - Finish tour
+    - Invite new members
+    - Tour members list
+    > After tour is finished there's a "Finish Tour" pop up
+    > Try to stop tour sessions from going on forever
 
 - Map Tab
     - This will show all the tour stops **AND** all the interest points that might not be shown to standard users and the tour-group
