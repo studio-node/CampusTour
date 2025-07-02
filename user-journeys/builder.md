@@ -21,9 +21,24 @@ This will be a web app that will basically have to be accessed on PC (it just wo
 
 This is where the dept chairs will be inputting the content and collateral for Waypoints that are assgined to them by "admin" (the recruiting dept).
 
-
+- **What they can add**
+    - Description
+    - Tags
+        - Interests
+        - Careers 
+        - Majors
+    - Location Features
+    - Card image url/upload
+    - Talking Points
+        - What makes this interesting
+        - Why go here
+        - History
+        - Fun facts
+        - Traditions
+        - Culture
 
 ## Admin Builder
+
 
 - **Locations List**
     - Cards for each location
@@ -59,4 +74,7 @@ This is where the dept chairs will be inputting the content and collateral for W
             - is_tour_stop (change to default tour stop)
             - Order Index
                 - For deciding tour order
+            - No-Go Zones
     
+
+
