@@ -25,9 +25,25 @@ export default function TourTypeSelectionScreen() {
     }
   };
 
-  const handleAmbassadorAction = () => {
+  const handleAmbassadorAction = async () => {
     // TODO: Implement ambassador functionality
-    console.log('Ambassador button pressed');
+
+    console.log("fetching");
+
+    const options = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        "school_id": "e5a9dfd2-0c88-419e-b891-0a62283b8abd",
+        "interests": ["Arts", "Student Life", "Sports", "Clubs", "Academic", "Campus Activities"]
+      }),
+    };
+    const response = await fetch('https://campustourbackend.onrender.com/generate-tour', options);
+    // const response = await fetch('https://campustourbackend.onrender.com/keep-alive');
+    console.log("response", await response.json());
+    // console.log("response", await response.text());
   };
 
   return (
