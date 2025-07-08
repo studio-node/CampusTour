@@ -159,6 +159,7 @@ export default function TourScreen() {
   const [availableInterests, setAvailableInterests] = useState<Interest[]>([]);
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [primaryColor, setPrimaryColor] = useState<string>('#990000'); // Utah Tech red as fallback
+  const [isGeneratingTour, setIsGeneratingTour] = useState<boolean>(false);
   
   // Location tracking and geofencing state
   const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
@@ -366,6 +367,8 @@ export default function TourScreen() {
 
   // Generate tour based on selected interests
   const generateTour = async () => {
+    setIsGeneratingTour(true); // Set loading state
+    
     try {
       // Export analytics event for interests chosen
       if (schoolId && selectedInterests.length > 0) {
@@ -378,15 +381,94 @@ export default function TourScreen() {
         await analyticsService.exportInterestsChosen(schoolId, selectedInterestNames);
       }
       
-      const filteredTourStops = await getTourStops(true);
-      setTourStops(filteredTourStops);
+      // Call server endpoint to generate tour
+      if (!schoolId || selectedInterests.length === 0) {
+        console.log('❌ Falling back to local generation because:');
+
+        // Fall back to local filtering if no school or no interests
+        const filteredTourStops = await getTourStops(true);
+        setTourStops(filteredTourStops);
+        setShowInterestSelection(false);
+        setIsGeneratingTour(false);
+        return;
+      }
+
+      // Convert interest IDs back to display names for the API call
+      const selectedInterestNames = selectedInterests.map(interestId => {
+        const interest = availableInterests.find(i => i.id === interestId);
+        return interest ? interest.name : interestId;
+      });
+
+      const requestBody = {
+        school_id: schoolId,
+        interests: selectedInterestNames
+      };
+
+
+      // Create AbortController for timeout handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout for AI processing
+
+      const response = await fetch('https://campustourbackend.onrender.com/generate-tour', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId); // Clear timeout if request completes
+
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server responded with status: ${response.status} - ${errorText}`);
+      }
+
+      const tourLocationIds = await response.json();
+      console.log('✅ Server returned tour location IDs:', tourLocationIds);
+
+      // Get all locations for the school
+      const allLocations = await locationService.getTourStops(schoolId);
+      
+      // Filter locations to only include those returned by the server, in the order returned
+      const orderedTourStops = tourLocationIds
+        .map((locationId: string) => allLocations.find((location: Location) => location.id === locationId))
+        .filter((location: Location | undefined): location is Location => location !== undefined); // Remove any undefined results
+
+      
+      setTourStops(orderedTourStops);
       setShowInterestSelection(false);
+      setIsGeneratingTour(false);
     } catch (error) {
-      console.error('Error generating tour or exporting analytics:', error);
-      // Still continue with tour generation even if analytics fails
-      const filteredTourStops = await getTourStops(true);
-      setTourStops(filteredTourStops);
-      setShowInterestSelection(false);
+      // Log error message without the full HTML content
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('❌ Error generating tour:', errorMessage);
+      
+      // Check if it's a timeout error
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('⏰ Server request timed out (AI processing takes longer than 90 seconds)');
+        console.log('🔄 The server might still be processing your request in the background');
+      }
+      
+      // Fall back to local filtering if server call fails
+      console.log('🔄 Falling back to local tour generation');
+      try {
+        const filteredTourStops = await getTourStops(true);
+        setTourStops(filteredTourStops);
+        setShowInterestSelection(false);
+        setIsGeneratingTour(false);
+        console.log('✅ Local tour generation completed as fallback');
+      } catch (fallbackError) {
+        console.error('❌ Error with fallback tour generation:', fallbackError);
+        // If everything fails, show default tour
+        console.log('🔄 Falling back to default tour');
+        const defaultTourStops = await getTourStops(false);
+        setTourStops(defaultTourStops);
+        setShowInterestSelection(false);
+        setIsGeneratingTour(false);
+      }
     }
   };
 
@@ -692,15 +774,19 @@ export default function TourScreen() {
             style={[
               styles.generateTourButton,
               dynamicStyles.generateTourButton,
-              selectedInterests.length === 0 && styles.generateTourButtonDisabled
+              (selectedInterests.length === 0 || isGeneratingTour) && styles.generateTourButtonDisabled
             ]}
             onPress={generateTour}
-            disabled={selectedInterests.length === 0}
+            disabled={selectedInterests.length === 0 || isGeneratingTour}
           >
-            <Text style={styles.buttonText}>Generate Tour</Text>
+            <Text style={styles.buttonText}>
+              {isGeneratingTour ? 'Generating Tour with AI...' : 'Generate Tour'}
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={showDefaultTour}>
-            <Text style={styles.skipText}>Skip to Default Tour</Text>
+          <TouchableOpacity onPress={showDefaultTour} disabled={isGeneratingTour}>
+            <Text style={[styles.skipText, isGeneratingTour && styles.skipTextDisabled]}>
+              {isGeneratingTour ? 'Please wait...' : 'Skip to Default Tour'}
+            </Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -825,6 +911,10 @@ const styles = StyleSheet.create({
     color: '#666666',
     fontSize: 14,
     marginTop: 8,
+  },
+  skipTextDisabled: {
+    color: '#CCCCCC',
+    opacity: 0.5,
   },
   tourList: {
     flex: 1,
