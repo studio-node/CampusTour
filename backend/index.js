@@ -1,8 +1,7 @@
 import express, { json } from 'express';
-import GeminiCaller from './gemini_caller.js';
-import { supabaseUrl, supabaseAnonKey } from './secrets.js';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { getLocations } from './supabase.js';
+import GeminiCaller from './gemini_caller.mjs';
+import { createClient } from '@supabase/supabase-js';
+import { getLocations } from './supabase.mjs';
 
 // const app = express();
 // const port = 3000;
@@ -18,7 +17,7 @@ import { getLocations } from './supabase.js';
 
 
 
-function makeLocationsArrayForLambda(locations: any[]) {
+function makeLocationsArrayForLambda(locations) {
     let locationObjects = [];
     for (let location of locations) {
         locationObjects.push({
@@ -44,7 +43,7 @@ async function main() {
 
     // console.log("body:", JSON.parse(stringed));
     // return;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = createClient(process.env.supabaseUrl, process.env.supabaseAnonKey);
 
 
     const locations = await getLocations("e5a9dfd2-0c88-419e-b891-0a62283b8abd", supabase);

@@ -1,4 +1,4 @@
-import { SupabaseClient } from "@supabase/supabase-js";
+// import { SupabaseClient } from "@supabase/supabase-js";
 
 // export interface Region {
 //     latitude: number;
@@ -15,22 +15,22 @@ import { SupabaseClient } from "@supabase/supabase-js";
 //     coordinates?: Region;
 //     logo_url?: string;
 // }
-export interface Location {
-    id: string;
-    name: string;
-    coordinates: {
-      latitude: number;
-      longitude: number;
-    };
-    image: string;
-    description: string;
-    interests: string[];
-    isTourStop: boolean;
-    order_index?: number;
-    type?: string;
-}
+// export interface Location {
+//     id: string;
+//     name: string;
+//     coordinates: {
+//       latitude: number;
+//       longitude: number;
+//     };
+//     image: string;
+//     description: string;
+//     interests: string[];
+//     isTourStop: boolean;
+//     order_index?: number;
+//     type?: string;
+// }
 
-export async function getLocations(schoolId: string, supabase: SupabaseClient): Promise<Location[]> {
+export async function getLocations(schoolId, supabase) {
     try {
       const { data, error } = await supabase
         .from('locations')

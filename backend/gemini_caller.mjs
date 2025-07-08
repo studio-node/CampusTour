@@ -1,10 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { GEMINI_TOKEN } from "./secrets.js";
 
 
 export default class GeminiCaller {
 
-  static ai: GoogleGenAI = new GoogleGenAI({apiKey: GEMINI_TOKEN});
+  static ai = new GoogleGenAI({apiKey: process.env.GEMINI_TOKEN});
   
   static async generateTour(locations, interests) {
 
