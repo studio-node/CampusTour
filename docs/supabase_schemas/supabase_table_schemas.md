@@ -8,13 +8,14 @@ create table public.locations (
   name text not null,
   latitude double precision not null,
   longitude double precision not null,
-  image_url text null,
   description text null,
   interests text[] null,
-  is_tour_stop boolean null default true,
+  default_stop boolean null default true,
   order_index integer null,
   created_at timestamp with time zone null default now(),
-  type public.location_type null,
+  careers text[] null,
+  talking_points text[] null,
+  features text[] null,
   constraint locations_pkey primary key (id),
   constraint locations_school_id_fkey foreign KEY (school_id) references schools (id) on delete CASCADE
 ) TABLESPACE pg_default;
@@ -31,6 +32,7 @@ create table public.schools (
   coordinates jsonb null,
   primary_color text null default '#990000'::text,
   logo_url text null,
+  degrees_offered text[] null,
   constraint schools_pkey primary key (id)
 ) TABLESPACE pg_default;
 ```
@@ -69,3 +71,16 @@ create table public.leads (
 ) TABLESPACE pg_default;
 ```
 
+## **location_media**
+```sql
+create table public.location_media (
+  id uuid not null default gen_random_uuid (),
+  created_at timestamp with time zone not null default now(),
+  location_id uuid not null,
+  stored_in_supabase boolean not null,
+  media_type text not null,
+  url text not null,
+  constraint location_media_pkey primary key (id),
+  constraint location_media_location_id_fkey foreign KEY (location_id) references locations (id) on update CASCADE on delete CASCADE
+) TABLESPACE pg_default;
+```
