@@ -181,6 +181,46 @@ export default function BuildingInfoScreen() {
             </View>
           )}
           
+          {building.careers && building.careers.length > 0 && (
+            <View style={styles.interestsSection}>
+              <Text style={styles.sectionTitle}>Career Opportunities</Text>
+              <View style={styles.interestTags}>
+                {building.careers.map((career, index) => (
+                  <View key={index} style={styles.careerTag}>
+                    <Text style={styles.interestTagText}>{career}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+          
+          {building.talking_points && building.talking_points.length > 0 && (
+            <View style={styles.interestsSection}>
+              <Text style={styles.sectionTitle}>Key Highlights</Text>
+              <View style={styles.talkingPointsList}>
+                {building.talking_points.map((point, index) => (
+                  <View key={index} style={styles.talkingPointItem}>
+                    <Text style={styles.bulletPoint}>•</Text>
+                    <Text style={styles.talkingPointText}>{point}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+          
+          {building.features && building.features.length > 0 && (
+            <View style={styles.interestsSection}>
+              <Text style={styles.sectionTitle}>Features & Amenities</Text>
+              <View style={styles.interestTags}>
+                {building.features.map((feature, index) => (
+                  <View key={index} style={styles.featureTag}>
+                    <Text style={styles.interestTagText}>{feature}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+          
         </View>
       </ScrollView>
       <TouchableOpacity 
@@ -289,6 +329,42 @@ const styles = StyleSheet.create({
   interestTagText: {
     fontSize: 14,
     color: '#FFFFFF',
+  },
+  careerTag: {
+    backgroundColor: '#2E7D32', // Green for careers
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  featureTag: {
+    backgroundColor: '#1976D2', // Blue for features
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  talkingPointsList: {
+    flex: 1,
+  },
+  talkingPointItem: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    alignItems: 'flex-start',
+  },
+  bulletPoint: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    marginRight: 8,
+    marginTop: 2,
+  },
+  talkingPointText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    flex: 1,
+    lineHeight: 20,
   },
   viewOnMapButton: {
     position: 'absolute',

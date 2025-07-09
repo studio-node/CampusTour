@@ -114,6 +114,16 @@ export const schoolService = {
   }
 };
 
+// Location media interface
+export interface LocationMedia {
+  id: string;
+  location_id: string;
+  stored_in_supabase: boolean;
+  media_type: string;
+  url: string;
+  created_at: string;
+}
+
 // Location service
 export interface Location {
   id: string;
@@ -122,20 +132,43 @@ export interface Location {
     latitude: number;
     longitude: number;
   };
-  image: string;
+  image: string; // Primary image URL for backward compatibility
+  media?: LocationMedia[]; // Array of all media items
   description: string;
   interests: string[];
+  careers?: string[];
+  talking_points?: string[];
+  features?: string[];
   isTourStop: boolean;
   order_index?: number;
   type?: string;
 }
 
 export const locationService = {
+  // Helper function to get primary image from media array
+  getPrimaryImage(media: LocationMedia[]): string {
+    if (!media || media.length === 0) return '';
+    
+    // Find the primary image type media item
+    const primaryImage = media.find(item => item.media_type === 'primaryImage');
+    return primaryImage ? primaryImage.url : '';
+  },
+
   async getLocations(schoolId: string): Promise<Location[]> {
     try {
       const { data, error } = await supabase
         .from('locations')
-        .select('*')
+        .select(`
+          *,
+          location_media (
+            id,
+            location_id,
+            stored_in_supabase,
+            media_type,
+            url,
+            created_at
+          )
+        `)
         .eq('school_id', schoolId)
         .order('order_index', { ascending: true });
 
@@ -145,20 +178,27 @@ export const locationService = {
       }
       
       // Transform database data to match our app's Location interface
-      return data.map(item => ({
-        id: item.id,
-        name: item.name,
-        coordinates: {
-          latitude: item.latitude,
-          longitude: item.longitude
-        },
-        image: item.image_url,
-        description: item.description,
-        interests: item.interests || [],
-        isTourStop: item.is_tour_stop,
-        order_index: item.order_index,
-        type: item.type
-      }));
+      return data.map(item => {
+        const media: LocationMedia[] = item.location_media || [];
+        return {
+          id: item.id,
+          name: item.name,
+          coordinates: {
+            latitude: item.latitude,
+            longitude: item.longitude
+          },
+          image: this.getPrimaryImage(media), // Get primary image from media
+          media: media,
+          description: item.description,
+          interests: item.interests || [],
+          careers: item.careers || [],
+          talking_points: item.talking_points || [],
+          features: item.features || [],
+          isTourStop: item.default_stop,
+          order_index: item.order_index,
+          type: item.type
+        };
+      });
     } catch (error) {
       console.error('Exception fetching locations:', error);
       return [];
@@ -169,7 +209,17 @@ export const locationService = {
     try {
       const { data, error } = await supabase
         .from('locations')
-        .select('*')
+        .select(`
+          *,
+          location_media (
+            id,
+            location_id,
+            stored_in_supabase,
+            media_type,
+            url,
+            created_at
+          )
+        `)
         .eq('school_id', schoolId)
         .order('order_index', { ascending: true });
 
@@ -179,20 +229,27 @@ export const locationService = {
       }
 
       // Transform database data to match our app's Location interface
-      return data.map(item => ({
-        id: item.id,
-        name: item.name,
-        coordinates: {
-          latitude: item.latitude,
-          longitude: item.longitude
-        },
-        image: item.image_url,
-        description: item.description,
-        interests: item.interests || [],
-        isTourStop: item.is_tour_stop,
-        order_index: item.order_index,
-        type: item.type
-      }));
+      return data.map(item => {
+        const media: LocationMedia[] = item.location_media || [];
+        return {
+          id: item.id,
+          name: item.name,
+          coordinates: {
+            latitude: item.latitude,
+            longitude: item.longitude
+          },
+          image: this.getPrimaryImage(media), // Get primary image from media
+          media: media,
+          description: item.description,
+          interests: item.interests || [],
+          careers: item.careers || [],
+          talking_points: item.talking_points || [],
+          features: item.features || [],
+          isTourStop: item.default_stop,
+          order_index: item.order_index,
+          type: item.type
+        };
+      });
     } catch (error) {
       console.error('Exception fetching tour stops:', error);
       return [];
