@@ -2,20 +2,21 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-type TourType = 'self-guided' | 'ambassador-led' | null;
+import { userTypeService, UserType, schoolService } from '@/services/supabase';
 
 export default function TourTypeSelectionScreen() {
-  const [selectedTourType, setSelectedTourType] = useState<TourType>(null);
+  const [selectedTourType, setSelectedTourType] = useState<UserType>(null);
   const router = useRouter();
 
-  const handleTourTypeSelect = (tourType: TourType) => {
+  const handleTourTypeSelect = (tourType: UserType) => {
     setSelectedTourType(tourType);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (selectedTourType) {
-      // TODO: Store the selected tour type (we'll implement this when you add state management)
+      // Store the selected tour type using the service
+      await userTypeService.setUserType(selectedTourType);
+      
       if (selectedTourType === 'self-guided') {
         router.push('/school-selection');
       } else {
@@ -26,8 +27,18 @@ export default function TourTypeSelectionScreen() {
   };
 
   const handleAmbassadorAction = async () => {
-    // TODO: Implement ambassador functionality for joining ambassador-led tours
-    console.log('Ambassador button pressed - functionality to be implemented');
+    // Set user type as ambassador using the service
+    await userTypeService.setUserType('ambassador');
+    
+    // Navigate directly to school selection for ambassadors
+    router.push('/school-selection');
+  };
+
+    //  This is just here for testing purposes
+  const skipToMap = async () => {
+    await userTypeService.setUserType('self-guided');
+    await schoolService.setSelectedSchool('e5a9dfd2-0c88-419e-b891-0a62283b8abd');
+    router.push('/map');
   };
 
   return (
@@ -38,6 +49,9 @@ export default function TourTypeSelectionScreen() {
       <View style={styles.header}>
         <TouchableOpacity style={styles.ambassadorButton} onPress={handleAmbassadorAction}>
           <Text style={styles.ambassadorButtonText}>Ambassador</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.skipToMapButton} onPress={skipToMap}>
+          <Text>Skip to map</Text>
         </TouchableOpacity>
       </View>
 
@@ -117,6 +131,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 10,
     alignItems: 'flex-end',
+  },
+  skipToMapButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
+    paddingVertical: 8, 
+    paddingHorizontal: 16, 
+    borderRadius: 20, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255, 255, 255, 0.3)', 
+    alignSelf: 'flex-start',
   },
   ambassadorButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',

@@ -1,5 +1,5 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Location, locationService, schoolService } from '@/services/supabase';
+import { Location, locationService, schoolService, userTypeService } from '@/services/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -16,6 +16,7 @@ export default function BuildingInfoScreen() {
   const [error, setError] = useState<string | null>(null);
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [primaryColor, setPrimaryColor] = useState<string>('#990000'); // Utah Tech red as fallback
+  const [isAmbassador, setIsAmbassador] = useState<boolean>(false);
 
   // Get the selected school ID and details
   useEffect(() => {
@@ -38,6 +39,16 @@ export default function BuildingInfoScreen() {
 
     getSelectedSchool();
   }, [router]);
+
+  // Check if user is an ambassador
+  useEffect(() => {
+    const checkUserType = async () => {
+      const ambassadorStatus = await userTypeService.isAmbassador();
+      setIsAmbassador(ambassadorStatus);
+    };
+
+    checkUserType();
+  }, []);
 
   // Fetch the building information
   useEffect(() => {
@@ -194,7 +205,7 @@ export default function BuildingInfoScreen() {
             </View>
           )}
           
-          {building.talking_points && building.talking_points.length > 0 && (
+          {isAmbassador && building.talking_points && building.talking_points.length > 0 && (
             <View style={styles.interestsSection}>
               <Text style={styles.sectionTitle}>Key Highlights</Text>
               <View style={styles.talkingPointsList}>
@@ -270,7 +281,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingBottom: 100,
+    paddingBottom: 200,
   },
   buildingImage: {
     height: 200,
@@ -290,6 +301,7 @@ const styles = StyleSheet.create({
   },
   buildingInfo: {
     padding: 16,
+    marginBottom: 50,
     flex: 1,
   },
   buildingName: {

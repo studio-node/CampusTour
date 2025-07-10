@@ -1,8 +1,19 @@
 # Campus Tour
 
+
+
+## UT SCHOOL ID: e5a9dfd2-0c88-419e-b891-0a62283b8abd
+
+
+
+
 ## TODO
 
 - change how university select is structured so it works better with new setup
+- media (maybe not mvp)
+
+
+
 
 
 # General Ideas with no rhyme or reason
@@ -10,12 +21,23 @@
 > These are all **maybes**
 
 - Make it so one school can have multiple campuses
-
-# vvvvv stuff from prototyping time vvvv
-
-## Stuff I still want to add
-- Fun facts section
 - Games or interactive section with each stop
+
+
+
+
+
+
+### Ways to close and reference an issue in commit message:
+- `fix #xxx`
+- `fixes #xxx`
+- `fixed #xxx`
+- `close #xxx`
+- `closes #xxx`
+- `closed #xxx`
+- `resolve #xxx`
+- `resolves #xxx`
+- `resolved #xxx`
 
 ## Other Apps
 
@@ -29,14 +51,3 @@
     - [Github for React-Native Package](https://github.com/rnmapbox/maps)
     - [Getting Started for React-Native](https://github.com/rnmapbox/maps/blob/main/docs/GettingStarted.md)
 
-
-### Ways to close and reference an issue in commit message:
-- `fix #xxx`
-- `fixes #xxx`
-- `fixed #xxx`
-- `close #xxx`
-- `closes #xxx`
-- `closed #xxx`
-- `resolve #xxx`
-- `resolves #xxx`
-- `resolved #xxx`

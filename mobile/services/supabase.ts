@@ -531,3 +531,51 @@ export const analyticsService = {
     }
   }
 };
+
+// User type definitions
+export type UserType = 'self-guided' | 'ambassador-led' | 'ambassador' | null;
+
+// Storage key for tour type
+const TOUR_TYPE_STORAGE_KEY = 'selectedTourType';
+
+// User type service
+export const userTypeService = {
+  // Get the current user type from storage
+  async getUserType(): Promise<UserType> {
+    try {
+      const storedType = await AsyncStorage.getItem(TOUR_TYPE_STORAGE_KEY);
+      return storedType as UserType;
+    } catch (error) {
+      console.error('Error getting user type:', error);
+      return null;
+    }
+  },
+
+  // Set the user type in storage
+  async setUserType(userType: UserType): Promise<void> {
+    try {
+      if (userType) {
+        await AsyncStorage.setItem(TOUR_TYPE_STORAGE_KEY, userType);
+      } else {
+        await AsyncStorage.removeItem(TOUR_TYPE_STORAGE_KEY);
+      }
+    } catch (error) {
+      console.error('Error setting user type:', error);
+    }
+  },
+
+  // Check if current user is an ambassador
+  async isAmbassador(): Promise<boolean> {
+    const userType = await this.getUserType();
+    return userType === 'ambassador';
+  },
+
+  // Clear the stored user type
+  async clearUserType(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(TOUR_TYPE_STORAGE_KEY);
+    } catch (error) {
+      console.error('Error clearing user type:', error);
+    }
+  }
+};

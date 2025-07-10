@@ -172,7 +172,7 @@ export default function MapScreen() {
   const mapProvider = Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT;
 
   // Handle school change
-  const handleChangeSchool = async () => {
+  const handleRestartExperience = async () => {
     await schoolService.clearSelectedSchool();
     router.replace('/');
   };
@@ -204,7 +204,7 @@ export default function MapScreen() {
         <View style={styles.headerButtons}>
           <TouchableOpacity
             style={dynamicStyles.changeSchoolButton}
-            onPress={handleChangeSchool}
+            onPress={handleRestartExperience}
           >
             <Text style={styles.buttonTextSmall}>Back to Start</Text>
           </TouchableOpacity>
