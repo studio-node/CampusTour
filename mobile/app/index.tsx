@@ -132,15 +132,6 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     alignItems: 'flex-end',
   },
-  skipToMapButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-    paddingVertical: 8, 
-    paddingHorizontal: 16, 
-    borderRadius: 20, 
-    borderWidth: 1, 
-    borderColor: 'rgba(255, 255, 255, 0.3)', 
-    alignSelf: 'flex-start',
-  },
   ambassadorButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingVertical: 8,
@@ -223,5 +214,15 @@ const styles = StyleSheet.create({
     color: '#282828',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  //  This is just here for testing purposes
+  skipToMapButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
+    paddingVertical: 8, 
+    paddingHorizontal: 16, 
+    borderRadius: 20, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255, 255, 255, 0.3)', 
+    alignSelf: 'flex-start',
   },
 }); 

@@ -174,6 +174,7 @@ export default function TourScreen() {
   const [locationEntryTimes, setLocationEntryTimes] = useState<{[locationId: string]: number}>({});
   const [previouslyEnteredLocations, setPreviouslyEnteredLocations] = useState<Set<string>>(new Set());
 
+
   // Get the selected school ID and details
   useEffect(() => {
     const getSelectedSchool = async () => {
