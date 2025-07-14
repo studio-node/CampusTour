@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import HamburgerMenu from '@/components/HamburgerMenu';
 
 // Storage keys (same as tour.tsx)
 const STORAGE_KEYS = {
@@ -266,7 +267,9 @@ export default function CurrentLocationScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={[styles.header, dynamicStyles.headerBorder]}>
+          <HamburgerMenu primaryColor={primaryColor} />
           <Text style={styles.headerText}>Current Location</Text>
+          <View style={styles.headerSpacer} />
         </View>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Finding your current location...</Text>
@@ -280,7 +283,9 @@ export default function CurrentLocationScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={[styles.header, dynamicStyles.headerBorder]}>
+          <HamburgerMenu primaryColor={primaryColor} />
           <Text style={styles.headerText}>Current Location</Text>
+          <View style={styles.headerSpacer} />
         </View>
         <View style={styles.errorContainer}>
           <IconSymbol name="location.slash" size={64} color="#666" style={styles.errorIcon} />
@@ -311,7 +316,9 @@ export default function CurrentLocationScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.header, dynamicStyles.headerBorder]}>
+        <HamburgerMenu primaryColor={primaryColor} />
         <Text style={styles.headerText}>Current Location</Text>
+        <View style={styles.headerSpacer} />
       </View>
       
       <ScrollView style={styles.scrollView}>
@@ -417,13 +424,18 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     borderBottomWidth: 3,
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
   headerText: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 50, // Approximate width to balance the hamburger menu
   },
   loadingContainer: {
     flex: 1,

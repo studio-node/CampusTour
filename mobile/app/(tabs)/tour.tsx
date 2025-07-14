@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import HamburgerMenu from '@/components/HamburgerMenu';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -751,6 +752,7 @@ export default function TourScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.header, dynamicStyles.headerBorder]}>
+        <HamburgerMenu primaryColor={primaryColor} />
         <Text style={styles.headerText}>Campus Tour</Text>
         {!showInterestSelection && (
           <TouchableOpacity
@@ -846,12 +848,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 3,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerText: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginLeft: 15,
+    flex: 1,
+    textAlign: 'center',
   },
   resetButton: {
     backgroundColor: '#EEEEEE',

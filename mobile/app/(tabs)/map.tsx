@@ -8,6 +8,7 @@ import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react
 import MapView, { Callout, Marker, Overlay, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import HamburgerMenu from '@/components/HamburgerMenu';
 
 // Define the location type based on our supabase service
 type LocationItem = Location;
@@ -259,7 +260,8 @@ export default function MapScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.header, dynamicStyles.headerBorder]}>
-        <Text style={styles.headerText}>Campus Map</Text>
+        <HamburgerMenu primaryColor={primaryColor} />
+        <Text style={styles.headerText}>Map</Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity
             style={dynamicStyles.changeSchoolButton}
@@ -397,12 +399,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 3,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerText: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginLeft: 15,
+    flex: 1,
+    textAlign: 'center',
   },
   resetButton: {
     backgroundColor: '#EEEEEE',
