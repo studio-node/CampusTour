@@ -5,26 +5,25 @@
 ## UT SCHOOL ID: e5a9dfd2-0c88-419e-b891-0a62283b8abd
 
 ```js
-  const tourInterests = [
-    { name: "🔬 Science & Labs" },
-    { name: "⚙️ Engineering" },
-    { name: "💼 Business" },
-    { name: "💻 Computing" },
-    { name: "🎭 Arts & Theater" },
-    { name: "🎶 Music" },
-    { name: "🏟️ Athletics" },
-    { name: "🏋️ Recreation & Fitness" },
-    { name: "🛏️ Dorm Life" },
-    { name: "🍔 Campus Dining" },
-    { name: "🧑‍🤝‍🧑 Student Clubs" },
-    { name: "📚 Library & Study Spaces" },
-    { name: "🌳 Nature & Outdoor Spots" },
-    { name: "🏰 History & Landmarks" },
-    { name: "🧠 Technology & Innovation" },
-    { name: "🩺 Health & Wellness" },
-    { name: "✝️ Faith & Spiritual Life" },
-    { name: "🤝 Community Service" },
-    { name: "🎓 Career Services & Internships" }
+const tourInterests = [
+  { id: "science", name: "🔬 Science & Labs" },
+  { id: "engineering", name: "⚙️ Engineering" },
+  { id: "business", name: "💼 Business" },
+  { id: "computing", name: "💻 Computing" },
+  { id: "arts", name: "🎭 Arts & Theater" },
+  { id: "music", name: "🎶 Music" },
+  { id: "athletics", name: "🏟️ Athletics" },
+  { id: "", name: "🏋️ Recreation & Fitness" },
+  { id: "", name: "🛏️ Dorm Life" },
+  { id: "", name: "🍔 Campus Dining" },
+  { id: "", name: "🧑‍🤝‍🧑 Student Clubs" },
+  { id: "", name: "📚 Library & Study Spaces" },
+  { id: "", name: "🌳 Nature & Outdoor Spots" },
+  { id: "", name: "🏰 History & Landmarks" },
+  { id: "", name: "🩺 Health & Wellness" },
+  { id: "", name: "✝️ Faith & Spirituality" },
+  { id: "", name: "🤝 Community Service" },
+  { id: "", name: "🎓 Career Services" }
 ];
 ```
 

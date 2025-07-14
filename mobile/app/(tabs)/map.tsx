@@ -38,6 +38,7 @@ export default function MapScreen() {
   // Modal state for tour generation prompt
   const [showTourModal, setShowTourModal] = useState(false);
   const [hasTour, setHasTour] = useState<boolean | null>(null); // null = checking, true = has tour, false = no tour
+  const [hasShownModalThisSession, setHasShownModalThisSession] = useState(false); // Track if modal was shown this session
 
   // Get the selected school ID and details
   useEffect(() => {
@@ -160,19 +161,22 @@ export default function MapScreen() {
           
           setHasTour(hasActiveTour);
           
-          // Show modal if no tour exists
-          if (!hasActiveTour) {
+          // Show modal if no tour exists and hasn't been shown this session
+          if (!hasActiveTour && !hasShownModalThisSession) {
             setShowTourModal(true);
           }
         } catch (error) {
           console.error('Error checking for tour:', error);
           setHasTour(false);
-          setShowTourModal(true);
+          // Only show modal if hasn't been shown this session
+          if (!hasShownModalThisSession) {
+            setShowTourModal(true);
+          }
         }
       };
 
       checkForTour();
-    }, [])
+    }, [hasShownModalThisSession])
   );
 
   // Function to handle the "recenter map" button press
@@ -220,11 +224,13 @@ export default function MapScreen() {
   // Handle modal actions
   const handleGoToTour = () => {
     setShowTourModal(false);
+    setHasShownModalThisSession(true);
     router.push('/tour');
   };
 
   const handleDismissModal = () => {
     setShowTourModal(false);
+    setHasShownModalThisSession(true);
   };
 
   // Create dynamic styles with the primary color

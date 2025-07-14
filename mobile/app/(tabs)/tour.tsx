@@ -31,6 +31,28 @@ interface Interest {
   name: string;
 }
 
+// Static list of tour interests
+const tourInterests: Interest[] = [
+  { id: "science", name: "🔬 Science & Labs" },
+  { id: "engineering", name: "⚙️ Engineering" },
+  { id: "business", name: "💼 Business" },
+  { id: "computing", name: "💻 Computing" },
+  { id: "arts", name: "🎭 Arts & Theater" },
+  { id: "music", name: "🎶 Music" },
+  { id: "athletics", name: "🏟️ Athletics" },
+  { id: "recreation", name: "🏋️ Recreation & Fitness" },
+  { id: "dorm", name: "🛏️ Dorm Life" },
+  { id: "dining", name: "🍔 Campus Dining" },
+  { id: "clubs", name: "🧑‍🤝‍🧑 Student Clubs" },
+  { id: "library", name: "📚 Library & Study Spaces" },
+  { id: "nature", name: "🌳 Nature & Outdoor Spots" },
+  { id: "history", name: "🏰 History & Landmarks" },
+  { id: "health", name: "🩺 Health & Wellness" },
+  { id: "faith", name: "✝️ Faith & Spirituality" },
+  { id: "community", name: "🤝 Community Service" },
+  { id: "careers", name: "🎓 Career Services" }
+];
+
 // Component for an individual tour stop item
 const TourStopItem = ({ 
   item, 
@@ -197,21 +219,7 @@ export default function TourScreen() {
     getSelectedSchool();
   }, [router]);
 
-  // Extract unique interests from locations data
-  const extractInterests = (locations: Location[]): Interest[] => {
-    const uniqueInterests = new Set<string>();
-    
-    locations.forEach(location => {
-      location.interests.forEach(interest => {
-        uniqueInterests.add(interest);
-      });
-    });
-    
-    return Array.from(uniqueInterests).map(interest => ({
-      id: interest.toLowerCase().replace(/\s+/g, '-'),
-      name: interest
-    }));
-  };
+
 
   // Load saved state and fetch data when the component mounts
   useEffect(() => {
@@ -224,9 +232,8 @@ export default function TourScreen() {
         // Fetch locations from Supabase
         const locationsData = await locationService.getLocations(schoolId);
         
-        // Extract interests
-        const interests = extractInterests(locationsData);
-        setAvailableInterests(interests);
+        // Use static tour interests
+        setAvailableInterests(tourInterests);
         
         // Now load saved state
         await loadSavedState();
@@ -863,6 +870,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     margin: 16,
     alignItems: 'center',
+    height: '82%',
   },
   interestSelectionText: {
     fontSize: 18,
@@ -870,8 +878,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   interestScrollContainer: {
-    maxHeight: 300,
     width: '100%',
+    backgroundColor: '#D3D3D3',
+    borderRadius: 16,
   },
   interestScrollContent: {
     paddingVertical: 8,
