@@ -10,6 +10,7 @@ const navigation = [
   { name: 'Analytics & Data', href: '/analytics', icon: '📈' },
   { name: 'User Management', href: '/users', icon: '👥' },
   { name: 'Tour Management', href: '/tours', icon: '🗺️' },
+  { name: 'Ambassador Tours', href: '/ambassador-tours', icon: '🎓' },
   { name: 'Profile & Settings', href: '/profile', icon: '⚙️' }
 ]
 </script>

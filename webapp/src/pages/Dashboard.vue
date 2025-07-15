@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 
 const stats = ref([
-  { name: 'Total Tours Started', value: '1,234', icon: '��', color: 'bg-blue-600' },
+  { name: 'Total Tours Started', value: '1,234', icon: '🏁', color: 'bg-blue-600' },
   { name: 'Active Schools', value: '12', icon: '🏫', color: 'bg-green-600' },
   { name: 'Registered Users', value: '456', icon: '👥', color: 'bg-purple-600' },
   { name: 'Tours Completed', value: '987', icon: '✅', color: 'bg-orange-600' }

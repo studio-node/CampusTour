@@ -4,6 +4,7 @@ import AnalyticsData from '../pages/AnalyticsData.vue'
 import UserManagement from '../pages/UserManagement.vue'
 import ProfileSettings from '../pages/ProfileSettings.vue'
 import TourManagement from '../pages/TourManagement.vue'
+import AmbassadorTours from '../pages/AmbassadorTours.vue'
 
 const routes = [
   {
@@ -35,6 +36,12 @@ const routes = [
     name: 'TourManagement',
     component: TourManagement,
     meta: { title: 'Tour Management' }
+  },
+  {
+    path: '/ambassador-tours',
+    name: 'AmbassadorTours',
+    component: AmbassadorTours,
+    meta: { title: 'Ambassador Tours' }
   },
   {
     // Redirect any unknown routes to dashboard
