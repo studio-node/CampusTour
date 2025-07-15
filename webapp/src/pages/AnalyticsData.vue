@@ -1,7 +1,7 @@
 <script setup>
-import Dashboard from './components/Dashboard.vue'
-import ChartDemo from './components/ChartDemo.vue'
-import TestConnection from './components/TestConnection.vue'
+import Dashboard from '../components/Dashboard.vue'
+import ChartDemo from '../components/ChartDemo.vue'
+import TestConnection from '../components/TestConnection.vue'
 
 // Toggle between different views
 const useTest = false // Tour length calculation implemented!
