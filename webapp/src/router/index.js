@@ -6,47 +6,94 @@ import ProfileSettings from '../pages/ProfileSettings.vue'
 import TourManagement from '../pages/TourManagement.vue'
 import AmbassadorTours from '../pages/AmbassadorTours.vue'
 
+// Layouts
+import PublicLayout from '../components/PublicLayout.vue'
+import AdminLayout from '../components/AdminLayout.vue'
+
 const routes = [
+  // Public routes
   {
     path: '/',
-    name: 'Dashboard',
-    component: Dashboard,
-    meta: { title: 'Dashboard' }
+    redirect: '/select-school'
   },
   {
-    path: '/analytics',
+    path: '/select-school',
+    name: 'SchoolSelection',
+    component: () => import('../pages/SchoolSelection.vue'),
+    meta: { 
+      layout: 'public',
+      title: 'Select Your School' 
+    }
+  },
+  {
+    path: '/select-interests',
+    name: 'InterestSelection',
+    component: () => import('../pages/InterestSelection.vue'),
+    meta: { 
+      layout: 'public',
+      title: 'Select Your Interests' 
+    }
+  },
+  
+  // Admin routes group
+  {
+    path: '/admin',
+    name: 'Dashboard', 
+    component: Dashboard,
+    meta: { 
+      layout: 'admin',
+      title: 'Dashboard' 
+    }
+  },
+  {
+    path: '/admin/analytics',
     name: 'Analytics',
     component: AnalyticsData,
-    meta: { title: 'Analytics & Data' }
+    meta: { 
+      layout: 'admin',
+      title: 'Analytics & Data' 
+    }
   },
   {
-    path: '/users',
+    path: '/admin/users',
     name: 'UserManagement',
     component: UserManagement,
-    meta: { title: 'User Management' }
+    meta: { 
+      layout: 'admin',
+      title: 'User Management' 
+    }
   },
   {
-    path: '/profile',
+    path: '/admin/profile',
     name: 'ProfileSettings',
     component: ProfileSettings,
-    meta: { title: 'Profile & Settings' }
+    meta: { 
+      layout: 'admin',
+      title: 'Profile & Settings' 
+    }
   },
   {
-    path: '/tours',
+    path: '/admin/tours',
     name: 'TourManagement',
     component: TourManagement,
-    meta: { title: 'Tour Management' }
+    meta: { 
+      layout: 'admin',
+      title: 'Tour Management' 
+    }
   },
   {
-    path: '/ambassador-tours',
+    path: '/admin/ambassador-tours',
     name: 'AmbassadorTours',
     component: AmbassadorTours,
-    meta: { title: 'Ambassador Tours' }
+    meta: { 
+      layout: 'admin',
+      title: 'Ambassador Tours' 
+    }
   },
   {
-    // Redirect any unknown routes to dashboard
+    // Redirect any unknown routes to school selection
     path: '/:pathMatch(.*)*',
-    redirect: '/'
+    redirect: '/select-school'
   }
 ]
 

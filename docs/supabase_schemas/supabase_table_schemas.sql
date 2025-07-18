@@ -57,7 +57,7 @@ CREATE TABLE public.locations (
   CONSTRAINT locations_pkey PRIMARY KEY (id),
   CONSTRAINT locations_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );
-CREATE TABLE public.profiles_admin (
+CREATE TABLE public.profiles (
   id uuid NOT NULL,
   email text NOT NULL UNIQUE,
   full_name text NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE public.profiles_admin (
   is_active boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT profiles_admin_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
   CONSTRAINT profiles_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );
@@ -95,6 +95,6 @@ CREATE TABLE public.tour_appointments (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT tour_appointments_pkey PRIMARY KEY (id),
-  CONSTRAINT tour_appointments_ambassador_id_fkey FOREIGN KEY (ambassador_id) REFERENCES public.profiles_admin(id),
+  CONSTRAINT tour_appointments_ambassador_id_fkey FOREIGN KEY (ambassador_id) REFERENCES public.profiles(id),
   CONSTRAINT tour_appointments_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );
