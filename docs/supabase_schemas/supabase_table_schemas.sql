@@ -10,8 +10,8 @@ CREATE TABLE public.analytics_events (
   location_id uuid,
   metadata jsonb,
   CONSTRAINT analytics_events_pkey PRIMARY KEY (id),
-  CONSTRAINT analytics_events_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
-  CONSTRAINT analytics_events_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.locations(id)
+  CONSTRAINT analytics_events_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.locations(id),
+  CONSTRAINT analytics_events_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );
 CREATE TABLE public.leads (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -27,8 +27,8 @@ CREATE TABLE public.leads (
   tour_type USER-DEFINED,
   tour_appointment_id uuid,
   CONSTRAINT leads_pkey PRIMARY KEY (id),
-  CONSTRAINT leads_tour_appointment_id_fkey FOREIGN KEY (tour_appointment_id) REFERENCES public.tour_appointments(id),
-  CONSTRAINT leads_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
+  CONSTRAINT leads_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT leads_tour_appointment_id_fkey FOREIGN KEY (tour_appointment_id) REFERENCES public.tour_appointments(id)
 );
 CREATE TABLE public.location_media (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -70,6 +70,12 @@ CREATE TABLE public.profiles (
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
   CONSTRAINT profiles_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
+);
+CREATE TABLE public.public_ambassador_profiles (
+  id uuid NOT NULL,
+  full_name text NOT NULL,
+  CONSTRAINT public_ambassador_profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT public_ambassador_profiles_id_fkey FOREIGN KEY (id) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.schools (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

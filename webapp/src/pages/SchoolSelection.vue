@@ -71,8 +71,8 @@ const handleContinue = () => {
   if (selectedSchool.value) {
     // Save selected school
     schoolService.setSelectedSchool(selectedSchool.value)
-    // Navigate to information screen
-    router.push('/information')
+    // Navigate to tour groups screen
+    router.push('/tour-groups')
   }
 }
 

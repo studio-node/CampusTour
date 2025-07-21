@@ -21,10 +21,10 @@ const currentLayout = computed(() => {
   <AdminLayout v-else-if="currentLayout === 'admin'">
     <router-view />
   </AdminLayout>
-  
+          
   <!-- Fallback to public layout if no layout specified -->
   <PublicLayout v-else>
-    <router-view />
+            <router-view />
   </PublicLayout>
 </template>
 

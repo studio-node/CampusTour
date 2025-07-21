@@ -186,9 +186,9 @@ const handleSubmit = async () => {
 
     if (result.success) {
       success.value = 'Information saved successfully!'
-      // Navigate to tour groups screen
+      // Navigate to interest selection screen
       setTimeout(() => {
-        router.push('/tour-groups')
+        router.push('/select-interests')
       }, 1000)
     } else {
       error.value = result.error || 'Failed to save your information. Please try again.'
@@ -203,7 +203,7 @@ const handleSubmit = async () => {
 
 // Handle back navigation
 const handleBack = () => {
-  router.push('/select-school')
+  router.push('/tour-groups')
 }
 </script>
 
@@ -422,7 +422,7 @@ const handleBack = () => {
               </svg>
               Saving...
             </span>
-            <span v-else>Continue to Tour Groups</span>
+                         <span v-else>Continue to Interest Selection</span>
           </button>
         </div>
       </form>
