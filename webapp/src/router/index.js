@@ -26,6 +26,24 @@ const routes = [
     }
   },
   {
+    path: '/information',
+    name: 'Information',
+    component: () => import('../pages/Information.vue'),
+    meta: { 
+      layout: 'public',
+      title: 'Your Information' 
+    }
+  },
+  {
+    path: '/tour-groups',
+    name: 'TourGroups',
+    component: () => import('../pages/TourGroups.vue'),
+    meta: { 
+      layout: 'public',
+      title: 'Available Tour Groups' 
+    }
+  },
+  {
     path: '/select-interests',
     name: 'InterestSelection',
     component: () => import('../pages/InterestSelection.vue'),
