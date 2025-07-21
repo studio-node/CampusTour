@@ -1,12 +1,12 @@
 # General Questions
 
-- How to do scheduling for ambassador-led tours
+- Scheduling for ambassador-led tours
     - Do I handle the actual scheduling and timing and stuff for that?
-    - Who initiates tour scheduling - Ambassador vs Tour group
+        - Integration (we talked to Sean)
+            - Slate for Utah Tech
     - How to join tour groups?
-        - Passwords or invite link?
-        - Also experience in app
+        - Anyone can join any group, 
 - Interest Selection
-    - Collapsing out subinterests of main ones
-    - Approve main interest list
-    - 
+    - Should we really do subinterests collapsing out?
+        - No collapsing subinterests
+        - Also maybe add general prompt box for AI
