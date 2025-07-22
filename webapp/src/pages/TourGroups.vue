@@ -73,7 +73,10 @@ const selectTourGroup = (tourGroup) => {
 // Handle continue to information form
 const handleContinue = () => {
   if (selectedTourGroup.value) {
-    router.push('/information')
+    router.push({
+      path: '/information',
+      query: { tour_appointment_id: selectedTourGroup.value.id }
+    })
   }
 }
 
@@ -201,71 +204,54 @@ const toursByDate = computed(() => {
             {{ date }}
           </h3>
           
-          <div class="grid gap-4">
+          <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             <div
               v-for="tour in tours"
               :key="tour.id"
               @click="selectTourGroup(tour)"
               :class="[
-                'bg-gray-800 rounded-lg shadow-lg border-2 p-6 cursor-pointer transition-all duration-200',
+                'bg-gray-800 rounded-lg shadow-lg border-2 p-4 cursor-pointer transition-all duration-200 relative',
                 selectedTourGroup?.id === tour.id
                   ? 'border-blue-500 bg-blue-900 bg-opacity-50'
                   : 'border-gray-700 hover:border-gray-600 hover:bg-gray-750'
               ]"
             >
-              <div class="flex items-start justify-between">
-                <div class="flex-1">
-                  <div class="flex items-center mb-2">
-                    <h4 class="text-lg font-semibold text-white mr-3">{{ tour.title }}</h4>
-                    <div v-if="selectedTourGroup?.id === tour.id" class="text-blue-400">
-                      <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                      </svg>
-                    </div>
-                  </div>
-                  
-                  <div class="grid md:grid-cols-2 gap-4 text-sm text-gray-300">
-                    <div class="space-y-2">
-                      <div class="flex items-center">
-                        <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        {{ tour.formattedDateTime.time }}
-                      </div>
-                      <div class="flex items-center">
-                        <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3" />
-                        </svg>
-                        {{ tour.duration_minutes }} minutes
-                      </div>
-                      <div class="flex items-center">
-                        <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        {{ tour.meeting_location }}
-                      </div>
-                    </div>
-                    
-                    <div class="space-y-2">
-                      <div class="flex items-center">
-                        <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        Ambassador: {{ tour.profiles?.full_name || 'TBA' }}
-                      </div>
-                      <div class="flex items-center">
-                        <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                        Max participants: {{ tour.max_participants }}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div v-if="tour.description" class="mt-3 text-sm text-gray-400">
-                    {{ tour.description }}
-                  </div>
+              <!-- Selected indicator -->
+              <div v-if="selectedTourGroup?.id === tour.id" class="absolute top-2 right-2 text-blue-400">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+              </div>
+
+              <div class="space-y-3">
+                <!-- Ambassador Name -->
+                <div class="flex items-center">
+                  <svg class="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span class="text-white font-medium text-sm truncate">
+                    {{ tour.profiles?.full_name || 'TBA' }}
+                  </span>
+                </div>
+
+                <!-- Participants -->
+                <div class="flex items-center">
+                  <svg class="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <span class="text-gray-300 text-sm">
+                    {{ tour.participants_signed_up }} / {{ tour.max_participants }}
+                  </span>
+                </div>
+
+                <!-- Time and Date -->
+                <div class="flex items-center">
+                  <svg class="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span class="text-gray-300 text-sm">
+                    {{ tour.formattedDateTime.time }}
+                  </span>
                 </div>
               </div>
             </div>

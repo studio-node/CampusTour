@@ -1,5 +1,9 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
+const tourAppointmentId = ref(null)
 
 // Placeholder interests (will be extracted from mobile app later)
 const interests = ref([
@@ -25,6 +29,12 @@ const interests = ref([
 
 const selectedInterests = ref([])
 const isGenerating = ref(false)
+
+// Get tour appointment ID from query parameters
+onMounted(() => {
+  tourAppointmentId.value = route.query.tour_appointment_id || null
+  console.log('Tour Appointment ID:', tourAppointmentId.value)
+})
 
 // Toggle interest selection
 const toggleInterest = (interestId) => {

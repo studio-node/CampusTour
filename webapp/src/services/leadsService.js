@@ -22,6 +22,8 @@ export async function createLead(leadData) {
       date_of_birth: leadData.date_of_birth,
       gender: leadData.gender,
       grad_year: leadData.grad_year,
+      tour_type: leadData.tour_type,
+      tour_appointment_id: leadData.tour_appointment_id,
       created_at: new Date().toISOString()
     }
 

@@ -1,10 +1,11 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { schoolService } from '../services/schoolService.js'
 import { leadsService } from '../services/leadsService.js'
 
 const router = useRouter()
+const route = useRoute()
 
 // Form data
 const userInfo = ref({
@@ -21,6 +22,7 @@ const userInfo = ref({
 // State
 const schoolId = ref(null)
 const schoolData = ref(null)
+const tourAppointmentId = ref(null)
 const isSubmitting = ref(false)
 const error = ref('')
 const success = ref('')
@@ -45,6 +47,9 @@ const genderOptions = [
 
 // Get selected school on mount
 onMounted(async () => {
+  // Get tour appointment ID from query parameters
+  tourAppointmentId.value = route.query.tour_appointment_id || null
+  
   const selectedSchoolId = schoolService.getSelectedSchool()
   if (!selectedSchoolId) {
     // If no school is selected, redirect back to school selection
@@ -178,7 +183,8 @@ const handleSubmit = async () => {
       date_of_birth: formatDateForDatabase(userInfo.value.dateOfBirth),
       gender: userInfo.value.gender || null,
       grad_year: userInfo.value.gradYear.trim() ? parseInt(userInfo.value.gradYear.trim()) : null,
-      tour_type: 'ambassador-led'
+      tour_type: 'ambassador-led',
+      tour_appointment_id: tourAppointmentId.value
     }
 
     // Save to database
@@ -188,7 +194,10 @@ const handleSubmit = async () => {
       success.value = 'Information saved successfully!'
       // Navigate to interest selection screen
       setTimeout(() => {
-        router.push('/select-interests')
+        router.push({
+          path: '/select-interests',
+          query: { tour_appointment_id: tourAppointmentId.value }
+        })
       }, 1000)
     } else {
       error.value = result.error || 'Failed to save your information. Please try again.'

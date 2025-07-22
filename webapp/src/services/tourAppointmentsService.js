@@ -18,8 +18,9 @@ export async function getAvailableTourGroups(schoolId) {
       .from('tour_appointments')
       .select(`
         *,
-        public_ambassador_profiles (
-          full_name)
+        profiles (
+          full_name
+        )
       `)
       .eq('school_id', schoolId)
       .eq('status', 'scheduled')
@@ -48,8 +49,10 @@ export async function getTourAppointmentById(appointmentId) {
       .from('tour_appointments')
       .select(`
         *,
-        public_ambassador_profiles (
-          full_name)
+        profiles (
+          id,
+          full_name
+        )
       `)
       .eq('id', appointmentId)
       .single()
