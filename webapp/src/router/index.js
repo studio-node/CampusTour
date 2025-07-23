@@ -52,6 +52,15 @@ const routes = [
       title: 'Select Your Interests' 
     }
   },
+  {
+    path: '/tour-confirmation',
+    name: 'TourConfirmation',
+    component: () => import('../pages/TourConfirmation.vue'),
+    meta: { 
+      layout: 'public',
+      title: 'Tour Confirmation' 
+    }
+  },
   
   // Admin routes group
   {
