@@ -77,9 +77,6 @@ const generateTour = async () => {
       }
     }
     
-    // Simulate API call for tour generation
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
     // Navigate to confirmation page with tour details
     const queryParams = {
       interests: selectedInterests.value.join(',')
@@ -104,7 +101,7 @@ const generateTour = async () => {
 
 // Show default tour
 const showDefaultTour = () => {
-  alert('Default tour would be shown here')
+  generateTour()
 }
 </script>
 
@@ -120,7 +117,7 @@ const showDefaultTour = () => {
       </p>
       <div class="bg-blue-600 bg-opacity-20 border border-blue-500 rounded-lg p-4 mb-8">
         <p class="text-blue-200">
-          📱 For the best experience, download our mobile app to take your personalized tour!
+          📱 Before your tour, download our mobile app to take your personalized tour!
         </p>
       </div>
     </div>
@@ -167,7 +164,7 @@ const showDefaultTour = () => {
             </svg>
             Generating Tour...
           </span>
-          <span v-else>Generate Personalized Tour</span>
+          <span v-else>Submit Interests</span>
         </button>
         
         <button
@@ -175,7 +172,7 @@ const showDefaultTour = () => {
           :disabled="isGenerating"
           class="px-8 py-3 rounded-lg font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-all duration-200"
         >
-          View Default Tour
+          Skip Interest Selection
         </button>
       </div>
 

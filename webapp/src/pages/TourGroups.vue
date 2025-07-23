@@ -52,7 +52,15 @@ const loadTourGroups = async () => {
     if (savedTourGroupId) {
       const savedTourGroup = groups.find(group => group.id === savedTourGroupId)
       if (savedTourGroup) {
-        selectedTourGroup.value = savedTourGroup
+        // Add formatted date/time data to the saved tour group
+        const formattedDateTime = tourAppointmentsService.formatTourDateTime(savedTourGroup.scheduled_date)
+        const tourGroupWithFormatting = {
+          ...savedTourGroup,
+          formattedDateTime
+        }
+        selectedTourGroup.value = tourGroupWithFormatting
+        // Only save the ID to localStorage, don't overwrite the formatted data
+        localStorage.setItem(SELECTED_TOUR_GROUP_KEY, savedTourGroup.id)
       }
     }
     

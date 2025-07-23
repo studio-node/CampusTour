@@ -193,12 +193,16 @@ const handleSubmit = async () => {
     if (result.success) {
       success.value = 'Information saved successfully!'
       // Navigate to interest selection screen
-      setTimeout(() => {
-        router.push({
-          path: '/select-interests',
-          query: { tour_appointment_id: tourAppointmentId.value }
-        })
-      }, 1000)
+      router.push({
+        path: '/select-interests',
+        query: { tour_appointment_id: tourAppointmentId.value }
+      })
+      // setTimeout(() => {
+      //   router.push({
+      //     path: '/select-interests',
+      //     query: { tour_appointment_id: tourAppointmentId.value }
+      //   })
+      // }, 1000)
     } else {
       error.value = result.error || 'Failed to save your information. Please try again.'
     }

@@ -75,28 +75,10 @@ const handleContinue = () => {
     router.push('/tour-groups')
   }
 }
-
-// Handle back navigation
-const handleBack = () => {
-  // Go back in browser history or to external referrer
-  window.history.length > 1 ? router.go(-1) : window.close()
-}
 </script>
 
 <template>
   <div class="max-w-4xl mx-auto">
-    <!-- Back Button -->
-    <div class="mb-6">
-      <button 
-        @click="handleBack"
-        class="flex items-center text-gray-300 hover:text-white transition-colors duration-200"
-      >
-        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-        </svg>
-        Back
-      </button>
-    </div>
 
     <!-- Hero Section -->
     <div class="text-center mb-12">
