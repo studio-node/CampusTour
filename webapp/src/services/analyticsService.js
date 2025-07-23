@@ -1,9 +1,91 @@
-import { supabase } from '../supabase.js'
+import { supabase } from '../supabase.js';
 
-/**
- * Analytics Service
- * Handles all data queries for the dashboard analytics
- */
+// Analytics service for webapp
+export const analyticsService = {
+  // Generate a session ID for the current browser session
+  getSessionId() {
+    const SESSION_KEY = 'CAMPUS_TOUR_SESSION_ID';
+    
+    try {
+      // Check if we already have a session ID in sessionStorage
+      let sessionId = sessionStorage.getItem(SESSION_KEY);
+      
+      if (!sessionId) {
+        // Generate a new session ID for this browser session
+        sessionId = `web_session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        sessionStorage.setItem(SESSION_KEY, sessionId);
+      }
+      
+      return sessionId;
+    } catch (error) {
+      console.error('Error managing session ID:', error);
+      // Fallback to timestamp-based session ID
+      return `web_session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+  },
+
+  // Export an analytics event to the database
+  async exportEvent(eventData) {
+    try {
+      const { data, error } = await supabase
+        .from('analytics_events')
+        .insert([{
+          event_type: eventData.event_type,
+          session_id: eventData.session_id,
+          school_id: eventData.school_id,
+          location_id: eventData.location_id || null,
+          metadata: eventData.metadata || null,
+          tour_appointment_id: eventData.tour_appointment_id || null,
+          timestamp: new Date().toISOString()
+        }]);
+
+      if (error) {
+        console.error('Error exporting analytics event:', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('Analytics event exported successfully:', eventData.event_type);
+      return { success: true, data };
+    } catch (error) {
+      console.error('Exception exporting analytics event:', error);
+      return { success: false, error: 'Failed to export analytics event' };
+    }
+  },
+
+  // Export interests-chosen event
+  async exportInterestsChosen(schoolId, selectedInterests, tourAppointmentId = null) {
+    try {
+      const sessionId = this.getSessionId();
+      
+      const eventData = {
+        event_type: 'interests-chosen',
+        session_id: sessionId,
+        school_id: schoolId,
+        tour_appointment_id: tourAppointmentId,
+        metadata: {
+          selected_interests: selectedInterests,
+          interest_count: selectedInterests.length,
+          source: 'webapp'
+        }
+      };
+
+      const result = await this.exportEvent(eventData);
+      
+      if (result.success) {
+        console.log('Interest selection analytics exported:', {
+          interests: selectedInterests,
+          tourAppointmentId,
+          schoolId
+        });
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Error exporting interests-chosen event:', error);
+      return { success: false, error: 'Failed to export interest selection analytics' };
+    }
+  }
+};
 
 /**
  * Query interests popularity data

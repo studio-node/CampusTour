@@ -1,9 +1,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { analyticsService } from '../services/analyticsService.js'
+import { schoolService } from '../services/schoolService.js'
 
 const route = useRoute()
+const router = useRouter()
 const tourAppointmentId = ref(null)
+const schoolId = ref(null)
 
 // Placeholder interests (will be extracted from mobile app later)
 const interests = ref([
@@ -30,10 +34,13 @@ const interests = ref([
 const selectedInterests = ref([])
 const isGenerating = ref(false)
 
-// Get tour appointment ID from query parameters
+// Get tour appointment ID and school ID from query parameters and storage
 onMounted(() => {
   tourAppointmentId.value = route.query.tour_appointment_id || null
+  schoolId.value = schoolService.getSelectedSchool()
+  
   console.log('Tour Appointment ID:', tourAppointmentId.value)
+  console.log('School ID:', schoolId.value)
 })
 
 // Toggle interest selection
@@ -49,13 +56,50 @@ const toggleInterest = (interestId) => {
 const generateTour = async () => {
   isGenerating.value = true
   
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 2000))
-  
-  // For now, just show selected interests
-  alert(`Tour generated for: ${selectedInterests.value.join(', ')}`)
-  
-  isGenerating.value = false
+  try {
+    // Export analytics for interest selection
+    if (schoolId.value && selectedInterests.value.length > 0) {
+      console.log('Exporting interest analytics:', {
+        schoolId: schoolId.value,
+        interests: selectedInterests.value,
+        tourAppointmentId: tourAppointmentId.value
+      })
+      
+      const analyticsResult = await analyticsService.exportInterestsChosen(
+        schoolId.value,
+        selectedInterests.value,
+        tourAppointmentId.value
+      )
+      
+      if (!analyticsResult.success) {
+        console.warn('Failed to export analytics:', analyticsResult.error)
+        // Continue with tour generation even if analytics fails
+      }
+    }
+    
+    // Simulate API call for tour generation
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    // Navigate to confirmation page with tour details
+    const queryParams = {
+      interests: selectedInterests.value.join(',')
+    }
+    
+    if (tourAppointmentId.value) {
+      queryParams.tour_appointment_id = tourAppointmentId.value
+    }
+    
+    await router.push({
+      name: 'TourConfirmation',
+      query: queryParams
+    })
+    
+  } catch (error) {
+    console.error('Error generating tour:', error)
+    alert('Error generating tour. Please try again.')
+  } finally {
+    isGenerating.value = false
+  }
 }
 
 // Show default tour
