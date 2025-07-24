@@ -1,5 +1,25 @@
 # Campus Tour
 
+This project is for a Campus tour app and supporting services that I am building for my Univserity, but it will be for many schools. I am in the middle of building it at the moment, and I need your help. You can find all the overaching documentation for this project in DOCS. I am in the process of handling the ambassador-led tour part of this product. In the mobile app (in MOBILE), I need to start working through the user journey of the ambassador-led tour user. There will be an order of screens that happen after the user selects the "Ambassador-Led" option in INDEXTSX. 
+
+The order of screens will be like this:
+
+
+
+## THIS IS JUST THE (I DON'T HAVE A TOUR) JOURNEY
+
+- School selection 
+  - Use the same screen from the self-guided user journey
+- Select tour group 
+  - This is a new screen
+  - Use the tour group selection screen in TOURGROUPS as a guide 
+  - Make it work for mobile of course
+- Select Interests
+  - Use the same screen from the self-guided user journey
+- The map screen / main app view
+  - The user shouldn't see the modal pop up that tells them to genereate a tour
+
+
 
 
 ## UT SCHOOL ID: e5a9dfd2-0c88-419e-b891-0a62283b8abd
