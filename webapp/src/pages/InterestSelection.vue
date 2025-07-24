@@ -115,15 +115,10 @@ const showDefaultTour = () => {
       <p class="text-xl text-gray-300 mb-8">
         Select your interests to create a personalized campus tour experience
       </p>
-      <div class="bg-blue-600 bg-opacity-20 border border-blue-500 rounded-lg p-4 mb-8">
-        <p class="text-blue-200">
-          📱 Before your tour, download our mobile app to take your personalized tour!
-        </p>
-      </div>
     </div>
 
     <!-- Interest Selection -->
-    <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-8 mb-8">
+    <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4 sm:p-8 mb-8">
       <h2 class="text-2xl font-bold text-white mb-6 text-center">
         What interests you most?
       </h2>
@@ -135,7 +130,7 @@ const showDefaultTour = () => {
           :key="interest.id"
           @click="toggleInterest(interest.id)"
           :class="[
-            'p-4 rounded-lg border-2 transition-all duration-200 text-left',
+            'p-2 sm:p-4 rounded-lg border-2 transition-all duration-200 text-left',
             selectedInterests.includes(interest.id)
               ? 'bg-blue-600 border-blue-500 text-white transform scale-105'
               : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-gray-500 hover:bg-gray-600'
@@ -184,31 +179,6 @@ const showDefaultTour = () => {
       </div>
     </div>
 
-    <!-- Next Steps -->
-    <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-8">
-      <h3 class="text-xl font-bold text-white mb-4">What's Next?</h3>
-      <div class="grid md:grid-cols-2 gap-6">
-        <div class="border border-gray-600 rounded-lg p-6">
-          <h4 class="text-lg font-semibold text-white mb-2">📱 Self-Guided Tour</h4>
-          <p class="text-gray-300 mb-4">
-            Download our mobile app for turn-by-turn navigation and interactive content.
-          </p>
-          <button class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors">
-            Download App
-          </button>
-        </div>
-        
-        <div class="border border-gray-600 rounded-lg p-6">
-          <h4 class="text-lg font-semibold text-white mb-2">🎓 Ambassador-Led Tour</h4>
-          <p class="text-gray-300 mb-4">
-            Book a personalized tour with one of our student ambassadors.
-          </p>
-          <button class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition-colors">
-            Book Tour
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 

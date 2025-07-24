@@ -14,6 +14,12 @@ const props = defineProps({
 })
 
 const currentYear = new Date().getFullYear()
+
+const clearStorage = () => {
+  console.log('Clearing storage')
+  localStorage.clear()
+  console.log(localStorage.length)
+}
 </script>
 
 <template>
@@ -31,6 +37,12 @@ const currentYear = new Date().getFullYear()
           
           <!-- Navigation -->
           <nav class="hidden md:flex items-center space-x-6">
+            <button
+              class="text-gray-300 hover:text-white transition-colors duration-200 bg-red-500 px-4 py-2 rounded-lg"
+              @click="clearStorage()"
+            >
+              Clear Storage (for testing)
+            </button>
             <router-link 
               to="/select-school" 
               class="text-gray-300 hover:text-white transition-colors duration-200"

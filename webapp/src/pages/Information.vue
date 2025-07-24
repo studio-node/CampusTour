@@ -131,6 +131,12 @@ const updateField = (field, value) => {
   }
 }
 
+// const acceptNumber = (value) => {
+//   var x = value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
+//   const fixed = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
+//   updateField('phone', fixed)
+// }
+
 // Format date for database (YYYY-MM-DD)
 const formatDateForDatabase = (dateString) => {
   if (!dateString.trim()) return null
@@ -281,11 +287,12 @@ const handleBack = () => {
           <select
             :value="userInfo.identity"
             @change="updateField('identity', $event.target.value)"
-            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            :class="{ 'border-red-500': errors.identity }"
+            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            :class="{ 'border-red-500': errors.identity, 'text-gray-400': !userInfo.identity, 'text-white': userInfo.identity }"
+            placeholder="Select your identity"
           >
-            <option value="">Select your identity</option>
-            <option v-for="option in identityOptions" :key="option.value" :value="option.value">
+            <option value="" disabled selected>Select your identity</option>
+            <option class="text-white" v-for="option in identityOptions" :key="option.value" :value="option.value">
               {{ option.label }}
             </option>
           </select>
@@ -374,7 +381,7 @@ const handleBack = () => {
                 @change="updateField('gender', $event.target.value)"
                 class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="">Select gender (optional)</option>
+                <option value="" disabled selected>Select gender</option>
                 <option v-for="option in genderOptions" :key="option.value" :value="option.value">
                   {{ option.label }}
                 </option>
@@ -393,7 +400,6 @@ const handleBack = () => {
                 placeholder="Enter your phone number"
                 class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-              <p class="mt-1 text-xs text-gray-500">Note: Phone number will not be saved to our database</p>
             </div>
 
             <!-- Expected Graduation Year -->

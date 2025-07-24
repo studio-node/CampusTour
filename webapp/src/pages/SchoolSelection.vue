@@ -95,7 +95,7 @@ const handleContinue = () => {
         Campus Tour
       </h1>
       <p class="text-xl text-gray-300 mb-8">
-        Select your school to begin your personalized tour experience
+        Please select the school you would like to tour.
       </p>
     </div>
 
@@ -140,10 +140,7 @@ const handleContinue = () => {
         
         <!-- Search Results Counter -->
         <p class="text-sm text-gray-400 mt-2">
-          <span v-if="searchQuery.trim() === ''">
-            Showing top 10 closest schools
-          </span>
-          <span v-else>
+          <span>
             {{ displayedSchools.length }} school{{ displayedSchools.length !== 1 ? 's' : '' }} found
           </span>
         </p>
@@ -204,7 +201,7 @@ const handleContinue = () => {
       </div>
 
       <!-- Selected School Summary -->
-      <div v-if="selectedSchoolData" class="mb-6 p-4 bg-gray-700 rounded-lg border border-gray-600">
+      <div v-if="selectedSchoolData" class="mb-6 p-4 bg-blue-600 rounded-lg border border-gray-600">
         <div class="flex items-center">
           <div v-if="selectedSchoolData.logo_url" class="mr-4">
             <img 

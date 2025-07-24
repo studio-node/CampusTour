@@ -271,7 +271,10 @@ const toursByDate = computed(() => {
           <div class="flex flex-col sm:flex-row gap-4 justify-between items-center">
             <div class="text-center sm:text-left">
               <div v-if="selectedTourGroup" class="text-white">
-                <p class="font-medium">Selected: {{ selectedTourGroup.title }}</p>
+                <p class="font-medium">
+                  <span class="text-gray-200">Selected Tour Leader: </span>
+                  {{ selectedTourGroup.profiles?.full_name }}
+                </p>
                 <p class="text-sm text-gray-400">{{ selectedTourGroup.formattedDateTime?.date }} at {{ selectedTourGroup.formattedDateTime?.time }}</p>
               </div>
               <div v-else class="text-gray-400">

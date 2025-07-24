@@ -314,7 +314,7 @@ const formatTime = (dateString) => {
 
       <!-- Download App CTA -->
       <div class="bg-gradient-to-r from-blue-900 to-purple-900 rounded-lg shadow-lg border border-blue-700 p-8 text-center">
-        <h2 class="text-2xl font-bold text-white mb-4">Get the Most Out of Your Tour</h2>
+        <h2 class="text-2xl font-bold text-white mb-4">Be prepared for your tour</h2>
         <p class="text-blue-200 mb-6">
           Download our mobile app for interactive maps, exclusive content, and real-time information during your visit.
         </p>
