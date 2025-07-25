@@ -1,5 +1,5 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Location, Region, locationService, schoolService } from '@/services/supabase';
+import { Location, Region, locationService, schoolService, userTypeService } from '@/services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ExpoLocation from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -148,6 +148,10 @@ export default function MapScreen() {
     React.useCallback(() => {
       const checkForTour = async () => {
         try {
+          // Check if user is in an ambassador-led tour
+          const userType = await userTypeService.getUserType();
+          const isAmbassadorLed = userType === 'ambassador-led';
+          
           const savedTourStops = await AsyncStorage.getItem('tourStops');
           const savedShowInterestSelection = await AsyncStorage.getItem('showInterestSelection');
           
@@ -162,15 +166,19 @@ export default function MapScreen() {
           
           setHasTour(hasActiveTour);
           
-          // Show modal if no tour exists and hasn't been shown this session
-          if (!hasActiveTour && !hasShownModalThisSession) {
+          // Don't show modal for ambassador-led tours, as they follow a different flow
+          // Show modal only for self-guided users with no tour and hasn't been shown this session
+          if (!isAmbassadorLed && !hasActiveTour && !hasShownModalThisSession) {
             setShowTourModal(true);
           }
         } catch (error) {
           console.error('Error checking for tour:', error);
+          const userType = await userTypeService.getUserType();
+          const isAmbassadorLed = userType === 'ambassador-led';
+          
           setHasTour(false);
-          // Only show modal if hasn't been shown this session
-          if (!hasShownModalThisSession) {
+          // Only show modal for self-guided users if hasn't been shown this session
+          if (!isAmbassadorLed && !hasShownModalThisSession) {
             setShowTourModal(true);
           }
         }

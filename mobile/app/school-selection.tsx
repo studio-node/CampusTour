@@ -1,4 +1,4 @@
-import { School, schoolService } from '@/services/supabase';
+import { School, schoolService, userTypeService } from '@/services/supabase';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
@@ -51,9 +51,17 @@ export default function SchoolSelectionScreen() {
   const handleSelectSchool = async () => {
     if (selectedSchool) {
       await schoolService.setSelectedSchool(selectedSchool);
-      // Navigate to lead capture for self-guided users
-      // TODO: Check if user is self-guided vs ambassador-led
-      router.push('/lead-capture');
+      
+      // Check user type and route accordingly
+      const userType = await userTypeService.getUserType();
+      
+      if (userType === 'ambassador-led') {
+        // For ambassador-led tours, go to tour group selection
+        router.push('/tour-group-selection');
+      } else {
+        // For self-guided users, go to lead capture
+        router.push('/lead-capture');
+      }
     }
   };
 

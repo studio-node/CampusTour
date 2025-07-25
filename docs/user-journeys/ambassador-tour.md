@@ -1,6 +1,6 @@
 # Ambassador User Journey
 
-If the ambassador is using the app, it means they are giving a guided tour using the app and those that are on the tour will also have the app open. Both will be discussed here.
+If the ambassador is using the app, it means they are giving a guided tour using the app and those that are on the tour will also have the app open. Both will be discussed here. This experience will be like the self-guided journey, but the tour will be controlled by the ambassador, and the users' experience will be managed by the ambassador using our server using websockets.
 
 
 ## Ambassador

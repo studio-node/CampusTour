@@ -4,10 +4,6 @@ This project is for a Campus tour app and supporting services that I am building
 
 The order of screens will be like this:
 
-
-
-## THIS IS JUST THE (I DON'T HAVE A TOUR) JOURNEY
-
 - School selection 
   - Use the same screen from the self-guided user journey
 - Select tour group 
@@ -20,6 +16,7 @@ The order of screens will be like this:
   - The user shouldn't see the modal pop up that tells them to genereate a tour
 
 
+## THIS IS JUST THE (I DON'T HAVE A TOUR) JOURNEY
 
 
 ## UT SCHOOL ID: e5a9dfd2-0c88-419e-b891-0a62283b8abd

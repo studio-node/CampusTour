@@ -349,6 +349,7 @@ export interface AnalyticsEvent {
   school_id: string;
   location_id?: string;
   metadata?: Record<string, any>;
+  tour_appointment_id?: string;
 }
 
 // Analytics service
@@ -418,6 +419,7 @@ export const analyticsService = {
           school_id: event.school_id,
           location_id: event.location_id || null,
           metadata: event.metadata || null,
+          tour_appointment_id: event.tour_appointment_id || null,
           timestamp: new Date().toISOString()
         }]);
 
@@ -435,7 +437,7 @@ export const analyticsService = {
   },
 
   // Export interests-chosen event
-  async exportInterestsChosen(schoolId: string, selectedInterests: string[]): Promise<boolean> {
+  async exportInterestsChosen(schoolId: string, selectedInterests: string[], tourAppointmentId: string | null = null): Promise<{success: boolean, error?: string}> {
     try {
       const sessionId = await this.getSessionId();
       
@@ -443,16 +445,29 @@ export const analyticsService = {
         event_type: 'interests-chosen',
         session_id: sessionId,
         school_id: schoolId,
+        tour_appointment_id: tourAppointmentId || undefined,
         metadata: {
           selected_interests: selectedInterests,
-          interest_count: selectedInterests.length
+          interest_count: selectedInterests.length,
+          source: 'mobile'
         }
       };
 
-      return await this.exportEvent(event);
+      const success = await this.exportEvent(event);
+      
+      if (success) {
+        console.log('Interest selection analytics exported:', {
+          interests: selectedInterests,
+          tourAppointmentId,
+          schoolId
+        });
+        return { success: true };
+      } else {
+        return { success: false, error: 'Failed to export analytics event' };
+      }
     } catch (error) {
       console.error('Error exporting interests-chosen event:', error);
-      return false;
+      return { success: false, error: 'Failed to export interest selection analytics' };
     }
   },
 
@@ -579,3 +594,181 @@ export const userTypeService = {
     }
   }
 };
+
+// Tour Appointment interface
+export interface TourAppointment {
+  id: string;
+  school_id: string;
+  ambassador_id: string;
+  scheduled_date: string;
+  status: string;
+  max_participants: number;
+  participants_signed_up: number;
+  meeting_location?: string;
+  duration_minutes?: number;
+  profiles?: {
+    full_name: string;
+  };
+}
+
+// Tour appointments service
+export const tourAppointmentsService = {
+  /**
+   * Get available tour appointments for a specific school
+   * @param schoolId - The school ID to filter by
+   * @returns Promise<TourAppointment[]>
+   */
+  async getAvailableTourGroups(schoolId: string): Promise<TourAppointment[]> {
+    try {
+      const now = new Date().toISOString();
+      
+      const { data, error } = await supabase
+        .from('tour_appointments')
+        .select(`
+          *,
+          profiles (
+            full_name
+          )
+        `)
+        .eq('school_id', schoolId)
+        .eq('status', 'scheduled')
+        .gte('scheduled_date', now)
+        .order('scheduled_date', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching available tour groups:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get tour appointment details by ID
+   * @param appointmentId - The appointment ID
+   * @returns Promise<TourAppointment | null>
+   */
+  async getTourAppointmentById(appointmentId: string): Promise<TourAppointment | null> {
+    try {
+      const { data, error } = await supabase
+        .from('tour_appointments')
+        .select(`
+          *,
+          profiles (
+            full_name
+          )
+        `)
+        .eq('id', appointmentId)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching tour appointment by ID:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Check if tour appointment has available spots
+   * @param appointment - The tour appointment object
+   * @returns boolean
+   */
+  hasAvailableSpots(appointment: TourAppointment): boolean {
+    return appointment.participants_signed_up < appointment.max_participants;
+  },
+
+  /**
+   * Format tour date and time for display
+   * @param scheduledDate - ISO date string
+   * @returns Formatted date and time object
+   */
+  formatTourDateTime(scheduledDate: string) {
+    const date = new Date(scheduledDate);
+    
+    return {
+      date: date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }),
+      time: date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }),
+      dayOfWeek: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      shortDate: date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+      })
+    };
+  },
+
+  /**
+   * Join a tour group (for now, just return success - could track participants later)
+   * @param appointmentId - The appointment ID to join
+   * @param userInfo - User information
+   * @returns Promise with success status
+   */
+  async joinTourGroup(appointmentId: string, userInfo: any): Promise<{success: boolean, error?: string, message?: string}> {
+    try {
+      // For now, we'll just return success
+      // In the future, this could:
+      // 1. Add the user to a tour_participants table
+      // 2. Check if tour is full
+      // 3. Send confirmation emails
+      // 4. Generate QR codes for check-in
+      
+      return {
+        success: true,
+        message: 'Successfully joined tour group!'
+      };
+    } catch (error) {
+      console.error('Error joining tour group:', error);
+      return {
+        success: false,
+        error: 'Failed to join tour group. Please try again.'
+      };
+    }
+  }
+};
+
+// Storage key for selected tour group
+const SELECTED_TOUR_GROUP_KEY = 'selectedTourGroup';
+
+// Tour group selection service
+export const tourGroupSelectionService = {
+  async getSelectedTourGroup(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem(SELECTED_TOUR_GROUP_KEY);
+    } catch (error) {
+      console.error('Error getting selected tour group:', error);
+      return null;
+    }
+  },
+
+  async setSelectedTourGroup(appointmentId: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem(SELECTED_TOUR_GROUP_KEY, appointmentId);
+    } catch (error) {
+      console.error('Error setting selected tour group:', error);
+    }
+  },
+
+  async clearSelectedTourGroup(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(SELECTED_TOUR_GROUP_KEY);
+    } catch (error) {
+      console.error('Error clearing selected tour group:', error);
+    }
+  }
+};
+
