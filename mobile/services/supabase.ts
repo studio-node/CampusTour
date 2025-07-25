@@ -307,6 +307,8 @@ export interface Lead {
   date_of_birth?: string | null;
   gender?: string | null;
   grad_year?: number | null;
+  tour_type?: string | null;
+  tour_appointment_id?: string | null;
 }
 
 // Leads service
@@ -324,6 +326,8 @@ export const leadsService = {
           date_of_birth: lead.date_of_birth,
           gender: lead.gender,
           grad_year: lead.grad_year,
+          tour_type: lead.tour_type,
+          tour_appointment_id: lead.tour_appointment_id,
           created_at: new Date().toISOString()
         }])
         .select();
