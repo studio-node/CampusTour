@@ -11,10 +11,25 @@ import PublicLayout from '../components/PublicLayout.vue'
 import AdminLayout from '../components/AdminLayout.vue'
 
 const routes = [
-  // Public routes
+  // Landing page (root)
   {
     path: '/',
-    redirect: '/select-school'
+    name: 'Landing',
+    component: () => import('../pages/LandingPage.vue'),
+    meta: { 
+      layout: 'none',
+      title: 'Campus Tour' 
+    }
+  },
+  // Admin sign-in page
+  {
+    path: '/admin/signin',
+    name: 'AdminSignIn',
+    component: () => import('../pages/AdminSignIn.vue'),
+    meta: { 
+      layout: 'none',
+      title: 'Admin Sign In' 
+    }
   },
   {
     path: '/select-school',
@@ -118,9 +133,9 @@ const routes = [
     }
   },
   {
-    // Redirect any unknown routes to school selection
+    // Redirect any unknown routes to landing page
     path: '/:pathMatch(.*)*',
-    redirect: '/select-school'
+    redirect: '/'
   }
 ]
 

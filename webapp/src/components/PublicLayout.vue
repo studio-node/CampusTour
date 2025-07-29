@@ -30,7 +30,7 @@ const clearStorage = () => {
         <div class="flex justify-between items-center h-16">
           <!-- Logo/Brand -->
           <div class="flex items-center">
-            <router-link to="/select-school" class="flex items-center">
+            <router-link to="/" class="flex items-center">
               <h1 class="text-xl font-bold text-white">{{ title }}</h1>
             </router-link>
           </div>
@@ -44,10 +44,10 @@ const clearStorage = () => {
               Clear Storage (for testing)
             </button>
             <router-link 
-              to="/select-school" 
+              to="/" 
               class="text-gray-300 hover:text-white transition-colors duration-200"
             >
-              Start Tour
+              Home
             </router-link>
             <a 
               v-if="showAppDownload"

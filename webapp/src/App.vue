@@ -21,10 +21,13 @@ const currentLayout = computed(() => {
   <AdminLayout v-else-if="currentLayout === 'admin'">
     <router-view />
   </AdminLayout>
+  
+  <!-- No layout wrapper for standalone pages -->
+  <router-view v-else-if="currentLayout === 'none'" />
           
   <!-- Fallback to public layout if no layout specified -->
   <PublicLayout v-else>
-            <router-view />
+    <router-view />
   </PublicLayout>
 </template>
 
