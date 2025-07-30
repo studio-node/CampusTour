@@ -1,10 +1,12 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { signIn, signUp } from '../services/authHandler'
 import { schoolService } from '../services/schoolService.js'
+import { useAuth } from '../composables/useAuth.js'
 
 const router = useRouter()
+const { isAuthenticated, loading: authLoading } = useAuth()
 
 // State
 const isSignUp = ref(false)
@@ -30,7 +32,7 @@ onMounted(async () => {
 const loadSchools = async () => {
   schoolsLoading.value = true
   try {
-    const schoolsData = await schoolService.getClosestSchools()
+    const schoolsData = await schoolService.getSchools()
     schools.value = schoolsData
   } catch (err) {
     console.error('Error loading schools:', err)
@@ -123,26 +125,19 @@ const handleSubmit = async () => {
       school: selectedSchool.value
     })
     
-    let data;
-    if (isSignUp.value) {
-      data = await signUp(email.value, password.value, name.value, selectedRole.value, selectedSchool.value)
-    } else {
-      data = await signIn(email.value, password.value) 
-    }
-    
-    if (data) { 
-      const queryParams = {
-        user_id: data.user.id
-      }
-      
-      await router.push({
-        path: '/admin',
-        query: queryParams
-      })
-
-    } else {
-      error.value = 'Authentication failed. Please try again.'
-    }
+         let data;
+     if (isSignUp.value) {
+       data = await signUp(email.value, password.value, name.value, selectedRole.value, selectedSchool.value)
+     } else {
+       data = await signIn(email.value, password.value) 
+     }
+     
+     if (data) { 
+       // Redirect to admin dashboard - auth state will be handled by useAuth composable
+       router.push('/admin')
+     } else {
+       error.value = 'Authentication failed. Please try again.'
+     }
     
   } catch (err) {
     error.value = 'Authentication failed. Please try again.'
@@ -156,6 +151,13 @@ const handleSubmit = async () => {
 const goBack = () => {
   router.push('/')
 }
+
+// Redirect to admin if already authenticated
+watchEffect(() => {
+  if (!authLoading.value && isAuthenticated.value) {
+    router.push('/admin')
+  }
+})
 </script>
 
 <template>

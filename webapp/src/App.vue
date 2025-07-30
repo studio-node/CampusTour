@@ -1,10 +1,22 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import PublicLayout from './components/PublicLayout.vue'
 import AdminLayout from './components/AdminLayout.vue'
+import { useAuth, cleanupAuth } from './composables/useAuth.js'
 
 const route = useRoute()
+const { initAuth } = useAuth()
+
+// Initialize authentication when app starts
+onMounted(() => {
+  initAuth()
+})
+
+// Cleanup auth when app unmounts
+onUnmounted(() => {
+  cleanupAuth()
+})
 
 // Determine which layout to use based on route meta
 const currentLayout = computed(() => {

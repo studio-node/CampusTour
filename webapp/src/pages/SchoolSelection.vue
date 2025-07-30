@@ -24,7 +24,7 @@ const loadSchools = async () => {
   error.value = ''
   
   try {
-    const schoolsData = await schoolService.getClosestSchools()
+    const schoolsData = await schoolService.getSchools()
     allSchools.value = schoolsData
     
     // Check if there's already a selected school and pre-select it
