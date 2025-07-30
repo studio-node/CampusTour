@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
-import { supabaseUrl, supabaseAnonKey } from './supa.js'
+// import { supabaseUrl, supabaseAnonKey } from './supa.js'
 
 // Create and export the Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY)
 
 // Export individual functions for convenience
 export const {
