@@ -104,7 +104,7 @@ const handleSubmit = async () => {
   }
   
   if (isSignUp.value && !selectedRole.value) {
-    error.value = 'Please select a role (Admin or Builder)'
+    error.value = 'Please select a role (Admin, Builder, or Ambassador)'
     return
   }
   
@@ -227,7 +227,7 @@ watchEffect(() => {
               <label class="block text-sm font-medium text-gray-300 mb-3">
                 Select Your Role *
               </label>
-              <div class="grid grid-cols-2 gap-3">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <button
                   type="button"
                   @click="selectRole('admin')"
@@ -263,6 +263,25 @@ watchEffect(() => {
                     </svg>
                     <span class="font-semibold">Builder</span>
                     <span class="text-xs mt-1 opacity-75">Content management</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  @click="selectRole('ambassador')"
+                  :class="[
+                    'p-4 rounded-lg border-2 transition-all duration-200 text-center',
+                    selectedRole === 'ambassador'
+                      ? 'bg-green-600 border-green-500 text-white'
+                      : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-gray-500 hover:bg-gray-600'
+                  ]"
+                >
+                  <div class="flex flex-col items-center">
+                    <svg class="w-6 h-6 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                    </svg>
+                    <span class="font-semibold">Ambassador</span>
+                    <span class="text-xs mt-1 opacity-75">Tour leadership</span>
                   </div>
                 </button>
               </div>

@@ -33,21 +33,6 @@ export async function getSchools() {
 }
 
 /**
- * Get schools ordered by distance (placeholder - returns all schools for now)
- * TODO: Implement actual distance calculation if geolocation is needed
- */
-export async function getClosestSchools(lat = null, lng = null) {
-  try {
-    // For now, just return all schools
-    // In the future, this could calculate distance based on lat/lng
-    return await getSchools()
-  } catch (error) {
-    console.error('Error fetching closest schools:', error)
-    throw error
-  }
-}
-
-/**
  * Get details for a specific school by ID
  */
 export async function getSchoolById(schoolId) {
@@ -116,7 +101,6 @@ export function hasSelectedSchool() {
 
 export const schoolService = {
   getSchools,
-  getClosestSchools,
   getSchoolById,
   setSelectedSchool,
   getSelectedSchool,
