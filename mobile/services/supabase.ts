@@ -9,8 +9,224 @@ import 'react-native-url-polyfill/auto';
 // Initialize Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Auth interfaces
+export interface AuthUser {
+  id: string;
+  email: string;
+  user_metadata?: {
+    full_name?: string;
+    role?: string;
+    user_type?: string;
+    school_id?: string;
+  };
+}
+
+export interface AuthResponse {
+  user: AuthUser | null;
+  error: string | null;
+}
+
+// Authentication service
+export const authService = {
+  // Sign in with email and password
+  async signIn(email: string, password: string): Promise<AuthResponse> {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        console.error('Sign in error:', error);
+        return { user: null, error: error.message };
+      }
+
+      console.log('Sign in successful:', data.user?.email);
+      return { user: data.user as AuthUser, error: null };
+    } catch (error) {
+      console.error('Exception during sign in:', error);
+      return { user: null, error: 'An unexpected error occurred' };
+    }
+  },
+
+  // Sign up with email, password, and metadata
+  async signUp(email: string, password: string, name: string, userType: string, schoolId: string): Promise<AuthResponse> {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name,
+            user_type: userType,
+            school_id: schoolId
+          }
+        }
+      });
+
+      if (error) {
+        console.error('Sign up error:', error);
+        return { user: null, error: error.message };
+      }
+
+      console.log('Sign up successful:', data.user?.email);
+      return { user: data.user as AuthUser, error: null };
+    } catch (error) {
+      console.error('Exception during sign up:', error);
+      return { user: null, error: 'An unexpected error occurred' };
+    }
+  },
+
+  // Sign out
+  async signOut(): Promise<{ error: string | null }> {
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Sign out error:', error);
+        return { error: error.message };
+      }
+
+      console.log('Sign out successful');
+      return { error: null };
+    } catch (error) {
+      console.error('Exception during sign out:', error);
+      return { error: 'An unexpected error occurred' };
+    }
+  },
+
+  // Get current user
+  async getCurrentUser(): Promise<AuthUser | null> {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        // Only log non-critical errors (session missing is normal)
+        if (error.message !== 'Auth session missing!') {
+          console.error('Get user error:', error);
+        }
+        return null;
+      }
+
+      return user as AuthUser;
+    } catch (error) {
+      // Only log unexpected errors
+      if (error instanceof Error && error.message !== 'Auth session missing!') {
+        console.error('Exception getting current user:', error);
+      }
+      return null;
+    }
+  },
+
+  // Get current session
+  async getCurrentSession() {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        // Only log non-critical errors (session missing is normal)
+        if (error.message !== 'Auth session missing!') {
+          console.error('Get session error:', error);
+        }
+        return null;
+      }
+
+      return session;
+    } catch (error) {
+      // Only log unexpected errors
+      if (error instanceof Error && error.message !== 'Auth session missing!') {
+        console.error('Exception getting current session:', error);
+      }
+      return null;
+    }
+  },
+
+  // Listen to auth state changes
+  onAuthStateChange(callback: (event: string, session: any) => void) {
+    return supabase.auth.onAuthStateChange(callback);
+  },
+
+  // AsyncStorage-based authentication state management
+  
+  // Save user authentication data to AsyncStorage
+  async saveAuthState(user: AuthUser): Promise<void> {
+    try {
+      await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+      console.log('Auth state saved to AsyncStorage');
+    } catch (error) {
+      console.error('Error saving auth state:', error);
+    }
+  },
+
+  // Get authenticated user from AsyncStorage
+  async getStoredUser(): Promise<AuthUser | null> {
+    try {
+      const userData = await AsyncStorage.getItem(AUTH_USER_KEY);
+      if (userData) {
+        return JSON.parse(userData) as AuthUser;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting stored user:', error);
+      return null;
+    }
+  },
+
+  // Check if user is authenticated (from AsyncStorage)
+  async isAuthenticated(): Promise<boolean> {
+    try {
+      const userData = await AsyncStorage.getItem(AUTH_USER_KEY);
+      return userData !== null;
+    } catch (error) {
+      console.error('Error checking authentication:', error);
+      return false;
+    }
+  },
+
+  // Check if stored user is an ambassador
+  async isStoredUserAmbassador(): Promise<boolean> {
+    try {
+      const user = await this.getStoredUser();
+      return user?.user_metadata?.user_type === 'ambassador';
+    } catch (error) {
+      console.error('Error checking if user is ambassador:', error);
+      return false;
+    }
+  },
+
+  // Clear authentication state from AsyncStorage
+  async clearAuthState(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(AUTH_USER_KEY);
+      await AsyncStorage.removeItem(AUTH_SESSION_KEY);
+      console.log('Auth state cleared from AsyncStorage');
+    } catch (error) {
+      console.error('Error clearing auth state:', error);
+    }
+  },
+
+  // Enhanced sign in that saves to AsyncStorage
+  async signInAndStore(email: string, password: string): Promise<AuthResponse> {
+    const response = await this.signIn(email, password);
+    
+    if (response.user && !response.error) {
+      await this.saveAuthState(response.user);
+    }
+    
+    return response;
+  },
+
+  // Enhanced sign out that clears AsyncStorage
+  async signOutAndClear(): Promise<{ error: string | null }> {
+    await this.clearAuthState();
+    return await this.signOut();
+  }
+};
+
 // Storage keys
 const SELECTED_SCHOOL_KEY = 'SELECTED_SCHOOL_ID';
+const AUTH_USER_KEY = 'AUTHENTICATED_USER';
+const AUTH_SESSION_KEY = 'AUTH_SESSION_DATA';
 
 // Region interface for map coordinates
 export interface Region {
@@ -604,19 +820,68 @@ export interface TourAppointment {
   id: string;
   school_id: string;
   ambassador_id: string;
+  title?: string;
+  description?: string;
   scheduled_date: string;
   status: string;
   max_participants: number;
   participants_signed_up: number;
-  meeting_location?: string;
-  duration_minutes?: number;
+  qr_code_token?: string;
+  created_at?: string;
+  updated_at?: string;
   profiles?: {
     full_name: string;
+  };
+  schools?: {
+    name: string;
+    city: string;
+    state: string;
   };
 }
 
 // Tour appointments service
 export const tourAppointmentsService = {
+  /**
+   * Get tours assigned to a specific ambassador (current day or future)
+   * @param ambassadorId - The ambassador's user ID
+   * @returns Promise<TourAppointment[]>
+   */
+  async getAmbassadorTours(ambassadorId: string): Promise<TourAppointment[]> {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Start of today
+      const todayISO = today.toISOString();
+      
+      const { data, error } = await supabase
+        .from('tour_appointments')
+        .select(`
+          *,
+          profiles (
+            full_name
+          ),
+          schools (
+            name,
+            city,
+            state
+          )
+        `)
+        .eq('ambassador_id', ambassadorId)
+        .in('status', ['scheduled', 'active'])
+        .gte('scheduled_date', todayISO)
+        .order('scheduled_date', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching ambassador tours:', error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching ambassador tours:', error);
+      throw error;
+    }
+  },
+
   /**
    * Get available tour appointments for a specific school
    * @param schoolId - The school ID to filter by

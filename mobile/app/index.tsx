@@ -1,13 +1,39 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { userTypeService, UserType, schoolService } from '@/services/supabase';
+import { userTypeService, UserType, schoolService, authService } from '@/services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function TourTypeSelectionScreen() {
   const [selectedTourType, setSelectedTourType] = useState<UserType>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    checkAuthenticationStatus();
+  }, []);
+
+  const checkAuthenticationStatus = async () => {
+    try {
+      // Check if user is authenticated and is an ambassador using AsyncStorage
+      const isAuthenticated = await authService.isAuthenticated();
+      const isAmbassador = await authService.isStoredUserAmbassador();
+      
+      if (isAuthenticated && isAmbassador) {
+        // User is an authenticated ambassador, redirect to tours screen
+        router.replace('/ambassador-tours');
+        return;
+      }
+      
+      // No authentication or not an ambassador, continue with normal flow
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error checking authentication status:', error);
+      // On any error, just continue with normal flow
+      setIsLoading(false);
+    }
+  };
 
   const handleTourTypeSelect = (tourType: UserType) => {
     setSelectedTourType(tourType);
@@ -27,12 +53,9 @@ export default function TourTypeSelectionScreen() {
     }
   };
 
-  const handleAmbassadorAction = async () => {
-    // Set user type as ambassador using the service
-    await userTypeService.setUserType('ambassador');
-    
-    // Navigate directly to school selection for ambassadors
-    router.push('/school-selection');
+  const handleAmbassadorAction = () => {
+    // Navigate to ambassador sign-in screen
+    router.push('/ambassador-signin');
   };
 
     //  This is just here for testing purposes
@@ -46,6 +69,15 @@ export default function TourTypeSelectionScreen() {
     await AsyncStorage.clear();
     console.log('Async Storage cleared');
   };
+
+  // Show loading or nothing while checking authentication
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar style="light" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
