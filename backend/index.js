@@ -1,13 +1,18 @@
 import express from 'express';
+import { WebSocketServer } from 'ws';
 import GeminiCaller from './gemini_caller.mjs';
 import { createClient } from '@supabase/supabase-js';
 import { getLocations } from './supabase.mjs';
+import { sessionManager } from './tour-sessions.js';
 
 const app = express();
 const port = 3000;
 
 const supabase = createClient(process.env.supabaseUrl, process.env.supabaseAnonKey);
 
+// In-memory store for tour sessions
+// Map<tourId, { ambassador: WebSocket, members: Set<WebSocket> }>
+const tourSessions = new Map();
 
 
 function makeLocationsArrayTourGeneration(locations) {
@@ -53,6 +58,10 @@ app.post('/generate-tour', express.json(), async (req, res) => {
     res.json(tour);
 });
 
-app.listen(port, () => {
-    return console.log(`Express is listening at http://localhost:${port}`);
+const server = app.listen(port, () => {
+    console.log(`Express is listening at http://localhost:${port}`);
 });
+
+const wss = new WebSocketServer({ server });
+
+wss.on('connection', ws =>  sessionManager(ws, tourSessions));
