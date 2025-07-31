@@ -13,7 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
-import { leadsService, schoolService } from '@/services/supabase';
+import { leadsService, schoolService, tourGroupSelectionService, userTypeService } from '@/services/supabase';
 
 type Identity = 'prospective-student' | 'friend-family' | 'touring-campus' | '';
 type Gender = 'male' | 'female' | 'non-binary' | 'prefer-not-to-say' | '';
@@ -45,28 +45,40 @@ export default function LeadCaptureScreen() {
   const [showIdentityModal, setShowIdentityModal] = useState(false);
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [schoolId, setSchoolId] = useState<string | null>(null);
+  const [tourAppointmentId, setTourAppointmentId] = useState<string | null>(null);
+  const [isAmbassadorLed, setIsAmbassadorLed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Get the selected school ID on component mount
+  // Get the selected school ID and tour data on component mount
   useEffect(() => {
-    const getSelectedSchool = async () => {
+    const loadData = async () => {
       const selectedSchoolId = await schoolService.getSelectedSchool();
+      const selectedTourGroupId = await tourGroupSelectionService.getSelectedTourGroup();
+      const userType = await userTypeService.getUserType();
+      
       if (!selectedSchoolId) {
         // If no school is selected, redirect back
         Alert.alert('Error', 'No school selected. Please select a school first.');
         router.back();
         return;
       }
+      
       setSchoolId(selectedSchoolId);
+      setTourAppointmentId(selectedTourGroupId);
+      setIsAmbassadorLed(userType === 'ambassador-led');
+      
+      console.log('School ID:', selectedSchoolId);
+      console.log('Tour Appointment ID:', selectedTourGroupId);
+      console.log('User Type:', userType);
     };
 
-    getSelectedSchool();
+    loadData();
   }, [router]);
 
   const identityOptions = [
     { value: 'prospective-student', label: 'Prospective Student' },
-    { value: 'friend-family', label: 'Friend/Family of Prospective Student' },
-    { value: 'touring-campus', label: 'Just Touring Campus' }
+    { value: 'friend-family', label: 'Friends/Family' },
+    { value: 'touring-campus', label: 'Just Touring' }
   ];
 
   const genderOptions = [
@@ -130,15 +142,23 @@ export default function LeadCaptureScreen() {
         email: userInfo.email.trim().toLowerCase(),
         date_of_birth: formatDateForDatabase(userInfo.dateOfBirth),
         gender: userInfo.gender || null,
-        grad_year: userInfo.gradYear.trim() ? parseInt(userInfo.gradYear.trim()) : null
+        grad_year: userInfo.gradYear.trim() ? parseInt(userInfo.gradYear.trim()) : null,
+        tour_appointment_id: tourAppointmentId
       };
 
       // Save to database
       const result = await leadsService.createLead(leadData);
 
       if (result.success) {
-        // Success - navigate to main app
-        router.replace('/(tabs)/map');
+        console.log('Lead created successfully, tour appointment ID:', tourAppointmentId);
+        // Success - navigate based on tour type
+        if (isAmbassadorLed) {
+          // For ambassador-led tours, go to interest selection
+          router.push('/interest-selection');
+        } else {
+          // For self-guided tours, go to main app
+          router.replace('/(tabs)/map');
+        }
       } else {
         // Show error
         Alert.alert(
@@ -249,7 +269,10 @@ export default function LeadCaptureScreen() {
       >
         <Text style={styles.title}>Tell us about yourself</Text>
         <Text style={styles.subtitle}>
-          Help us personalize your campus tour experience
+          {isAmbassadorLed 
+            ? 'Help us personalize your ambassador-led tour experience'
+            : 'Help us personalize your campus tour experience'
+          }
         </Text>
 
         {renderDropdownField(

@@ -76,7 +76,7 @@ export default function TourGroupSelectionScreen() {
 
   const handleContinue = () => {
     if (selectedTourGroup) {
-      router.push('/participant-info');
+      router.push('/lead-capture');
     }
   };
 

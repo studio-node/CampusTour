@@ -28,7 +28,7 @@ export default function RootLayout() {
         <Stack.Screen name="school-selection" options={{ headerShown: false }} />
         <Stack.Screen name="tour-group-selection" options={{ headerShown: false }} />
         <Stack.Screen name="interest-selection" options={{ headerShown: false }} />
-        <Stack.Screen name="participant-info" options={{ headerShown: false }} />
+
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="building" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
