@@ -17,14 +17,21 @@ import {
   tourGroupSelectionService,
   schoolService,
   userTypeService,
-  TourAppointment 
+  leadsService,
+  TourAppointment,
+  TourParticipant 
 } from '@/services/supabase';
+import { formatInterest, formatIdentity } from '@/constants/labels';
 
 export default function AmbassadorToursScreen() {
   const [tours, setTours] = useState<TourAppointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [expandedTours, setExpandedTours] = useState<Set<string>>(new Set());
+  const [tourParticipants, setTourParticipants] = useState<{ [key: string]: TourParticipant[] }>({});
+  const [loadingParticipants, setLoadingParticipants] = useState<Set<string>>(new Set());
+  const [selectedTourId, setSelectedTourId] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -76,29 +83,27 @@ export default function AmbassadorToursScreen() {
     }
   };
 
-  const handleTourSelect = async (tour: TourAppointment) => {
+  const handleTourSelect = (tour: TourAppointment) => {
+    setSelectedTourId(tour.id);
+  };
+
+  const handleChooseGroup = async () => {
+    if (!selectedTourId) return;
+
+    const selectedTour = tours.find(tour => tour.id === selectedTourId);
+    if (!selectedTour) return;
+
     try {
       // Set the selected tour group
-      await tourGroupSelectionService.setSelectedTourGroup(tour.id);
+      await tourGroupSelectionService.setSelectedTourGroup(selectedTour.id);
       
       // Set school if available
-      if (tour.school_id) {
-        await schoolService.setSelectedSchool(tour.school_id);
+      if (selectedTour.school_id) {
+        await schoolService.setSelectedSchool(selectedTour.school_id);
       }
 
-      Alert.alert(
-        'Tour Selected',
-        `You've selected the tour at ${tour.schools?.name || 'the selected school'}.`,
-        [
-          {
-            text: 'Continue',
-            onPress: () => {
-              // Navigate to the appropriate next screen (could be map or tour management)
-              router.push('/school-selection'); // For now, redirect to school selection
-            }
-          }
-        ]
-      );
+      // Navigate to tour details screen
+      router.push('/tour-details');
     } catch (error) {
       console.error('Error selecting tour:', error);
       Alert.alert('Error', 'Failed to select tour. Please try again.');
@@ -122,6 +127,40 @@ export default function AmbassadorToursScreen() {
         }
       ]
     );
+  };
+
+  const toggleTourExpansion = async (tourId: string) => {
+    const newExpandedTours = new Set(expandedTours);
+    
+    if (expandedTours.has(tourId)) {
+      // Collapse the tour
+      newExpandedTours.delete(tourId);
+    } else {
+      // Expand the tour and load participants if not already loaded
+      newExpandedTours.add(tourId);
+      
+      if (!tourParticipants[tourId]) {
+        setLoadingParticipants(prev => new Set([...prev, tourId]));
+        try {
+          const participants = await leadsService.getTourParticipants(tourId);
+          setTourParticipants(prev => ({
+            ...prev,
+            [tourId]: participants
+          }));
+        } catch (error) {
+          console.error('Error loading tour participants:', error);
+          Alert.alert('Error', 'Failed to load participants for this tour.');
+        } finally {
+          setLoadingParticipants(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(tourId);
+            return newSet;
+          });
+        }
+      }
+    }
+    
+    setExpandedTours(newExpandedTours);
   };
 
   const formatDateTime = (dateString: string) => {
@@ -168,42 +207,107 @@ export default function AmbassadorToursScreen() {
     }
   };
 
-  const renderTourItem = ({ item }: { item: TourAppointment }) => (
-    <TouchableOpacity
-      style={styles.tourCard}
-      onPress={() => handleTourSelect(item)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.tourHeader}>
-        <Text style={styles.schoolName}>{item.schools?.name || 'School Tour'}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+
+
+  const renderParticipant = (participant: TourParticipant, index: number) => (
+    <View key={participant.id || index} style={styles.participantCard}>
+      <View style={styles.participantHeader}>
+        <Text style={styles.participantName}>{participant.name}</Text>
+        <Text style={styles.participantIdentity}>{formatIdentity(participant.identity)}</Text>
+      </View>
+      {participant.interests && participant.interests.length > 0 && (
+        <View style={styles.interestsContainer}>
+          <Text style={styles.interestsLabel}>Interests:</Text>
+          <View style={styles.interestsTags}>
+            {participant.interests.map((interest, idx) => (
+              <View key={idx} style={styles.interestTag}>
+                <Text style={styles.interestTagText}>{formatInterest(interest)}</Text>
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
-      
-      <Text style={styles.tourDateTime}>{formatDateTime(item.scheduled_date)}</Text>
-      
-      {item.schools?.city && item.schools?.state && (
-        <Text style={styles.schoolLocation}>{item.schools.city}, {item.schools.state}</Text>
       )}
-      
-      {item.title && (
-        <Text style={styles.tourTitle}>{item.title}</Text>
-      )}
-      
-      {item.description && (
-        <Text style={styles.tourDescription} numberOfLines={2}>
-          {item.description}
-        </Text>
-      )}
-      
-      <View style={styles.participantInfo}>
-        <Text style={styles.participantText}>
-          {item.participants_signed_up} / {item.max_participants} participants
-        </Text>
-      </View>
-    </TouchableOpacity>
+    </View>
   );
+
+  const renderTourItem = ({ item }: { item: TourAppointment }) => {
+    const isExpanded = expandedTours.has(item.id);
+    const participants = tourParticipants[item.id] || [];
+    const isLoadingParticipantsForTour = loadingParticipants.has(item.id);
+    const isSelected = selectedTourId === item.id;
+
+    return (
+      <View style={[
+        styles.tourCard,
+        isSelected && styles.selectedTourCard
+      ]}>
+        <TouchableOpacity
+          onPress={() => handleTourSelect(item)}
+          activeOpacity={0.7}
+          style={styles.tourMainContent}
+        >
+          <View style={styles.tourHeader}>
+            <Text style={styles.tourTitle}>{item.title}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+              <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+            </View>
+          </View>
+          
+          <Text style={styles.tourDateTime}>{formatDateTime(item.scheduled_date)}</Text>
+          
+          {item.schools?.name && (
+            <Text style={styles.schoolLocation}>{item.schools.name}</Text>
+          )}
+
+          {item.description && (
+            <Text style={styles.tourDescription} numberOfLines={2}>
+              {item.description}
+            </Text>
+          )}
+          
+          <View style={styles.participantInfo}>
+            <Text style={styles.participantText}>
+              {item.participants_signed_up} / {item.max_participants} participants
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Expand/Collapse Button */}
+        <TouchableOpacity
+          style={styles.expandButton}
+          onPress={() => toggleTourExpansion(item.id)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.expandButtonText}>
+            {isExpanded ? '▼ Hide Participants' : '▶ View Participants'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Expanded Participants Section */}
+        {isExpanded && (
+          <View style={styles.participantsSection}>
+            {isLoadingParticipantsForTour ? (
+              <View style={styles.loadingParticipants}>
+                <ActivityIndicator size="small" color="#fff" />
+                <Text style={styles.loadingParticipantsText}>Loading participants...</Text>
+              </View>
+            ) : participants.length > 0 ? (
+              <View>
+                <Text style={styles.participantsSectionTitle}>
+                  Participants ({participants.length})
+                </Text>
+                {participants.map(renderParticipant)}
+              </View>
+            ) : (
+              <Text style={styles.noParticipantsText}>
+                No participants have signed up yet.
+              </Text>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   if (loading) {
     return (
@@ -243,21 +347,36 @@ export default function AmbassadorToursScreen() {
             </Text>
           </View>
         ) : (
-          <FlatList
-            data={tours}
-            keyExtractor={(item) => item.id}
-            renderItem={renderTourItem}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor="#fff"
-                titleColor="#fff"
-              />
-            }
-            contentContainerStyle={styles.toursList}
-          />
+          <>
+            <FlatList
+              data={tours}
+              keyExtractor={(item) => item.id}
+              renderItem={renderTourItem}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor="#fff"
+                  titleColor="#fff"
+                />
+              }
+              contentContainerStyle={styles.toursList}
+            />
+            
+            {/* Choose Group Button */}
+            {selectedTourId && (
+              <View style={styles.chooseButtonContainer}>
+                <TouchableOpacity
+                  style={styles.chooseButton}
+                  onPress={handleChooseGroup}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.chooseButtonText}>Choose Group</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
         )}
       </View>
     </View>
@@ -367,10 +486,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   tourTitle: {
-    fontSize: 16,
+    flex: 1,
+    fontSize: 18,
+    fontWeight: 'bold',
     color: '#fff',
-    fontWeight: '600',
-    marginBottom: 4,
+    marginRight: 12,
   },
   tourDescription: {
     fontSize: 14,
@@ -405,5 +525,138 @@ const styles = StyleSheet.create({
     color: '#ccc',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  // New styles for expanded participant functionality
+  tourMainContent: {
+    // Styles for the main clickable tour content
+  },
+  expandButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  expandButtonText: {
+    color: '#4CAF50',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  participantsSection: {
+    marginTop: 12,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  participantsSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 12,
+  },
+  participantCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  participantHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  participantName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    flex: 1,
+  },
+  participantIdentity: {
+    fontSize: 14,
+    color: '#aaa',
+    fontStyle: 'italic',
+  },
+  interestsContainer: {
+    marginTop: 8,
+  },
+  interestsLabel: {
+    fontSize: 12,
+    color: '#ccc',
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  interestsTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  interestTag: {
+    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.3)',
+  },
+  interestTagText: {
+    fontSize: 11,
+    color: '#4CAF50',
+    fontWeight: '500',
+  },
+  loadingParticipants: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  loadingParticipantsText: {
+    color: '#ccc',
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  noParticipantsText: {
+    color: '#aaa',
+    fontSize: 14,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    paddingVertical: 20,
+  },
+  // Selected tour card styles
+  selectedTourCard: {
+    borderColor: '#4CAF50',
+    borderWidth: 2,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+  },
+  // Choose Group button styles
+  chooseButtonContainer: {
+    padding: 20,
+    paddingTop: 10,
+    marginBottom: 30,
+    backgroundColor: '#282828',
+  },
+  chooseButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#4CAF50',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  chooseButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });

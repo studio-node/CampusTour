@@ -57,20 +57,8 @@ export default function AmbassadorSignInScreen() {
         if (schoolId) {
           await schoolService.setSelectedSchool(schoolId);
         }
-
-        Alert.alert(
-          'Welcome!',
-          `Signed in successfully as ${response.user.user_metadata?.full_name || response.user.email}`,
-          [
-            {
-              text: 'Continue',
-              onPress: () => {
-                // Navigate to ambassador tours screen
-                router.replace('/ambassador-tours');
-              }
-            }
-          ]
-        );
+        router.replace('/ambassador-tours');
+        return;
       }
     } catch (error) {
       console.error('Sign in error:', error);
