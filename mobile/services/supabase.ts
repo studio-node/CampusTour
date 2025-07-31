@@ -527,6 +527,11 @@ export interface Lead {
   tour_appointment_id?: string | null;
 }
 
+// Tour participant interface (extended from Lead)
+export interface TourParticipant extends Lead {
+  interests?: string[];
+}
+
 // Leads service
 export const leadsService = {
   async createLead(lead: Omit<Lead, 'id' | 'created_at'>): Promise<{ success: boolean; error?: string }> {
@@ -558,6 +563,74 @@ export const leadsService = {
     } catch (error) {
       console.error('Exception creating lead:', error);
       return { success: false, error: 'Failed to save lead information' };
+    }
+  },
+
+  /**
+   * Get participants (leads) for a specific tour appointment
+   * @param tourAppointmentId - The tour appointment ID
+   * @returns Promise<TourParticipant[]>
+   */
+  async getTourParticipants(tourAppointmentId: string): Promise<TourParticipant[]> {
+    try {
+      const { data: leads, error: leadsError } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('tour_appointment_id', tourAppointmentId)
+        .order('created_at', { ascending: true });
+
+      if (leadsError) {
+        console.error('Error fetching tour participants:', leadsError);
+        throw leadsError;
+      }
+
+      // Fetch interests for each participant from analytics events
+      const participantsWithInterests = await Promise.all(
+        (leads || []).map(async (lead) => {
+          const interests = await this.getParticipantInterests(lead.email, tourAppointmentId);
+          return {
+            ...lead,
+            interests
+          } as TourParticipant;
+        })
+      );
+
+      return participantsWithInterests;
+    } catch (error) {
+      console.error('Error fetching tour participants:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get interests selected by a participant (from analytics events)
+   * @param participantEmail - The participant's email
+   * @param tourAppointmentId - The tour appointment ID
+   * @returns Promise<string[]>
+   */
+  async getParticipantInterests(participantEmail: string, tourAppointmentId: string): Promise<string[]> {
+    try {
+      const { data, error } = await supabase
+        .from('analytics_events')
+        .select('metadata')
+        .eq('event_type', 'interests-chosen')
+        .eq('tour_appointment_id', tourAppointmentId)
+        .order('timestamp', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Error fetching participant interests:', error);
+        return [];
+      }
+
+      if (data && data.length > 0 && data[0].metadata?.selected_interests) {
+        return data[0].metadata.selected_interests;
+      }
+
+      return [];
+    } catch (error) {
+      console.error('Exception fetching participant interests:', error);
+      return [];
     }
   }
 };
