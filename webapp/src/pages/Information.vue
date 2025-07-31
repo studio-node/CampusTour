@@ -79,7 +79,7 @@ const validateField = (field, value) => {
     case 'address':
       return value.trim() ? '' : 'Address is required'
     case 'email':
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      const emailRegex = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
       if (!value.trim()) return 'Email is required'
       if (!emailRegex.test(value)) return 'Please enter a valid email address'
       return ''
@@ -130,12 +130,6 @@ const updateField = (field, value) => {
     delete errors.value[field]
   }
 }
-
-// const acceptNumber = (value) => {
-//   var x = value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
-//   const fixed = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
-//   updateField('phone', fixed)
-// }
 
 // Format date for database (YYYY-MM-DD)
 const formatDateForDatabase = (dateString) => {

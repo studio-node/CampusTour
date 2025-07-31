@@ -29,6 +29,17 @@ interface UserInfo {
   gradYear: string;
 }
 
+interface FormErrors {
+  identity?: string;
+  name?: string;
+  address?: string;
+  dateOfBirth?: string;
+  email?: string;
+  gender?: string;
+  phone?: string;
+  gradYear?: string;
+}
+
 export default function LeadCaptureScreen() {
   const router = useRouter();
   const [userInfo, setUserInfo] = useState<UserInfo>({
@@ -48,6 +59,7 @@ export default function LeadCaptureScreen() {
   const [tourAppointmentId, setTourAppointmentId] = useState<string | null>(null);
   const [isAmbassadorLed, setIsAmbassadorLed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
 
   // Get the selected school ID and tour data on component mount
   useEffect(() => {
@@ -75,6 +87,56 @@ export default function LeadCaptureScreen() {
     loadData();
   }, [router]);
 
+  // Real-time validation logic
+  const validateField = (field: keyof UserInfo, value: string): string => {
+    switch (field) {
+      case 'identity':
+        return value ? '' : 'Please select your identity';
+      case 'name':
+        return value.trim() ? '' : 'Full name is required';
+      case 'address':
+        return value.trim() ? '' : 'Address is required';
+      case 'email':
+        const emailRegex = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+        if (!value.trim()) return 'Email is required';
+        if (!emailRegex.test(value)) return 'Please enter a valid email address';
+        return '';
+      case 'dateOfBirth':
+        if (!value.trim()) return '';
+        const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/\d{4}$/;
+        return dateRegex.test(value) ? '' : 'Please use MM/DD/YYYY format';
+      case 'gradYear':
+        if (!value.trim()) return '';
+        const year = parseInt(value);
+        const currentYear = new Date().getFullYear();
+        if (isNaN(year) || year < currentYear || year > currentYear + 10) {
+          return 'Please enter a valid graduation year';
+        }
+        return '';
+      default:
+        return '';
+    }
+  };
+
+  const updateUserInfo = (field: keyof UserInfo, value: string) => {
+    setUserInfo(prev => ({ ...prev, [field]: value }));
+    const error = validateField(field, value);
+    setErrors(prev => ({ ...prev, [field]: error }));
+  };
+
+  // Check all fields for validation
+  const validateAllFields = (): boolean => {
+    const newErrors: FormErrors = {};
+    Object.keys(userInfo).forEach(field => {
+      const error = validateField(field as keyof UserInfo, userInfo[field as keyof UserInfo]);
+      if (error) {
+        newErrors[field as keyof UserInfo] = error;
+      }
+    });
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const identityOptions = [
     { value: 'prospective-student', label: 'Prospective Student' },
     { value: 'friend-family', label: 'Friends/Family' },
@@ -88,15 +150,16 @@ export default function LeadCaptureScreen() {
     { value: 'prefer-not-to-say', label: 'Prefer not to say' }
   ];
 
-  const updateUserInfo = (field: keyof UserInfo, value: string) => {
-    setUserInfo(prev => ({ ...prev, [field]: value }));
-  };
+  // const updateUserInfo = (field: keyof UserInfo, value: string) => {
+  //   setUserInfo(prev => ({ ...prev, [field]: value }));
+  // };
 
   const isFormValid = () => {
     return userInfo.identity && 
            userInfo.name.trim() && 
            userInfo.address.trim() && 
-           userInfo.email.trim();
+           userInfo.email.trim() &&
+           Object.values(errors).every(error => !error);
   };
 
   // Helper function to format date for database (YYYY-MM-DD)
@@ -120,8 +183,8 @@ export default function LeadCaptureScreen() {
   };
 
   const handleContinue = async () => {
-    if (!isFormValid()) {
-      Alert.alert('Missing Information', 'Please fill out all required fields.');
+    if (!validateAllFields()) {
+      Alert.alert('Missing Information', 'Please fix the errors and fill out all required fields.');
       return;
     }
 
@@ -287,12 +350,13 @@ export default function LeadCaptureScreen() {
             Full Name <Text style={styles.required}>*</Text>
           </Text>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, errors.name ? styles.errorInput : null]}
             value={userInfo.name}
             onChangeText={(text) => updateUserInfo('name', text)}
             placeholder="Enter your full name"
             placeholderTextColor="#999"
           />
+          {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
         </View>
 
         <View style={styles.fieldContainer}>
@@ -300,7 +364,7 @@ export default function LeadCaptureScreen() {
             Address <Text style={styles.required}>*</Text>
           </Text>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, errors.address ? styles.errorInput : null]}
             value={userInfo.address}
             onChangeText={(text) => updateUserInfo('address', text)}
             placeholder="Enter your address"
@@ -308,17 +372,19 @@ export default function LeadCaptureScreen() {
             multiline={true}
             numberOfLines={2}
           />
+          {errors.address && <Text style={styles.errorText}>{errors.address}</Text>}
         </View>
 
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>Date of Birth</Text>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, errors.dateOfBirth ? styles.errorInput : null]}
             value={userInfo.dateOfBirth}
             onChangeText={(text) => updateUserInfo('dateOfBirth', text)}
             placeholder="MM/DD/YYYY"
             placeholderTextColor="#999"
           />
+          {errors.dateOfBirth && <Text style={styles.errorText}>{errors.dateOfBirth}</Text>}
         </View>
 
         <View style={styles.fieldContainer}>
@@ -326,7 +392,7 @@ export default function LeadCaptureScreen() {
             Email <Text style={styles.required}>*</Text>
           </Text>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, errors.email ? styles.errorInput : null]}
             value={userInfo.email}
             onChangeText={(text) => updateUserInfo('email', text)}
             placeholder="Enter your email"
@@ -334,6 +400,7 @@ export default function LeadCaptureScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
           />
+          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
         </View>
 
         {renderDropdownField(
@@ -360,13 +427,14 @@ export default function LeadCaptureScreen() {
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>Expected Graduation Year</Text>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, errors.gradYear ? styles.errorInput : null]}
             value={userInfo.gradYear}
             onChangeText={(text) => updateUserInfo('gradYear', text)}
             placeholder="e.g., 2028"
             placeholderTextColor="#999"
             keyboardType="numeric"
           />
+          {errors.gradYear && <Text style={styles.errorText}>{errors.gradYear}</Text>}
         </View>
 
         <TouchableOpacity 
@@ -450,6 +518,14 @@ const styles = StyleSheet.create({
   },
   required: {
     color: '#ff6b6b',
+  },
+  errorText: {
+    color: '#ff6b6b',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  errorInput: {
+    borderColor: '#ff6b6b',
   },
   fieldNote: {
     fontSize: 12,
