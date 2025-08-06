@@ -4,7 +4,7 @@
 
 ### Backend (Node.js + WebSockets)
 
-- [ ] **Authentication:** Implement a mechanism to authenticate WebSocket connections (e.g., pass a JWT from the mobile app).
+
 - [ ] **Implement Backend Event Handlers:** Write the server-side logic to handle the events defined above, broadcasting messages to the appropriate tour session room.
 - [ ] **Data Persistence:** Persist critical tour session state (e.g., current stop, progress) to Supabase to handle server restarts or long disconnects.
 
@@ -37,9 +37,8 @@
 
 ### Backend (Node.js + WebSockets)
 
+- [ ] **Authentication:** Implement a mechanism to authenticate WebSocket connections (e.g., pass a JWT from the mobile app).
 
-- [ ] **Tour Member -> Server -> Ambassador:**
-    - `ambassador:ping` (for the "raise hand" feature).
 
 
 
@@ -56,5 +55,8 @@
         - `tour:state_update` (e.g., current stop changed, stop marked as visited).
         - `tour:structure_update` (e.g., stops added, removed, or reordered).
         - `tour:end` (to terminate the session for all participants).
+- [x] **Tour Member -> Server -> Ambassador:**
+    - `ambassador:ping` (for the "raise hand" feature).
+
 
 
