@@ -6,9 +6,10 @@ import { createClient } from '@supabase/supabase-js';
 import { getLocations } from './supabase.mjs';
 import { sessionManager } from './tour-sessions.js';
 import { URL } from 'url';
+import http from 'http';
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 const supabase = createClient(process.env.supabaseUrl, process.env.supabaseAnonKey);
 
@@ -46,27 +47,37 @@ app.post('/generate-tour', express.json(), async (req, res) => {
     res.json(tour);
 });
 
-const server = app.listen(port, () => {
-    console.log(`Express is listening at http://localhost:${port}`);
-});
+const server = http.createServer(app);
 
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ noServer: true });
 
-wss.on('connection', (ws, req) => {
-    const token = new URL(req.url, `http://${req.headers.host}`).searchParams.get('token');
+server.on('upgrade', (request, socket, head) => {
+    const token = new URL(request.url, `http://${request.headers.host}`).searchParams.get('token');
 
     if (!token) {
-        ws.close(1008, 'Token required');
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        socket.destroy();
         return;
     }
 
     jwt.verify(token, process.env.SUPABASE_JWT_SECRET, (err, decoded) => {
         if (err) {
-            ws.close(1008, 'Invalid token');
+            socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+            socket.destroy();
             return;
         }
-        
-        ws.user = decoded;
-        sessionManager(ws, supabase, tourSessions);
+
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            ws.user = decoded;
+            wss.emit('connection', ws, request);
+        });
     });
+});
+
+wss.on('connection', (ws, req) => {
+    sessionManager(ws, supabase, tourSessions);
+});
+
+server.listen(port, () => {
+    console.log(`Server is listening at http://localhost:${port}`);
 });
