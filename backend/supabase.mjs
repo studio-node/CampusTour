@@ -1,35 +1,3 @@
-// import { SupabaseClient } from "@supabase/supabase-js";
-
-// export interface Region {
-//     latitude: number;
-//     longitude: number;
-//     latitudeDelta: number;
-//     longitudeDelta: number;
-// }
-// export interface School {
-//     id: string;
-//     name: string;
-//     city: string;
-//     state: string;
-//     primary_color?: string;
-//     coordinates?: Region;
-//     logo_url?: string;
-// }
-// export interface Location {
-//     id: string;
-//     name: string;
-//     coordinates: {
-//       latitude: number;
-//       longitude: number;
-//     };
-//     image: string;
-//     description: string;
-//     interests: string[];
-//     isTourStop: boolean;
-//     order_index?: number;
-//     type?: string;
-// }
-
 export async function getLocations(schoolId, supabase) {
     try {
       const { data, error } = await supabase
@@ -62,4 +30,35 @@ export async function getLocations(schoolId, supabase) {
       console.error('Exception fetching locations:', error);
       return [];
     }
+}
+
+export async function createLiveTourSession(supabase, { tour_appointment_id, ambassador_id, initial_structure }) {
+    const { data, error } = await supabase
+        .from('live_tour_sessions')
+        .insert([{
+            tour_appointment_id,
+            ambassador_id,
+            live_tour_structure: initial_structure,
+        }])
+        .select()
+        .single();
+    if (error) {
+        console.error('Error creating live tour session:', error);
+        return null;
+    }
+    return data;
+}
+
+export async function updateLiveTourSession(supabase, tour_appointment_id, updates) {
+    const { data, error } = await supabase
+        .from('live_tour_sessions')
+        .update(updates)
+        .eq('tour_appointment_id', tour_appointment_id)
+        .select()
+        .single();
+    if (error) {
+        console.error('Error updating live tour session:', error);
+        return null;
+    }
+    return data;
 }

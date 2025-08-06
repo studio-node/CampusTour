@@ -2,11 +2,7 @@
 
 ## To Do
 
-### Backend (Node.js + WebSockets)
 
-
-- [ ] **Implement Backend Event Handlers:** Write the server-side logic to handle the events defined above, broadcasting messages to the appropriate tour session room.
-- [ ] **Data Persistence:** Persist critical tour session state (e.g., current stop, progress) to Supabase to handle server restarts or long disconnects.
 
 ### Mobile App (React Native)
 - [ ] **Integrate WebSocket Client:** Add `socket.io-client` or a similar library to the mobile project.
@@ -35,14 +31,22 @@
 
 ## In Progress
 
-### Backend (Node.js + WebSockets)
-
-- [ ] **Authentication:** Implement a mechanism to authenticate WebSocket connections (e.g., pass a JWT from the mobile app).
+### Mobile App (React Native)
 
 
 
 
 ## Done
+
+### Mobile App (React Native)
+
+
+
+
+
+
+
+### Backend (Node.js + WebSockets)
 
 - [x] **Setup WebSocket Server:** Integrate `socket.io` or `ws` into the existing Node.js backend.
 - [x] **Tour Session Management:**
@@ -57,6 +61,10 @@
         - `tour:end` (to terminate the session for all participants).
 - [x] **Tour Member -> Server -> Ambassador:**
     - `ambassador:ping` (for the "raise hand" feature).
+- [x] **Authentication:** Implement a mechanism to authenticate WebSocket connections (e.g., pass a JWT from the mobile app).
+- [x] **Data Persistence:** Persist critical tour session state (e.g., current stop, progress) to Supabase to handle server restarts or long disconnects.
+
+
 
 
 

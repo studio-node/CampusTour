@@ -1,19 +1,18 @@
 import { v4 as uuidv4 } from 'uuid';
-
-
+import { createLiveTourSession, updateLiveTourSession } from './supabase.mjs';
 
 // --- Main Session Manager ---
 
-export function sessionManager(ws, tourSessions) {
+export function sessionManager(ws, supabase, tourSessions) {
   ws.id = uuidv4();
   console.log(`Client connected with ID: ${ws.id}`);
 
   const messageHandlers = {
-    'create_session': (payload) => handleCreateSession(ws, tourSessions, payload),
+    'create_session': (payload) => handleCreateSession(ws, supabase, tourSessions, payload),
     'join_session': (payload) => handleJoinSession(ws, tourSessions, payload),
-    'tour:state_update': (payload, session) => handleTourStateUpdate(session, payload),
-    'tour:structure_update': (payload, session) => handleTourStructureUpdate(session, payload),
-    'tour:end': (payload, session) => handleTourEnd(ws, tourSessions, payload.tourId, session),
+    'tour:state_update': (payload, session) => handleTourStateUpdate(supabase, session, payload),
+    'tour:structure_update': (payload, session) => handleTourStructureUpdate(supabase, session, payload),
+    'tour:end': (payload, session) => handleTourEnd(ws, supabase, tourSessions, payload.tourId, session),
     'ambassador:ping': (payload, session) => handleAmbassadorPing(ws, session, payload),
   };
 
@@ -27,7 +26,6 @@ export function sessionManager(ws, tourSessions) {
       const handler = messageHandlers[data.type];
 
       if (handler) {
-        // Authorization checks
         if (['tour:state_update', 'tour:structure_update', 'tour:end'].includes(data.type)) {
           if (!session || session.ambassador.id !== ws.id) {
             return ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized action.' }));
@@ -50,11 +48,8 @@ export function sessionManager(ws, tourSessions) {
     }
   });
 
-  ws.on('close', () => handleDisconnect(ws, tourSessions));
+  ws.on('close', () => handleDisconnect(ws, supabase, tourSessions));
 }
-
-
-
 
 // --- Helper Functions ---
 
@@ -68,21 +63,35 @@ function broadcastToMembers(session, message) {
 
 // --- Event Handlers ---
 
-function handleCreateSession(ws, tourSessions, payload) {
-  const { tourId } = payload;
-  if (!tourId) {
-    ws.send(JSON.stringify({ type: 'error', message: 'tourId is required to create a session.' }));
-    return;
-  }
-  if (tourSessions.has(tourId)) {
-    ws.send(JSON.stringify({ type: 'error', message: 'Session already exists.' }));
-    return;
-  }
-  tourSessions.set(tourId, { ambassador: ws, members: new Set() });
-  ws.tourId = tourId;
-  console.log(`Tour session created: ${tourId}`);
-  ws.send(JSON.stringify({ type: 'session_created', tourId }));
+async function handleCreateSession(ws, supabase, tourSessions, payload) {
+    const { tourId, initial_structure } = payload;
+    if (!tourId || !initial_structure) {
+        ws.send(JSON.stringify({ type: 'error', message: 'tourId and initial_structure are required.' }));
+        return;
+    }
+    if (tourSessions.has(tourId)) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Session already exists.' }));
+        return;
+    }
+
+    const sessionData = {
+        tour_appointment_id: tourId,
+        ambassador_id: ws.user.sub,
+        initial_structure,
+    };
+
+    const newSession = await createLiveTourSession(supabase, sessionData);
+    if (!newSession) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Failed to create session in database.' }));
+        return;
+    }
+
+    tourSessions.set(tourId, { ambassador: ws, members: new Set() });
+    ws.tourId = tourId;
+    console.log(`Tour session created: ${tourId}`);
+    ws.send(JSON.stringify({ type: 'session_created', tourId, sessionData: newSession }));
 }
+
 
 function handleJoinSession(ws, tourSessions, payload) {
   const { tourId } = payload;
@@ -99,23 +108,40 @@ function handleJoinSession(ws, tourSessions, payload) {
   }
 }
 
-function handleTourStateUpdate(session, payload) {
-  console.log(`Broadcasting state update for tour ${session.ambassador.tourId}:`, payload);
-  broadcastToMembers(session, { type: 'tour_state_updated', state: payload.state });
+async function handleTourStateUpdate(supabase, session, payload) {
+    const { tourId, state } = payload;
+    console.log(`Broadcasting and persisting state update for tour ${tourId}:`, state);
+    
+    await updateLiveTourSession(supabase, tourId, {
+        current_location_id: state.current_location_id,
+        visited_locations: state.visited_locations,
+    });
+
+    broadcastToMembers(session, { type: 'tour_state_updated', state });
 }
 
-function handleTourStructureUpdate(session, payload) {
-  console.log(`Broadcasting structure update for tour ${session.ambassador.tourId}:`, payload);
-  broadcastToMembers(session, { type: 'tour_structure_updated', changes: payload.changes });
+async function handleTourStructureUpdate(supabase, session, payload) {
+    const { tourId, changes } = payload;
+    console.log(`Broadcasting and persisting structure update for tour ${tourId}:`, changes);
+    
+    await updateLiveTourSession(supabase, tourId, {
+        live_tour_structure: changes.new_structure,
+    });
+
+    broadcastToMembers(session, { type: 'tour_structure_updated', changes });
 }
 
-function handleTourEnd(ws, tourSessions, tourId, session) {
-  console.log(`Ending tour ${tourId}`);
-  broadcastToMembers(session, { type: 'session_ended', message: 'The ambassador has ended the tour.' });
-  session.members.forEach(member => member.close());
-  tourSessions.delete(tourId);
-  ws.send(JSON.stringify({ type: 'tour_ended_confirmation' }));
+async function handleTourEnd(ws, supabase, tourSessions, tourId, session) {
+    console.log(`Ending tour ${tourId}`);
+    
+    await updateLiveTourSession(supabase, tourId, { status: 'ended' });
+
+    broadcastToMembers(session, { type: 'session_ended', message: 'The ambassador has ended the tour.' });
+    session.members.forEach(member => member.close());
+    tourSessions.delete(tourId);
+    ws.send(JSON.stringify({ type: 'tour_ended_confirmation' }));
 }
+
 
 function handleAmbassadorPing(ws, session, payload) {
   console.log(`Member ${ws.id} is pinging the ambassador for tour ${session.ambassador.tourId}`);
@@ -128,23 +154,25 @@ function handleAmbassadorPing(ws, session, payload) {
   }));
 }
 
-function handleDisconnect(ws, tourSessions) {
-  console.log(`Client ${ws.id} disconnected`);
-  const { tourId } = ws;
-  if (tourId) {
-    const session = tourSessions.get(tourId);
-    if (session) {
-      if (session.ambassador.id === ws.id) {
-        console.log(`Ambassador for tour ${tourId} disconnected. Closing session.`);
-        broadcastToMembers(session, { type: 'session_ended', message: 'The ambassador has disconnected.' });
-        session.members.forEach(member => member.close());
-        tourSessions.delete(tourId);
-      } else if (session.members.has(ws)) {
-        session.members.delete(ws);
-        console.log(`Member ${ws.id} left tour ${tourId}.`);
-        session.ambassador.send(JSON.stringify({ type: 'member_left', memberId: ws.id }));
-      }
-    }
-  }
-}
+async function handleDisconnect(ws, supabase, tourSessions) {
+    console.log(`Client ${ws.id} disconnected`);
+    const { tourId } = ws;
+    if (tourId) {
+        const session = tourSessions.get(tourId);
+        if (session) {
+            if (session.ambassador.id === ws.id) {
+                console.log(`Ambassador for tour ${tourId} disconnected. Closing session.`);
+                
+                await updateLiveTourSession(supabase, tourId, { status: 'ended' });
 
+                broadcastToMembers(session, { type: 'session_ended', message: 'The ambassador has disconnected.' });
+                session.members.forEach(member => member.close());
+                tourSessions.delete(tourId);
+            } else if (session.members.has(ws)) {
+                session.members.delete(ws);
+                console.log(`Member ${ws.id} left tour ${tourId}.`);
+                session.ambassador.send(JSON.stringify({ type: 'member_left', memberId: ws.id }));
+            }
+        }
+    }
+}
