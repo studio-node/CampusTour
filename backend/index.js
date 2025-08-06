@@ -16,35 +16,35 @@ const supabase = createClient(process.env.supabaseUrl, process.env.supabaseAnonK
 const tourSessions = new Map();
 
 function makeLocationsArrayTourGeneration(locations) {
-    let locationObjects = [];
-    for (let location of locations) {
-        locationObjects.push({
-            id: location.id,
-            name: location.name,
-            description: location.description,
-            interests: location.interests,
-        });
-    }
-    return locationObjects;
+  let locationObjects = [];
+  for (let location of locations) {
+    locationObjects.push({
+      id: location.id,
+      name: location.name,
+      description: location.description,
+      interests: location.interests,
+    });
+  }
+  return locationObjects;
 }
 
 app.get('/', (req, res) => {
-    res.send('Hello World!');
+  res.send('Hello World!');
 });
 
 app.get('/keep-alive', (req, res) => {
-    res.send('ok');
+  res.send('ok');
 });
 
 app.post('/generate-tour', express.json(), async (req, res) => {
-    if (!req.body) {
-        return res.status(400).send("No body provided");
-    }
-    const { school_id, interests } = req.body;
-    const locations = await getLocations(school_id, supabase);
-    const locsArray = makeLocationsArrayTourGeneration(locations);
-    const tour = await GeminiCaller.generateTour(locsArray, interests);
-    res.json(tour);
+  if (!req.body) {
+    return res.status(400).send("No body provided");
+  }
+  const { school_id, interests } = req.body;
+  const locations = await getLocations(school_id, supabase);
+  const locsArray = makeLocationsArrayTourGeneration(locations);
+  const tour = await GeminiCaller.generateTour(locsArray, interests);
+  res.json(tour);
 });
 
 const server = http.createServer(app);
@@ -52,32 +52,34 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
 server.on('upgrade', (request, socket, head) => {
-    const token = new URL(request.url, `http://${request.headers.host}`).searchParams.get('token');
+  const token = new URL(request.url, `http://${request.headers.host}`).searchParams.get('token');
 
-    if (!token) {
-        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-        socket.destroy();
-        return;
+  if (!token) {
+    console.log('No token provided');
+    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
+  jwt.verify(token, process.env.SUPABASE_JWT_SECRET, (err, decoded) => {
+    if (err) {
+      console.log('Invalid token');
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
     }
 
-    jwt.verify(token, process.env.SUPABASE_JWT_SECRET, (err, decoded) => {
-        if (err) {
-            socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-            socket.destroy();
-            return;
-        }
-
-        wss.handleUpgrade(request, socket, head, (ws) => {
-            ws.user = decoded;
-            wss.emit('connection', ws, request);
-        });
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      ws.user = decoded;
+      wss.emit('connection', ws, request);
     });
+  });
 });
 
 wss.on('connection', (ws, req) => {
-    sessionManager(ws, supabase, tourSessions);
+  sessionManager(ws, supabase, tourSessions);
 });
 
 server.listen(port, () => {
-    console.log(`Server is listening at http://localhost:${port}`);
+  console.log(`Server is listening at http://localhost:${port}`);
 });

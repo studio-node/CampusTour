@@ -5,8 +5,7 @@
 
 
 ### Mobile App (React Native)
-- [ ] **Integrate WebSocket Client:** Add `socket.io-client` or a similar library to the mobile project.
-- [ ] **Connection Manager:** Create a service or hook to manage the WebSocket connection state.
+
 - [ ] **Ambassador Tour Control UI:**
     - [ ] On the `tour-details` or a new "Live Tour" screen, add controls for the ambassador to manage the tour.
     - [ ] Implement UI to start a session and display the join code/QR code.
@@ -24,8 +23,6 @@
 ## Blocked
 
 ### Mobile App (React Native)
-- [ ] **Integrate WebSocket Client:** Add `socket.io-client` or a similar library to the mobile project.
-- [ ] **Connection Manager:** Create a service or hook to manage the WebSocket connection state.
 
 
 
@@ -40,6 +37,8 @@
 
 ### Mobile App (React Native)
 
+- [x] **Integrate WebSocket Client:** Add `socket.io-client` or a similar library to the mobile project.
+- [x] **Connection Manager:** Create a service or hook to manage the WebSocket connection state.
 
 
 
@@ -54,7 +53,7 @@
     - [x] Implement `create_session` logic for ambassadors.
     - [x] Implement `join_session` logic for tour members (using a tour code/ID).
     - [x] Handle user disconnections and reconnections gracefully.
-- [ ] **Define WebSocket Event Schema:**
+- [x] **Define WebSocket Event Schema:**
     - [x] **Ambassador -> Server -> Group:**
         - `tour:state_update` (e.g., current stop changed, stop marked as visited).
         - `tour:structure_update` (e.g., stops added, removed, or reordered).
@@ -63,6 +62,7 @@
     - `ambassador:ping` (for the "raise hand" feature).
 - [x] **Authentication:** Implement a mechanism to authenticate WebSocket connections (e.g., pass a JWT from the mobile app).
 - [x] **Data Persistence:** Persist critical tour session state (e.g., current stop, progress) to Supabase to handle server restarts or long disconnects.
+
 
 
 

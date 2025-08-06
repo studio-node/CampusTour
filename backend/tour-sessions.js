@@ -36,7 +36,7 @@ export function sessionManager(ws, supabase, tourSessions) {
             return ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized action.' }));
           }
         }
-        
+
         handler(data.payload, session);
       } else {
         console.log(`Unknown message type: ${data.type}`);
@@ -64,32 +64,32 @@ function broadcastToMembers(session, message) {
 // --- Event Handlers ---
 
 async function handleCreateSession(ws, supabase, tourSessions, payload) {
-    const { tourId, initial_structure } = payload;
-    if (!tourId || !initial_structure) {
-        ws.send(JSON.stringify({ type: 'error', message: 'tourId and initial_structure are required.' }));
-        return;
-    }
-    if (tourSessions.has(tourId)) {
-        ws.send(JSON.stringify({ type: 'error', message: 'Session already exists.' }));
-        return;
-    }
+  const { tourId, initial_structure } = payload;
+  if (!tourId || !initial_structure) {
+    ws.send(JSON.stringify({ type: 'error', message: 'tourId and initial_structure are required.' }));
+    return;
+  }
+  if (tourSessions.has(tourId)) {
+    ws.send(JSON.stringify({ type: 'error', message: 'Session already exists.' }));
+    return;
+  }
 
-    const sessionData = {
-        tour_appointment_id: tourId,
-        ambassador_id: ws.user.sub,
-        initial_structure,
-    };
+  const sessionData = {
+    tour_appointment_id: tourId,
+    ambassador_id: ws.user.sub,
+    initial_structure,
+  };
 
-    const newSession = await createLiveTourSession(supabase, sessionData);
-    if (!newSession) {
-        ws.send(JSON.stringify({ type: 'error', message: 'Failed to create session in database.' }));
-        return;
-    }
+  const newSession = await createLiveTourSession(supabase, sessionData);
+  if (!newSession) {
+    ws.send(JSON.stringify({ type: 'error', message: 'Failed to create session in database.' }));
+    return;
+  }
 
-    tourSessions.set(tourId, { ambassador: ws, members: new Set() });
-    ws.tourId = tourId;
-    console.log(`Tour session created: ${tourId}`);
-    ws.send(JSON.stringify({ type: 'session_created', tourId, sessionData: newSession }));
+  tourSessions.set(tourId, { ambassador: ws, members: new Set() });
+  ws.tourId = tourId;
+  console.log(`Tour session created: ${tourId}`);
+  ws.send(JSON.stringify({ type: 'session_created', tourId, sessionData: newSession }));
 }
 
 
@@ -109,37 +109,37 @@ function handleJoinSession(ws, tourSessions, payload) {
 }
 
 async function handleTourStateUpdate(supabase, session, payload) {
-    const { tourId, state } = payload;
-    console.log(`Broadcasting and persisting state update for tour ${tourId}:`, state);
-    
-    await updateLiveTourSession(supabase, tourId, {
-        current_location_id: state.current_location_id,
-        visited_locations: state.visited_locations,
-    });
+  const { tourId, state } = payload;
+  console.log(`Broadcasting and persisting state update for tour ${tourId}:`, state);
 
-    broadcastToMembers(session, { type: 'tour_state_updated', state });
+  await updateLiveTourSession(supabase, tourId, {
+    current_location_id: state.current_location_id,
+    visited_locations: state.visited_locations,
+  });
+
+  broadcastToMembers(session, { type: 'tour_state_updated', state });
 }
 
 async function handleTourStructureUpdate(supabase, session, payload) {
-    const { tourId, changes } = payload;
-    console.log(`Broadcasting and persisting structure update for tour ${tourId}:`, changes);
-    
-    await updateLiveTourSession(supabase, tourId, {
-        live_tour_structure: changes.new_structure,
-    });
+  const { tourId, changes } = payload;
+  console.log(`Broadcasting and persisting structure update for tour ${tourId}:`, changes);
 
-    broadcastToMembers(session, { type: 'tour_structure_updated', changes });
+  await updateLiveTourSession(supabase, tourId, {
+    live_tour_structure: changes.new_structure,
+  });
+
+  broadcastToMembers(session, { type: 'tour_structure_updated', changes });
 }
 
 async function handleTourEnd(ws, supabase, tourSessions, tourId, session) {
-    console.log(`Ending tour ${tourId}`);
-    
-    await updateLiveTourSession(supabase, tourId, { status: 'ended' });
+  console.log(`Ending tour ${tourId}`);
 
-    broadcastToMembers(session, { type: 'session_ended', message: 'The ambassador has ended the tour.' });
-    session.members.forEach(member => member.close());
-    tourSessions.delete(tourId);
-    ws.send(JSON.stringify({ type: 'tour_ended_confirmation' }));
+  await updateLiveTourSession(supabase, tourId, { status: 'ended' });
+
+  broadcastToMembers(session, { type: 'session_ended', message: 'The ambassador has ended the tour.' });
+  session.members.forEach(member => member.close());
+  tourSessions.delete(tourId);
+  ws.send(JSON.stringify({ type: 'tour_ended_confirmation' }));
 }
 
 
@@ -155,24 +155,24 @@ function handleAmbassadorPing(ws, session, payload) {
 }
 
 async function handleDisconnect(ws, supabase, tourSessions) {
-    console.log(`Client ${ws.id} disconnected`);
-    const { tourId } = ws;
-    if (tourId) {
-        const session = tourSessions.get(tourId);
-        if (session) {
-            if (session.ambassador.id === ws.id) {
-                console.log(`Ambassador for tour ${tourId} disconnected. Closing session.`);
-                
-                await updateLiveTourSession(supabase, tourId, { status: 'ended' });
+  console.log(`Client ${ws.id} disconnected`);
+  const { tourId } = ws;
+  if (tourId) {
+    const session = tourSessions.get(tourId);
+    if (session) {
+      if (session.ambassador.id === ws.id) {
+        console.log(`Ambassador for tour ${tourId} disconnected. Closing session.`);
 
-                broadcastToMembers(session, { type: 'session_ended', message: 'The ambassador has disconnected.' });
-                session.members.forEach(member => member.close());
-                tourSessions.delete(tourId);
-            } else if (session.members.has(ws)) {
-                session.members.delete(ws);
-                console.log(`Member ${ws.id} left tour ${tourId}.`);
-                session.ambassador.send(JSON.stringify({ type: 'member_left', memberId: ws.id }));
-            }
-        }
+        await updateLiveTourSession(supabase, tourId, { status: 'ended' });
+
+        broadcastToMembers(session, { type: 'session_ended', message: 'The ambassador has disconnected.' });
+        session.members.forEach(member => member.close());
+        tourSessions.delete(tourId);
+      } else if (session.members.has(ws)) {
+        session.members.delete(ws);
+        console.log(`Member ${ws.id} left tour ${tourId}.`);
+        session.ambassador.send(JSON.stringify({ type: 'member_left', memberId: ws.id }));
+      }
     }
+  }
 }
