@@ -51,4 +51,5 @@ const server = app.listen(port, () => {
 
 const wss = new WebSocketServer({ server });
 
-wss.on('connection', ws =>  sessionManager(ws, tourSessions));
+// Pass the Supabase client into the session manager so handlers can auth and persist
+wss.on('connection', ws => sessionManager(ws, supabase, tourSessions));

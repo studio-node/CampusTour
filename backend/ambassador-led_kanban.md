@@ -30,8 +30,8 @@
 
 ### Mobile App (React Native)
 
-
-
+- [ ] **Ambassador Tour Control UI:**
+    - [ ] Implement Start tour functionality to create session with server 
 
 ## Done
 
@@ -60,7 +60,6 @@
         - `tour:end` (to terminate the session for all participants).
 - [x] **Tour Member -> Server -> Ambassador:**
     - `ambassador:ping` (for the "raise hand" feature).
-- [x] **Authentication:** Implement a mechanism to authenticate WebSocket connections (e.g., pass a JWT from the mobile app).
 - [x] **Data Persistence:** Persist critical tour session state (e.g., current stop, progress) to Supabase to handle server restarts or long disconnects.
 
 

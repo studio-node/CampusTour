@@ -8,6 +8,8 @@ export function sessionManager(ws, supabase, tourSessions) {
   console.log(`Client connected with ID: ${ws.id}`);
 
   const messageHandlers = {
+    // Optional auth bootstrap if mobile sends a token or user id
+    'auth': async (payload) => handleAuth(ws, supabase, payload),
     'create_session': (payload) => handleCreateSession(ws, supabase, tourSessions, payload),
     'join_session': (payload) => handleJoinSession(ws, tourSessions, payload),
     'tour:state_update': (payload, session) => handleTourStateUpdate(supabase, session, payload),
@@ -61,6 +63,23 @@ function broadcastToMembers(session, message) {
   });
 }
 
+// Basic auth handler to attach a minimal user object to the websocket connection.
+// In production, validate a real JWT and fetch the user from Supabase.
+async function handleAuth(ws, _supabase, payload) {
+  try {
+    const ambassadorId = payload?.sub || payload?.ambassador_id || payload?.userId || null;
+    if (!ambassadorId) {
+      ws.send(JSON.stringify({ type: 'error', message: 'Missing ambassador id for auth.' }));
+      return;
+    }
+    ws.user = { sub: ambassadorId };
+    ws.send(JSON.stringify({ type: 'auth_ok' }));
+  } catch (e) {
+    console.error('Auth error:', e);
+    ws.send(JSON.stringify({ type: 'error', message: 'Auth failed.' }));
+  }
+}
+
 // --- Event Handlers ---
 
 async function handleCreateSession(ws, supabase, tourSessions, payload) {
@@ -76,7 +95,7 @@ async function handleCreateSession(ws, supabase, tourSessions, payload) {
 
   const sessionData = {
     tour_appointment_id: tourId,
-    ambassador_id: ws.user.sub,
+    ambassador_id: (ws.user && ws.user.sub) || payload.ambassador_id || null,
     initial_structure,
   };
 
