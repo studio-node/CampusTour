@@ -44,7 +44,7 @@ export default function AmbassadorToursScreen() {
     try {
       // Establish WebSocket connection
       // ws.current = new WebSocket('ws://172.25.80.1:3000');
-      ws.current = new WebSocket('ws://campustourbackend.onrender.com');
+      ws.current = new WebSocket('wss://campustourbackend.onrender.com');
       
     } catch (error) {
       console.error('Error establishing WebSocket connection:', error);
@@ -112,6 +112,12 @@ export default function AmbassadorToursScreen() {
   };
 
   const handleTourSelect = (tour: TourAppointment) => {
+    if (ws.current) {
+      ws.current.send(JSON.stringify({
+        type: 'auth',
+        token: '1234567890'
+      }));
+    }
     setSelectedTourId(tour.id);
   };
 

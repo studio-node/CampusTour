@@ -162,7 +162,7 @@ export const authService = {
   async getStoredUser(): Promise<AuthUser | null> {
     try {
       const userData = await AsyncStorage.getItem(AUTH_USER_KEY);
-      console.log('userData', userData);
+      // console.log('userData', userData);
       if (userData) {
         return JSON.parse(userData) as AuthUser;
       }

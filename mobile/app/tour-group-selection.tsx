@@ -16,7 +16,10 @@ import {
   tourAppointmentsService, 
   tourGroupSelectionService, 
   TourAppointment,
-  School 
+  School,
+  authService, 
+  userTypeService,
+  UserType
 } from '@/services/supabase';
 
 export default function TourGroupSelectionScreen() {
@@ -26,17 +29,22 @@ export default function TourGroupSelectionScreen() {
   const [selectedTourGroup, setSelectedTourGroup] = useState<TourAppointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [userType, setUserType] = useState<UserType>('ambassador-led'); // Default to 'ambassador-led'
 
   useEffect(() => {
-    loadTourGroups();
+    const initialize = async () => {
+      const type = await userTypeService.getUserType();
+      setUserType(type);
+      loadTourGroups(type);
+    };
+    initialize();
   }, []);
 
-  const loadTourGroups = async () => {
+  const loadTourGroups = async (currentUserType: UserType) => {
     setLoading(true);
     setError('');
     
     try {
-      // Get selected school
       const selectedSchoolId = await schoolService.getSelectedSchool();
       if (!selectedSchoolId) {
         setError('No school selected. Please select a school first.');
@@ -44,15 +52,23 @@ export default function TourGroupSelectionScreen() {
         return;
       }
       
-      // Get school details
       const school = await schoolService.getSchoolById(selectedSchoolId);
       setSchoolData(school);
       
-      // Get available tour groups
-      const groups = await tourAppointmentsService.getAvailableTourGroups(selectedSchoolId);
+      let groups: TourAppointment[] = [];
+      if (currentUserType === 'ambassador') {
+        const user = await authService.getStoredUser();
+        if (user) {
+          groups = await tourAppointmentsService.getAmbassadorTours(user.id);
+        } else {
+          setError('Could not identify ambassador. Please log in again.');
+        }
+      } else {
+        groups = await tourAppointmentsService.getAvailableTourGroups(selectedSchoolId);
+      }
+      
       setTourGroups(groups);
       
-      // Check if there's a previously selected tour group
       const savedTourGroupId = await tourGroupSelectionService.getSelectedTourGroup();
       if (savedTourGroupId) {
         const savedTourGroup = groups.find(group => group.id === savedTourGroupId);
@@ -76,7 +92,8 @@ export default function TourGroupSelectionScreen() {
 
   const handleContinue = () => {
     if (selectedTourGroup) {
-      router.push('/lead-capture');
+      // Navigate to tour details, which will handle the logic for both user types
+      router.push('/tour-details');
     }
   };
 
@@ -85,7 +102,7 @@ export default function TourGroupSelectionScreen() {
   };
 
   const handleTryAgain = () => {
-    loadTourGroups();
+    loadTourGroups(userType);
   };
 
   // Group tours by date
@@ -127,12 +144,16 @@ export default function TourGroupSelectionScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Title Section */}
         <View style={styles.titleSection}>
-          <Text style={styles.title}>Available Tour Groups</Text>
-          <Text style={styles.subtitle}>Join an ambassador-led tour group</Text>
+          <Text style={styles.title}>
+            {userType === 'ambassador' ? 'Your Assigned Tours' : 'Available Tour Groups'}
+          </Text>
+          <Text style={styles.subtitle}>
+            {userType === 'ambassador' 
+              ? 'Select a tour to start and manage' 
+              : 'Join an ambassador-led tour group'}
+          </Text>
           
-          {/* Selected School Display */}
           {schoolData && (
             <View style={styles.schoolCard}>
               {schoolData.logo_url && (
@@ -149,7 +170,6 @@ export default function TourGroupSelectionScreen() {
           )}
         </View>
 
-        {/* Error State */}
         {error ? (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
@@ -159,20 +179,24 @@ export default function TourGroupSelectionScreen() {
           </View>
         ) : (
           <>
-            {/* No Tours Available */}
             {tourGroups.length === 0 ? (
               <View style={styles.noToursContainer}>
-                <Text style={styles.noToursTitle}>No Tour Groups Available</Text>
+                <Text style={styles.noToursTitle}>
+                  {userType === 'ambassador' ? 'No Assigned Tours' : 'No Tour Groups Available'}
+                </Text>
                 <Text style={styles.noToursSubtitle}>
-                  There are currently no scheduled ambassador-led tours for this school.
+                  {userType === 'ambassador'
+                    ? 'You have no upcoming tours scheduled at this school.'
+                    : 'There are currently no scheduled ambassador-led tours for this school.'}
                 </Text>
-                <Text style={styles.noToursNote}>
-                  Contact the school to schedule an ambassador-led tour
-                </Text>
+                {userType !== 'ambassador' && (
+                  <Text style={styles.noToursNote}>
+                    Contact the school to schedule an ambassador-led tour
+                  </Text>
+                )}
               </View>
             ) : (
               <>
-                {/* Tour Groups by Date */}
                 {Object.entries(toursByDate()).map(([date, tours]) => (
                   <View key={date} style={styles.dateSection}>
                     <Text style={styles.dateHeader}>{date}</Text>
@@ -187,7 +211,6 @@ export default function TourGroupSelectionScreen() {
                           style={[styles.tourCard, isSelected && styles.selectedTourCard]}
                           onPress={() => selectTourGroup(tour)}
                         >
-                          {/* Selected indicator */}
                           {isSelected && (
                             <View style={styles.selectedIndicator}>
                               <Text style={styles.checkmark}>✓</Text>
@@ -195,7 +218,6 @@ export default function TourGroupSelectionScreen() {
                           )}
 
                           <View style={styles.tourCardContent}>
-                            {/* Ambassador Name */}
                             <View style={styles.tourRow}>
                               <Text style={styles.tourRowIcon}>👤</Text>
                               <Text style={styles.tourRowText}>
@@ -203,7 +225,6 @@ export default function TourGroupSelectionScreen() {
                               </Text>
                             </View>
 
-                            {/* Participants */}
                             <View style={styles.tourRow}>
                               <Text style={styles.tourRowIcon}>👥</Text>
                               <Text style={styles.tourRowText}>
@@ -211,7 +232,6 @@ export default function TourGroupSelectionScreen() {
                               </Text>
                             </View>
 
-                            {/* Time */}
                             <View style={styles.tourRow}>
                               <Text style={styles.tourRowIcon}>🕐</Text>
                               <Text style={styles.tourRowText}>
@@ -225,7 +245,6 @@ export default function TourGroupSelectionScreen() {
                   </View>
                 ))}
 
-                {/* Action Section */}
                 <View style={styles.actionSection}>
                   <View style={styles.selectedTourInfo}>
                     {selectedTourGroup ? (
@@ -263,6 +282,7 @@ export default function TourGroupSelectionScreen() {
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {

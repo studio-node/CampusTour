@@ -31,7 +31,9 @@
 ### Mobile App (React Native)
 
 - [ ] **Ambassador Tour Control UI:**
-    - [ ] Implement Start tour functionality to create session with server 
+    - [ ] Create tour details screen for pre-tour interactions.
+- [ ] **Tour Member Experience UI:**
+    - [ ] Create a waiting screen for tour members until the ambassador starts the tour.
 
 ## Done
 

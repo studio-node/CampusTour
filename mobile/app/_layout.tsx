@@ -24,6 +24,7 @@ export default function RootLayout() {
         <Stack.Screen name="ambassador-signin" options={{ headerShown: false }} />
         <Stack.Screen name="ambassador-tours" options={{ headerShown: false }} />
         <Stack.Screen name="tour-details" options={{ headerShown: false }} />
+        <Stack.Screen name="live-tour" options={{ headerShown: false }} />
         <Stack.Screen name="lead-capture" options={{ headerShown: false }} />
         <Stack.Screen name="school-selection" options={{ headerShown: false }} />
         <Stack.Screen name="tour-group-selection" options={{ headerShown: false }} />
