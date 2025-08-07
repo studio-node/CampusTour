@@ -8,7 +8,7 @@ import { sessionManager } from './tour-sessions.js';
 const app = express();
 const port = process.env.PORT || 3000;
 
-const supabase = createClient(process.env.supabaseUrl, process.env.supabaseAnonKey);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 const tourSessions = new Map();
 
@@ -53,3 +53,5 @@ const wss = new WebSocketServer({ server });
 
 // Pass the Supabase client into the session manager so handlers can auth and persist
 wss.on('connection', ws => sessionManager(ws, supabase, tourSessions));
+
+
