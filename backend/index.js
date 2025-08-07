@@ -1,12 +1,9 @@
 import express from 'express';
 import { WebSocketServer } from 'ws';
-import jwt from 'jsonwebtoken';
 import GeminiCaller from './gemini_caller.mjs';
 import { createClient } from '@supabase/supabase-js';
 import { getLocations } from './supabase.mjs';
 import { sessionManager } from './tour-sessions.js';
-import { URL } from 'url';
-import http from 'http';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -47,39 +44,11 @@ app.post('/generate-tour', express.json(), async (req, res) => {
   res.json(tour);
 });
 
-const server = http.createServer(app);
-
-const wss = new WebSocketServer({ noServer: true });
-
-server.on('upgrade', (request, socket, head) => {
-  const token = new URL(request.url, `http://${request.headers.host}`).searchParams.get('token');
-
-  if (!token) {
-    console.log('No token provided');
-    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-    socket.destroy();
-    return;
-  }
-
-  jwt.verify(token, process.env.SUPABASE_JWT_SECRET, (err, decoded) => {
-    if (err) {
-      console.log('Invalid token');
-      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-      socket.destroy();
-      return;
-    }
-
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      ws.user = decoded;
-      wss.emit('connection', ws, request);
-    });
-  });
+const server = app.listen(port, () => {
+  console.log(`Express is listening at http://localhost:${port}`);
 });
 
-wss.on('connection', (ws, req) => {
-  sessionManager(ws, supabase, tourSessions);
-});
 
-server.listen(port, () => {
-  console.log(`Server is listening at http://localhost:${port}`);
-});
+const wss = new WebSocketServer({ server });
+
+wss.on('connection', ws =>  sessionManager(ws, tourSessions));
