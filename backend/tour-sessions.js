@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import { createLiveTourSession, updateLiveTourSession } from './supabase.mjs';
+import { createLiveTourSession, updateLiveTourSession, getLocations } from './supabase.mjs';
+import GeminiCaller from './gemini_caller.mjs';
 
 // --- Main Session Manager ---
 
@@ -98,6 +99,61 @@ async function handleCreateSession(ws, supabase, tourSessions, payload) {
     ambassador_id: (ws.user && ws.user.sub) || payload.ambassador_id || null,
     initial_structure,
   };
+
+  // Attempt to generate a tour based on participants' selected interests for this appointment
+  try {
+    // 1) Find the school for this tour appointment
+    const { data: tourAppt, error: tourApptError } = await supabase
+      .from('tour_appointments')
+      .select('school_id')
+      .eq('id', tourId)
+      .single();
+    if (!tourApptError && tourAppt?.school_id) {
+      const schoolId = tourAppt.school_id;
+
+      // 2) Aggregate interests from analytics events tied to this tour appointment
+      const { data: interestEvents, error: interestErr } = await supabase
+        .from('analytics_events')
+        .select('metadata')
+        .eq('event_type', 'interests-chosen')
+        .eq('tour_appointment_id', tourId);
+
+      if (!interestErr && Array.isArray(interestEvents) && interestEvents.length > 0) {
+        const allInterests = interestEvents
+          .map(evt => Array.isArray(evt?.metadata?.selected_interests) ? evt.metadata.selected_interests : [])
+          .flat()
+          .filter(Boolean);
+        const uniqueInterests = Array.from(new Set(allInterests));
+
+        if (uniqueInterests.length > 0) {
+          // 3) Fetch locations and prepare the structure for the AI caller
+          const locations = await getLocations(schoolId, supabase);
+          const locsArray = Array.isArray(locations) ? locations.map(location => ({
+            id: location.id,
+            name: location.name,
+            description: location.description,
+            interests: location.interests,
+          })) : [];
+
+          // 4) Generate the tour ordering from Gemini
+          try {
+            const generatedOrder = await GeminiCaller.generateTour(locsArray, uniqueInterests);
+            if (generatedOrder && Array.isArray(generatedOrder) && generatedOrder.length > 0) {
+              sessionData.initial_structure = {
+                ...initial_structure,
+                interests_used: uniqueInterests,
+                generated_tour_order: generatedOrder,
+              };
+            }
+          } catch (genErr) {
+            console.error('Tour generation failed, proceeding without generated order:', genErr);
+          }
+        }
+      }
+    }
+  } catch (aggErr) {
+    console.error('Failed aggregating interests for tour generation:', aggErr);
+  }
 
   const newSession = await createLiveTourSession(supabase, sessionData);
   if (!newSession) {
