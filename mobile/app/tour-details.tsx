@@ -59,16 +59,40 @@ export default function TourDetailsScreen() {
     };
     initialize();
 
-    const handleTourStarted = (message: any) => {
-        if (userType === 'ambassador-led' && message.type === 'tour_started') {
-            router.replace('/(tabs)');
-        }
-    }
+    // Ensure WS connected and authenticate; then handle messages per server contract
+    wsManager.connect();
+    const onOpen = async () => {
+      const u = await authService.getStoredUser();
+      if (u?.id) wsManager.authenticate(u.id);
+    };
+    wsManager.on('open', onOpen);
 
-    wsManager.on('message', handleTourStarted);
+    let joinRetryTimer: ReturnType<typeof setInterval> | null = null;
+    const onMessage = async (message: any) => {
+      if (userType === 'ambassador' && message?.type === 'session_created') {
+        router.replace('/map');
+      }
+      if (userType === 'ambassador-led' && message?.type === 'session_joined') {
+        if (joinRetryTimer) { clearInterval(joinRetryTimer as number); joinRetryTimer = null; }
+        router.replace('/map');
+      }
+    };
+    wsManager.on('message', onMessage);
+
+    // If member, try to join session until success
+    (async () => {
+      const tId = await tourGroupSelectionService.getSelectedTourGroup();
+      if (userType === 'ambassador-led' && tId) {
+        const sendJoin = () => wsManager.send('join_session', { tourId: tId });
+        sendJoin();
+        joinRetryTimer = setInterval(sendJoin, 3000);
+      }
+    })();
 
     return () => {
-        wsManager.off('message', handleTourStarted);
+      wsManager.off('open', onOpen);
+      wsManager.off('message', onMessage);
+      if (joinRetryTimer) clearInterval(joinRetryTimer as number);
     }
   }, [userType]);
 
@@ -81,8 +105,8 @@ export default function TourDetailsScreen() {
     }
 
     if (wsManager.getStatus() !== 'open') {
-        Alert.alert("Error", "Not connected to the server. Please check your connection.");
-        return;
+        // Try to connect; wsManager will queue the send
+        wsManager.connect();
     }
 
     const initial_structure = {
@@ -96,10 +120,9 @@ export default function TourDetailsScreen() {
         ambassador_id: user.id,
         initial_structure: initial_structure,
     };
+    wsManager.authenticate(user.id);
     wsManager.send('create_session', payload);
-    
-    // For now, we'll navigate immediately. In a real scenario, you'd wait for a 'session_created' confirmation.
-    router.replace('/(tabs)');
+    // Navigate after 'session_created'
   };
 
   if (loading) {

@@ -112,12 +112,12 @@ export default function AmbassadorToursScreen() {
   };
 
   const handleTourSelect = (tour: TourAppointment) => {
-    if (ws.current) {
-      ws.current.send(JSON.stringify({
-        type: 'auth',
-        token: '1234567890'
-      }));
-    }
+    // if (ws.current) {
+    //   ws.current.send(JSON.stringify({
+    //     type: 'auth',
+    //     token: '1234567890'
+    //   }));
+    // }
     setSelectedTourId(tour.id);
   };
 

@@ -1,5 +1,6 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { analyticsService, Location, locationService, schoolService, userTypeService } from '@/services/supabase';
+import { analyticsService, Location, locationService, schoolService, userTypeService, tourGroupSelectionService } from '@/services/supabase';
+import { wsManager } from '@/services/ws';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ExpoLocation from 'expo-location';
 import { useRouter } from 'expo-router';
@@ -101,6 +102,33 @@ export default function CurrentLocationScreen() {
       loadTourData();
     }, [])
   );
+
+  // Join live session and listen for state updates if member
+  useEffect(() => {
+    const attachLiveUpdates = async () => {
+      const isAmbassadorUser = await userTypeService.isAmbassador();
+      if (isAmbassadorUser) return;
+      const tourId = await tourGroupSelectionService.getSelectedTourGroup();
+      if (!tourId) return;
+      wsManager.connect();
+      const onMessage = (msg: any) => {
+        if (msg?.type === 'tour_state_updated' && msg?.state) {
+          const { current_location_id, visited_locations } = msg.state;
+          if (current_location_id) setCurrentLocationId(current_location_id);
+          if (Array.isArray(visited_locations)) setVisitedLocations(visited_locations);
+        }
+      };
+      wsManager.on('message', onMessage);
+      wsManager.send('join_session', { tourId });
+      return () => {
+        wsManager.off('message', onMessage);
+      };
+    };
+    const cleanupPromise = attachLiveUpdates();
+    return () => {
+      // cleanup handled by returned function if any
+    };
+  }, []);
 
   // Request location permissions and start tracking
   useEffect(() => {

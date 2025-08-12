@@ -1,5 +1,6 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { analyticsService, Location, locationService, schoolService } from '@/services/supabase';
+import { analyticsService, Location, locationService, schoolService, userTypeService, UserType, tourGroupSelectionService, authService } from '@/services/supabase';
+import { wsManager } from '@/services/ws';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import * as ExpoLocation from 'expo-location';
@@ -183,6 +184,10 @@ export default function TourScreen() {
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [primaryColor, setPrimaryColor] = useState<string>('#990000'); // Utah Tech red as fallback
   const [isGeneratingTour, setIsGeneratingTour] = useState<boolean>(false);
+  const [userType, setUserType] = useState<UserType>(null);
+  const isAmbassador: boolean = userType === 'ambassador';
+  const isAmbassadorLedMember: boolean = userType === 'ambassador-led' && !isAmbassador;
+  const canEditTour: boolean = isAmbassador || userType === 'self-guided';
   
   // Location tracking and geofencing state
   const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
@@ -215,6 +220,18 @@ export default function TourScreen() {
       if (schoolDetails && schoolDetails.primary_color) {
         setPrimaryColor(schoolDetails.primary_color);
       }
+
+      // Determine user type and set edit gating
+      const currentUserType = await userTypeService.getUserType();
+      setUserType(currentUserType);
+      if (currentUserType === 'ambassador-led') {
+        setShowInterestSelection(false);
+      }
+
+      // Establish WS and authenticate if logged in
+      wsManager.connect();
+      const u = await authService.getStoredUser();
+      if (u?.id) wsManager.authenticate(u.id);
     };
 
     getSelectedSchool();
@@ -254,6 +271,23 @@ export default function TourScreen() {
       saveTourState();
     }
   }, [showInterestSelection, selectedInterests, tourStops, visitedLocations, tourStarted, tourFinished, processingTourStart, locationPermissionStatus, currentLocationId, locationEntryTimes, previouslyEnteredLocations, isLoading]);
+
+  // When ambassador updates state, broadcast to members
+  useEffect(() => {
+    const syncStateToServer = async () => {
+      if (!isAmbassador) return;
+      const tourId = await tourGroupSelectionService.getSelectedTourGroup();
+      if (!tourId) return;
+      wsManager.send('tour:state_update', {
+        tourId,
+        state: {
+          current_location_id: currentLocationId,
+          visited_locations: visitedLocations,
+        }
+      });
+    };
+    syncStateToServer();
+  }, [isAmbassador, currentLocationId, visitedLocations]);
 
   // Load saved state from storage
   const loadSavedState = async () => {
@@ -367,6 +401,7 @@ export default function TourScreen() {
 
   // Toggle an interest
   const toggleInterest = (interestId: string) => {
+    if (!canEditTour) return;
     if (selectedInterests.includes(interestId)) {
       setSelectedInterests(selectedInterests.filter(id => id !== interestId));
     } else {
@@ -376,6 +411,7 @@ export default function TourScreen() {
 
   // Generate tour based on selected interests
   const generateTour = async () => {
+    if (!canEditTour) return;
     setIsGeneratingTour(true); // Set loading state
     
     try {
@@ -483,6 +519,7 @@ export default function TourScreen() {
 
   // Show default tour
   const showDefaultTour = async () => {
+    if (!canEditTour) return;
     const defaultTourStops = await getTourStops(false);
     setTourStops(defaultTourStops);
     setShowInterestSelection(false);
@@ -490,6 +527,7 @@ export default function TourScreen() {
 
   // Reset tour function - also reset tour started status
   const resetTour = () => {
+    if (!canEditTour) return;
     setShowInterestSelection(true);
     setSelectedInterests([]);
     setTourStops([]);
