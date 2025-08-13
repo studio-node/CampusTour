@@ -36,6 +36,7 @@ export const analyticsService = {
           location_id: eventData.location_id || null,
           metadata: eventData.metadata || null,
           tour_appointment_id: eventData.tour_appointment_id || null,
+          lead_id: eventData.lead_id || null,
           timestamp: new Date().toISOString()
         }]);
 
@@ -53,7 +54,7 @@ export const analyticsService = {
   },
 
   // Export interests-chosen event
-  async exportInterestsChosen(schoolId, selectedInterests, tourAppointmentId = null) {
+  async exportInterestsChosen(schoolId, selectedInterests, tourAppointmentId = null, leadId = null) {
     try {
       const sessionId = this.getSessionId();
       
@@ -62,6 +63,7 @@ export const analyticsService = {
         session_id: sessionId,
         school_id: schoolId,
         tour_appointment_id: tourAppointmentId,
+        lead_id: leadId,
         metadata: {
           selected_interests: selectedInterests,
           interest_count: selectedInterests.length,

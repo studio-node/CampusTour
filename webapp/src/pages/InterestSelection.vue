@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { analyticsService } from '../services/analyticsService.js'
+import { leadsService } from '../services/leadsService.js'
 import { schoolService } from '../services/schoolService.js'
 
 const route = useRoute()
@@ -65,10 +66,17 @@ const generateTour = async () => {
         tourAppointmentId: tourAppointmentId.value
       })
       
+      // Try to retrieve lead id from local storage (webapp should save it on lead capture flow)
+      let leadId = null
+      try {
+        leadId = localStorage.getItem('LEAD_ID')
+      } catch (e) {}
+
       const analyticsResult = await analyticsService.exportInterestsChosen(
         schoolId.value,
         selectedInterests.value,
-        tourAppointmentId.value
+        tourAppointmentId.value,
+        leadId
       )
       
       if (!analyticsResult.success) {

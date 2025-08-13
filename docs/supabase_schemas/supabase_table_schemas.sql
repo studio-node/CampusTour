@@ -2,6 +2,7 @@
 -- Table order and constraints may not be valid for execution.
 
 CREATE TABLE public.analytics_events (
+  lead_id uuid,
   event_type text NOT NULL,
   session_id text NOT NULL,
   school_id uuid NOT NULL,
@@ -11,6 +12,7 @@ CREATE TABLE public.analytics_events (
   timestamp timestamp with time zone NOT NULL DEFAULT now(),
   tour_appointment_id uuid,
   CONSTRAINT analytics_events_pkey PRIMARY KEY (id),
+  CONSTRAINT analytics_events_lead_id_fkey FOREIGN KEY (lead_id) REFERENCES public.leads(id),
   CONSTRAINT analytics_events_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.locations(id),
   CONSTRAINT analytics_events_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
   CONSTRAINT analytics_events_tour_appointment_id_fkey FOREIGN KEY (tour_appointment_id) REFERENCES public.tour_appointments(id)
@@ -38,14 +40,14 @@ CREATE TABLE public.live_tour_sessions (
   current_location_id uuid,
   live_tour_structure jsonb NOT NULL,
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  status text NOT NULL DEFAULT 'awaiting_start'::text,
   visited_locations jsonb NOT NULL DEFAULT '[]'::jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
-  status text NOT NULL DEFAULT '''awaiting_start''::text'::text,
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT live_tour_sessions_pkey PRIMARY KEY (id),
-  CONSTRAINT live_tour_sessions_tour_appointment_id_fkey FOREIGN KEY (tour_appointment_id) REFERENCES public.tour_appointments(id),
   CONSTRAINT live_tour_sessions_current_location_id_fkey FOREIGN KEY (current_location_id) REFERENCES public.locations(id),
-  CONSTRAINT live_tour_sessions_ambassador_id_fkey FOREIGN KEY (ambassador_id) REFERENCES auth.users(id)
+  CONSTRAINT live_tour_sessions_ambassador_id_fkey FOREIGN KEY (ambassador_id) REFERENCES auth.users(id),
+  CONSTRAINT live_tour_sessions_tour_appointment_id_fkey FOREIGN KEY (tour_appointment_id) REFERENCES public.tour_appointments(id)
 );
 CREATE TABLE public.location_media (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -112,6 +114,6 @@ CREATE TABLE public.tour_appointments (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT tour_appointments_pkey PRIMARY KEY (id),
-  CONSTRAINT tour_appointments_ambassador_id_fkey FOREIGN KEY (ambassador_id) REFERENCES public.profiles(id),
-  CONSTRAINT tour_appointments_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
+  CONSTRAINT tour_appointments_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT tour_appointments_ambassador_id_fkey FOREIGN KEY (ambassador_id) REFERENCES public.profiles(id)
 );

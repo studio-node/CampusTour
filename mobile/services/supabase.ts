@@ -228,6 +228,7 @@ export const authService = {
 const SELECTED_SCHOOL_KEY = 'SELECTED_SCHOOL_ID';
 const AUTH_USER_KEY = 'AUTHENTICATED_USER';
 const AUTH_SESSION_KEY = 'AUTH_SESSION_DATA';
+const LEAD_ID_KEY = 'LEAD_ID';
 
 // Region interface for map coordinates
 export interface Region {
@@ -535,7 +536,7 @@ export interface TourParticipant extends Lead {
 
 // Leads service
 export const leadsService = {
-  async createLead(lead: Omit<Lead, 'id' | 'created_at'>): Promise<{ success: boolean; error?: string }> {
+  async createLead(lead: Omit<Lead, 'id' | 'created_at'>): Promise<{ success: boolean; id?: string; error?: string }> {
     try {
       const { data, error } = await supabase
         .from('leads')
@@ -559,11 +560,34 @@ export const leadsService = {
         return { success: false, error: error.message };
       }
 
-      console.log('Lead created successfully:', data);
-      return { success: true };
+      const inserted = Array.isArray(data) && data.length > 0 ? data[0] : null;
+      console.log('Lead created successfully:', inserted);
+      return { success: true, id: inserted?.id };
     } catch (error) {
       console.error('Exception creating lead:', error);
       return { success: false, error: 'Failed to save lead information' };
+    }
+  },
+  async saveLeadId(leadId: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem(LEAD_ID_KEY, leadId);
+    } catch (e) {
+      console.error('Error saving lead id:', e);
+    }
+  },
+  async getStoredLeadId(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem(LEAD_ID_KEY);
+    } catch (e) {
+      console.error('Error reading lead id:', e);
+      return null;
+    }
+  },
+  async clearStoredLeadId(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(LEAD_ID_KEY);
+    } catch (e) {
+      console.error('Error clearing lead id:', e);
     }
   },
 
@@ -588,7 +612,7 @@ export const leadsService = {
       // Fetch interests for each participant from analytics events
       const participantsWithInterests = await Promise.all(
         (leads || []).map(async (lead) => {
-          const interests = await this.getParticipantInterests(lead.email, tourAppointmentId);
+          const interests = await this.getParticipantInterests(lead.id as string, tourAppointmentId);
           return {
             ...lead,
             interests
@@ -609,12 +633,13 @@ export const leadsService = {
    * @param tourAppointmentId - The tour appointment ID
    * @returns Promise<string[]>
    */
-  async getParticipantInterests(participantEmail: string, tourAppointmentId: string): Promise<string[]> {
+  async getParticipantInterests(leadId: string, tourAppointmentId: string): Promise<string[]> {
     try {
       const { data, error } = await supabase
         .from('analytics_events')
         .select('metadata')
         .eq('event_type', 'interests-chosen')
+        .eq('lead_id', leadId)
         .eq('tour_appointment_id', tourAppointmentId)
         .order('timestamp', { ascending: false })
         .limit(1);
@@ -703,7 +728,7 @@ export const analyticsService = {
   },
 
   // Export an analytics event
-  async exportEvent(event: AnalyticsEvent): Promise<boolean> {
+  async exportEvent(event: AnalyticsEvent & { lead_id?: string | null }): Promise<boolean> {
     try {
       const { data, error } = await supabase
         .from('analytics_events')
@@ -714,6 +739,7 @@ export const analyticsService = {
           location_id: event.location_id || null,
           metadata: event.metadata || null,
           tour_appointment_id: event.tour_appointment_id || null,
+          lead_id: event.lead_id || null,
           timestamp: new Date().toISOString()
         }]);
 
@@ -731,7 +757,7 @@ export const analyticsService = {
   },
 
   // Export interests-chosen event
-  async exportInterestsChosen(schoolId: string, selectedInterests: string[], tourAppointmentId: string | null = null): Promise<{success: boolean, error?: string}> {
+  async exportInterestsChosen(schoolId: string, selectedInterests: string[], tourAppointmentId: string | null = null, leadId: string | null = null): Promise<{success: boolean, error?: string}> {
     try {
       const sessionId = await this.getSessionId();
       
@@ -747,7 +773,7 @@ export const analyticsService = {
         }
       };
 
-      const success = await this.exportEvent(event);
+      const success = await this.exportEvent({ ...event, lead_id: leadId || null });
       
       if (success) {
         console.log('Interest selection analytics exported:', {

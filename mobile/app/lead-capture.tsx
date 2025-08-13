@@ -213,7 +213,10 @@ export default function LeadCaptureScreen() {
       const result = await leadsService.createLead(leadData);
 
       if (result.success) {
-        console.log('Lead created successfully, tour appointment ID:', tourAppointmentId);
+        console.log('Lead created successfully, id:', result.id, 'tour appointment ID:', tourAppointmentId);
+        if (result.id) {
+          await leadsService.saveLeadId(result.id);
+        }
         // Success - navigate based on tour type
         if (isAmbassadorLed) {
           // For ambassador-led tours, go to interest selection

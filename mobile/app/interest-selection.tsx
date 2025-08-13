@@ -11,7 +11,8 @@ import {
 import { 
   analyticsService, 
   schoolService, 
-  tourGroupSelectionService 
+  tourGroupSelectionService,
+  leadsService
 } from '@/services/supabase';
 import { interests } from '@/constants/labels';
 
@@ -55,10 +56,12 @@ export default function InterestSelectionScreen() {
       });
       
       try {
+        const leadId = await leadsService.getStoredLeadId();
         const analyticsResult = await analyticsService.exportInterestsChosen(
           schoolId,
           selectedInterests,
-          tourAppointmentId
+          tourAppointmentId,
+          leadId
         );
         
         if (!analyticsResult.success) {
