@@ -402,8 +402,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#282828',
   },
   header: {
-    paddingBottom: 10,
-    paddingTop: 10,
     borderBottomWidth: 3,
     flexDirection: 'row',
     justifyContent: 'space-between',

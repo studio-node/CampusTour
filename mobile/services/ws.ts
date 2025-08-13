@@ -46,6 +46,7 @@ class WebSocketManager {
     this.socket.onmessage = (event) => {
       try {
         const data: WebSocketMessage = JSON.parse(event.data);
+        console.log('WebSocket Message:', JSON.stringify(data, null, 2));
         // Emit by specific type and a generic message event
         if (data?.type) {
           this.emitter.emit(data.type, data);

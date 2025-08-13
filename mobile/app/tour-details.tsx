@@ -18,8 +18,11 @@ import {
   UserType,
   authService,
   schoolService,
-  School
+  School,
+  locationService,
+  Location
 } from '@/services/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { wsManager } from '@/services/ws';
 
 export default function TourDetailsScreen() {
@@ -81,7 +84,21 @@ export default function TourDetailsScreen() {
     let joinRetryTimer: ReturnType<typeof setInterval> | null = null;
     const onMessage = async (message: any) => {
       if (userType === 'ambassador' && message?.type === 'tour_started') {
-        // message.payload contains generated_tour_order and interests_used
+        // Populate ordered tour in AsyncStorage before navigating
+        try {
+          const schoolId = await schoolService.getSelectedSchool();
+          if (schoolId && Array.isArray(message?.payload?.generated_tour_order)) {
+            const allLocations = await locationService.getTourStops(schoolId);
+            const ordered: Location[] = message.payload.generated_tour_order
+              .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
+              .filter((loc: Location | undefined): loc is Location => Boolean(loc));
+            await AsyncStorage.setItem('tourStops', JSON.stringify(ordered));
+            await AsyncStorage.setItem('showInterestSelection', JSON.stringify(false));
+            await AsyncStorage.setItem('visitedLocations', JSON.stringify([]));
+          }
+        } catch (e) {
+          console.error('Failed to persist generated tour:', e);
+        }
         router.replace('/map');
       }
       if (userType === 'ambassador-led' && message?.type === 'session_joined') {
