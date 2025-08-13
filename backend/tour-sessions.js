@@ -106,60 +106,7 @@ async function handleCreateSession(ws, supabase, tourSessions, payload) {
     initial_structure,
   };
 
-  // Attempt to generate a tour based on participants' selected interests for this appointment
-  try {
-    // 1) Find the school for this tour appointment
-    const { data: tourAppt, error: tourApptError } = await supabase
-      .from('tour_appointments')
-      .select('school_id')
-      .eq('id', tourId)
-      .single();
-    if (!tourApptError && tourAppt?.school_id) {
-      const schoolId = tourAppt.school_id;
-
-      // 2) Aggregate interests from analytics events tied to this tour appointment
-      const { data: interestEvents, error: interestErr } = await supabase
-        .from('analytics_events')
-        .select('metadata')
-        .eq('event_type', 'interests-chosen')
-        .eq('tour_appointment_id', tourId);
-
-      if (!interestErr && Array.isArray(interestEvents) && interestEvents.length > 0) {
-        const allInterests = interestEvents
-          .map(evt => Array.isArray(evt?.metadata?.selected_interests) ? evt.metadata.selected_interests : [])
-          .flat()
-          .filter(Boolean);
-        const uniqueInterests = Array.from(new Set(allInterests));
-
-        if (uniqueInterests.length > 0) {
-          // 3) Fetch locations and prepare the structure for the AI caller
-          const locations = await getLocations(schoolId, supabase);
-          const locsArray = Array.isArray(locations) ? locations.map(location => ({
-            id: location.id,
-            name: location.name,
-            description: location.description,
-            interests: location.interests,
-          })) : [];
-
-          // 4) Generate the tour ordering from Gemini
-          try {
-            const generatedOrder = await GeminiCaller.generateTour(locsArray, uniqueInterests);
-            if (generatedOrder && Array.isArray(generatedOrder) && generatedOrder.length > 0) {
-              sessionData.initial_structure = {
-                ...initial_structure,
-                interests_used: uniqueInterests,
-                generated_tour_order: generatedOrder,
-              };
-            }
-          } catch (genErr) {
-            console.error('Tour generation failed, proceeding without generated order:', genErr);
-          }
-        }
-      }
-    }
-  } catch (aggErr) {
-    console.error('Failed aggregating interests for tour generation:', aggErr);
-  }
+  // Do not generate the tour here. Generation will occur on explicit 'tour:start'.
 
   // Persist with default status awaiting_start (DB default assumed). Ensure status if needed.
   const newSession = await createLiveTourSession(supabase, sessionData);
@@ -186,49 +133,7 @@ async function handleJoinSession(ws, supabase, tourSessions, payload) {
       ambassador_id: (ws.user && ws.user.sub) || null,
       initial_structure: {},
     };
-    // Attempt to pre-generate tour structure from interests
-    try {
-      const { data: tourAppt, error: tourApptError } = await supabase
-        .from('tour_appointments')
-        .select('school_id')
-        .eq('id', tourId)
-        .single();
-      if (!tourApptError && tourAppt?.school_id) {
-        const schoolId = tourAppt.school_id;
-        const { data: interestEvents } = await supabase
-          .from('analytics_events')
-          .select('metadata')
-          .eq('event_type', 'interests-chosen')
-          .eq('tour_appointment_id', tourId);
-        if (Array.isArray(interestEvents) && interestEvents.length > 0) {
-          const allInterests = interestEvents
-            .map(evt => Array.isArray(evt?.metadata?.selected_interests) ? evt.metadata.selected_interests : [])
-            .flat()
-            .filter(Boolean);
-          const uniqueInterests = Array.from(new Set(allInterests));
-          const locations = await getLocations(schoolId, supabase);
-          const locsArray = Array.isArray(locations) ? locations.map(location => ({
-            id: location.id,
-            name: location.name,
-            description: location.description,
-            interests: location.interests,
-          })) : [];
-          try {
-            const generatedOrder = uniqueInterests.length > 0
-              ? await GeminiCaller.generateTour(locsArray, uniqueInterests)
-              : [];
-            sessionData.initial_structure = {
-              interests_used: uniqueInterests,
-              generated_tour_order: generatedOrder,
-            };
-          } catch (e) {
-            console.error('Generation on join failed:', e);
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Error preparing session on join:', e);
-    }
+    // Do not generate here. Generation is performed on 'tour:start'.
 
     const created = await createLiveTourSession(supabase, sessionData);
     if (!created) {
@@ -256,9 +161,74 @@ async function handleTourStart(ws, supabase, tourSessions, tourId, session) {
   if (!session.ambassador) {
     session.ambassador = ws;
   }
-  await updateLiveTourSession(supabase, tourId, { status: 'active' });
-  // Optionally broadcast a state; for now, just acknowledge
-  ws.send(JSON.stringify({ type: 'tour_started_confirmation', tourId }));
+  // Aggregate interests and generate tour ordering now
+  let generatedOrder = [];
+  let interestsUsed = [];
+  try {
+    const { data: tourAppt, error: tourApptError } = await supabase
+      .from('tour_appointments')
+      .select('school_id')
+      .eq('id', tourId)
+      .single();
+    if (!tourApptError && tourAppt?.school_id) {
+      const schoolId = tourAppt.school_id;
+      const { data: interestEvents } = await supabase
+        .from('analytics_events')
+        .select('metadata')
+        .eq('event_type', 'interests-chosen')
+        .eq('tour_appointment_id', tourId);
+      if (Array.isArray(interestEvents) && interestEvents.length > 0) {
+        const allInterests = interestEvents
+          .map(evt => Array.isArray(evt?.metadata?.selected_interests) ? evt.metadata.selected_interests : [])
+          .flat()
+          .filter(Boolean);
+        interestsUsed = Array.from(new Set(allInterests));
+      }
+      const locations = await getLocations(schoolId, supabase);
+      const locsArray = Array.isArray(locations) ? locations.map(location => ({
+        id: location.id,
+        name: location.name,
+        description: location.description,
+        interests: location.interests,
+      })) : [];
+      if (interestsUsed.length > 0) {
+        try {
+          generatedOrder = await GeminiCaller.generateTour(locsArray, interestsUsed);
+        } catch (e) {
+          console.error('Tour generation on start failed:', e);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Error generating tour on start:', e);
+  }
+
+  // Persist session as active and save generated structure
+  await updateLiveTourSession(supabase, tourId, {
+    status: 'active',
+    live_tour_structure: {
+      interests_used: interestsUsed,
+      generated_tour_order: generatedOrder,
+    }
+  });
+
+  // Return generated tour to ambassador
+  ws.send(JSON.stringify({
+    type: 'tour_started',
+    payload: {
+      tourId,
+      interests_used: interestsUsed,
+      generated_tour_order: generatedOrder,
+    }
+  }));
+
+  // Also notify members of structure
+  if (session && session.members) {
+    broadcastToMembers(session, {
+      type: 'tour_structure_updated',
+      changes: { new_structure: { interests_used: interestsUsed, generated_tour_order: generatedOrder } }
+    });
+  }
 }
 
 async function handleTourStateUpdate(supabase, session, payload) {
