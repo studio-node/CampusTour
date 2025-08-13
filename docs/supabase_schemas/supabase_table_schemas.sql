@@ -38,14 +38,14 @@ CREATE TABLE public.live_tour_sessions (
   current_location_id uuid,
   live_tour_structure jsonb NOT NULL,
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  status text NOT NULL DEFAULT 'active'::text,
   visited_locations jsonb NOT NULL DEFAULT '[]'::jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  status text NOT NULL DEFAULT '''awaiting_start''::text'::text,
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT live_tour_sessions_pkey PRIMARY KEY (id),
-  CONSTRAINT live_tour_sessions_ambassador_id_fkey FOREIGN KEY (ambassador_id) REFERENCES auth.users(id),
+  CONSTRAINT live_tour_sessions_tour_appointment_id_fkey FOREIGN KEY (tour_appointment_id) REFERENCES public.tour_appointments(id),
   CONSTRAINT live_tour_sessions_current_location_id_fkey FOREIGN KEY (current_location_id) REFERENCES public.locations(id),
-  CONSTRAINT live_tour_sessions_tour_appointment_id_fkey FOREIGN KEY (tour_appointment_id) REFERENCES public.tour_appointments(id)
+  CONSTRAINT live_tour_sessions_ambassador_id_fkey FOREIGN KEY (ambassador_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.location_media (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -83,8 +83,8 @@ CREATE TABLE public.profiles (
   updated_at timestamp with time zone DEFAULT now(),
   full_name text NOT NULL,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
-  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
-  CONSTRAINT profiles_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
+  CONSTRAINT profiles_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.schools (
   name text NOT NULL,
