@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -33,37 +33,12 @@ export default function AmbassadorToursScreen() {
   const [loadingParticipants, setLoadingParticipants] = useState<Set<string>>(new Set());
   const [selectedTourId, setSelectedTourId] = useState<string | null>(null);
   const router = useRouter();
-  const ws = useRef<WebSocket | null>(null);
+  
 
 
   
   useEffect(() => {
     loadUserAndTours();
-    
-
-    try {
-      // Establish WebSocket connection
-      // ws.current = new WebSocket('ws://172.25.80.1:3000');
-      ws.current = new WebSocket('wss://campustourbackend.onrender.com');
-      
-    } catch (error) {
-      console.error('Error establishing WebSocket connection:', error);
-      return;
-    }
-
-    ws.current.onopen = () => {
-      console.log('WebSocket connection established');
-    };
-
-    ws.current.onerror = (e) => {
-      console.error('WebSocket error:', e);
-    };
-
-    ws.current.onclose = (e) => {
-      console.log('WebSocket connection closed:', e.code, e.reason);
-    };
-
-
   }, []);
 
   const loadUserAndTours = async () => {
@@ -112,12 +87,6 @@ export default function AmbassadorToursScreen() {
   };
 
   const handleTourSelect = (tour: TourAppointment) => {
-    // if (ws.current) {
-    //   ws.current.send(JSON.stringify({
-    //     type: 'auth',
-    //     token: '1234567890'
-    //   }));
-    // }
     setSelectedTourId(tour.id);
   };
 

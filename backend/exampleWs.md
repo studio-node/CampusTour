@@ -12,4 +12,10 @@
     "initial_structure": { "stops": [] }
   }
 }
+
+
+{
+  "type": "tour:start",
+  "payload": { "tourId": "ad3b271a-6843-4c50-bc1e-aa818032bde0" }
+}
 ```

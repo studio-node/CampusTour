@@ -1,17 +1,17 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState, useEffect } from 'react';
-import { 
-  ActivityIndicator, 
-  StyleSheet, 
-  Text, 
-  TouchableOpacity, 
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
   View,
   Image,
   Alert
 } from 'react-native';
-import { 
-  tourAppointmentsService, 
+import {
+  tourAppointmentsService,
   tourGroupSelectionService,
   TourAppointment,
   userTypeService,
@@ -47,8 +47,8 @@ export default function TourDetailsScreen() {
         const tourDetails = await tourAppointmentsService.getTourAppointmentById(tourId);
         setTour(tourDetails);
         if (tourDetails) {
-            const schoolDetails = await schoolService.getSchoolById(tourDetails.school_id);
-            setSchool(schoolDetails);
+          const schoolDetails = await schoolService.getSchoolById(tourDetails.school_id);
+          setSchool(schoolDetails);
         }
       } catch (err) {
         setError('Failed to load tour details.');
@@ -63,13 +63,25 @@ export default function TourDetailsScreen() {
     wsManager.connect();
     const onOpen = async () => {
       const u = await authService.getStoredUser();
-      if (u?.id) wsManager.authenticate(u.id);
+      if (u?.id) {
+        wsManager.authenticate(u.id);
+      }
+      // Create or attach to the live tour session on socket open
+      const tId = await tourGroupSelectionService.getSelectedTourGroup();
+      if (tId) {
+        wsManager.send('create_session', {
+          tourId: tId,
+          initial_structure: {},
+          ambassador_id: u?.id || null,
+        });
+      }
     };
     wsManager.on('open', onOpen);
 
     let joinRetryTimer: ReturnType<typeof setInterval> | null = null;
     const onMessage = async (message: any) => {
-      if (userType === 'ambassador' && message?.type === 'session_created') {
+      if (userType === 'ambassador' && message?.type === 'tour_started') {
+        // message.payload contains generated_tour_order and interests_used
         router.replace('/map');
       }
       if (userType === 'ambassador-led' && message?.type === 'session_joined') {
@@ -100,29 +112,18 @@ export default function TourDetailsScreen() {
     if (!tour) return;
     const user = await authService.getStoredUser();
     if (!user) {
-        Alert.alert("Error", "You must be logged in to start a tour.");
-        return;
+      Alert.alert("Error", "You must be logged in to start a tour.");
+      return;
     }
 
     if (wsManager.getStatus() !== 'open') {
-        // Try to connect; wsManager will queue the send
-        wsManager.connect();
+      // Try to connect; wsManager will queue the send
+      wsManager.connect();
     }
 
-    const initial_structure = {
-        // This should be replaced with the actual tour structure
-        locations: [],
-        interests: []
-    };
-
-    const payload = {
-        tourId: tour.id,
-        ambassador_id: user.id,
-        initial_structure: initial_structure,
-    };
-    wsManager.authenticate(user.id);
-    wsManager.send('create_session', payload);
-    // Navigate after 'session_created'
+    // Only start the tour; server generates structure and returns it in 'tour_started'
+    wsManager.send('tour:start', { tourId: tour.id });
+    // Navigate after 'tour_started' message
   };
 
   if (loading) {
@@ -197,8 +198,8 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   schoolLogo: {
-    width: 100,
-    height: 100,
+    width: 250,
+    height: 125,
     marginBottom: 20,
   },
   title: {

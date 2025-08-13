@@ -91,10 +91,7 @@ async function handleCreateSession(ws, supabase, tourSessions, payload) {
     return;
   }
   if (tourSessions.has(tourId)) {
-    // Treat create_session as a Start Tour request if session already exists but awaiting start
-    const existing = tourSessions.get(tourId);
-    existing.ambassador = ws; // Set ambassador on first Start action
-    await updateLiveTourSession(supabase, tourId, { status: 'active' });
+    // Session already exists; do not change status or ambassador binding here
     ws.tourId = tourId;
     ws.send(JSON.stringify({ type: 'session_created', tourId }));
     return;

@@ -18,7 +18,7 @@
 
 ## TODO
 
-- change how university select is structured so it works better with new setup
+- Cut fat from gemini requests
 - media (maybe not mvp)
 
 
