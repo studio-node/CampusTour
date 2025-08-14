@@ -6,7 +6,7 @@ import { Image } from 'expo-image';
 import * as ExpoLocation from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HamburgerMenu from '@/components/HamburgerMenu';
 
@@ -21,7 +21,8 @@ const STORAGE_KEYS = {
   LOCATION_PERMISSION_STATUS: 'locationPermissionStatus',
   CURRENT_LOCATION_ID: 'currentLocationId',
   LOCATION_ENTRY_TIMES: 'locationEntryTimes',
-  PREVIOUSLY_ENTERED_LOCATIONS: 'previouslyEnteredLocations'
+  PREVIOUSLY_ENTERED_LOCATIONS: 'previouslyEnteredLocations',
+  IS_EDITING_TOUR: 'isEditingTour'
 };
 
 // Define the interface for a tour stop
@@ -62,7 +63,12 @@ const TourStopItem = ({
   onLocationPress,
   visited,
   onToggleVisited,
-  primaryColor
+  primaryColor,
+  isEditing,
+  onDelete,
+  drag,
+  onMoveUp,
+  onMoveDown
 }: { 
   item: TourStop; 
   onDetailsPress: (id: string) => void;
@@ -70,6 +76,11 @@ const TourStopItem = ({
   visited: boolean;
   onToggleVisited: (id: string) => void;
   primaryColor: string;
+  isEditing: boolean;
+  onDelete: (id: string) => void;
+  drag: () => void;
+  onMoveUp: (id: string) => void;
+  onMoveDown: (id: string) => void;
 }) => {
   // Create dynamic styles with the primary color
   const dynamicStyles = {
@@ -86,51 +97,86 @@ const TourStopItem = ({
   };
 
   return (
-    <View style={styles.tourStopCard}>
-      {item.image ? (
-        <Image 
-          source={{ uri: item.image }} 
-          style={styles.tourStopImage}
-          contentFit="cover"
-        />
-      ) : (
-        <View style={styles.tourStopImagePlaceholder}>
-          <Text style={styles.imagePlaceholderText}>Building Image</Text>
-        </View>
-      )}
-      <View style={styles.tourStopInfo}>
-        <View style={styles.tourStopHeader}>
-          <TouchableOpacity 
-            style={[
-              styles.checkboxContainer, 
-              dynamicStyles.checkboxContainer,
-              visited && dynamicStyles.checkboxContainerChecked
-            ]} 
-            onPress={() => onToggleVisited(item.id)}
-          >
-            {visited && <IconSymbol name="checkmark" size={14} color="white" />}
-          </TouchableOpacity>
-          <Text style={styles.tourStopName}>{item.name}</Text>
-        </View>
-        <Text style={styles.tourStopDescription} numberOfLines={2}>{item.description}</Text>
-        <View style={styles.tourStopButtons}>
-          <TouchableOpacity 
-            style={styles.detailsButton}
-            onPress={() => onDetailsPress(item.id)}
-          >
-            <IconSymbol name="info.circle.fill" size={12} color="white" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Details</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.locationButton, dynamicStyles.locationButton]}
-            onPress={() => onLocationPress(item.id)}
-          >
-            <IconSymbol name="location.fill" size={12} color="white" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Location</Text>
-          </TouchableOpacity>
+    <View
+      style={styles.tourStopCard}
+    >
+        
+        {item.image ? (
+          <Image 
+            source={{ uri: item.image }} 
+            style={styles.tourStopImage}
+            contentFit="cover"
+          />
+        ) : (
+          <View style={styles.tourStopImagePlaceholder}>
+            <Text style={styles.imagePlaceholderText}>Building Image</Text>
+          </View>
+        )}
+        
+        <View style={styles.tourStopInfo}>
+          <View style={styles.tourStopHeader}>
+            {!isEditing && (
+              <TouchableOpacity 
+                style={[
+                  styles.checkboxContainer, 
+                  dynamicStyles.checkboxContainer,
+                  visited && dynamicStyles.checkboxContainerChecked
+                ]} 
+                onPress={() => onToggleVisited(item.id)}
+              >
+                {visited && <IconSymbol name="checkmark" size={14} color="white" />}
+              </TouchableOpacity>
+            )}
+            <Text style={styles.tourStopName}>{item.name}</Text>
+          </View>
+          <Text style={styles.tourStopDescription} numberOfLines={2}>{item.description}</Text>
+          <View style={styles.tourStopButtons}>
+            
+            <TouchableOpacity 
+              style={styles.detailsButton}
+              onPress={() => onDetailsPress(item.id)}
+              >
+              <IconSymbol name="info.circle.fill" size={12} color="white" style={styles.buttonIcon} />
+              <Text style={styles.buttonText}>Details</Text>
+            </TouchableOpacity>
+              
+            {!isEditing && (
+              <TouchableOpacity 
+              style={[styles.locationButton, dynamicStyles.locationButton]}
+              onPress={() => onLocationPress(item.id)}
+              >
+                <IconSymbol name="location.fill" size={12} color="white" style={styles.buttonIcon} />
+                <Text style={styles.buttonText}>Location</Text>
+              </TouchableOpacity>
+            )}
+            {isEditing && (
+              <TouchableOpacity 
+                style={styles.deleteButton}
+                onPress={() => onDelete(item.id)}
+              >
+                <IconSymbol name="trash.fill" size={12} color="white" style={styles.buttonIcon} />
+                <Text style={styles.buttonText}>Delete</Text>
+              </TouchableOpacity>
+            )}
+            {isEditing && (
+              <View style={styles.reorderButtons}>
+                <TouchableOpacity 
+                  style={styles.reorderButton}
+                  onPress={() => onMoveUp(item.id)}
+                >
+                  <IconSymbol name="chevron.up" size={12} color="white" />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.reorderButton}
+                  onPress={() => onMoveDown(item.id)}
+                >
+                  <IconSymbol name="chevron.down" size={12} color="white" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </View>
       </View>
-    </View>
   );
 };
 
@@ -188,6 +234,8 @@ export default function TourScreen() {
   const isAmbassador: boolean = userType === 'ambassador';
   const isAmbassadorLedMember: boolean = userType === 'ambassador-led' && !isAmbassador;
   const canEditTour: boolean = isAmbassador || userType === 'self-guided';
+  const [originalTourStops, setOriginalTourStops] = useState<TourStop[]>([]);
+  const [needsToCancelEditing, setNeedsToCancelEditing] = useState<boolean>(false);
   
   // Location tracking and geofencing state
   const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
@@ -201,6 +249,9 @@ export default function TourScreen() {
   const [currentLocationId, setCurrentLocationId] = useState<string | null>(null);
   const [locationEntryTimes, setLocationEntryTimes] = useState<{[locationId: string]: number}>({});
   const [previouslyEnteredLocations, setPreviouslyEnteredLocations] = useState<Set<string>>(new Set());
+
+  // Tour editing mode state
+  const [isEditingTour, setIsEditingTour] = useState<boolean>(false);
 
 
   // Get the selected school ID and details
@@ -270,7 +321,7 @@ export default function TourScreen() {
     if (!isLoading) {
       saveTourState();
     }
-  }, [showInterestSelection, selectedInterests, tourStops, visitedLocations, tourStarted, tourFinished, processingTourStart, locationPermissionStatus, currentLocationId, locationEntryTimes, previouslyEnteredLocations, isLoading]);
+  }, [showInterestSelection, selectedInterests, tourStops, visitedLocations, tourStarted, tourFinished, processingTourStart, locationPermissionStatus, currentLocationId, locationEntryTimes, previouslyEnteredLocations, isEditingTour, isLoading]);
 
   // When ambassador updates state, broadcast to members
   useEffect(() => {
@@ -302,6 +353,7 @@ export default function TourScreen() {
       const savedCurrentLocationId = await AsyncStorage.getItem(STORAGE_KEYS.CURRENT_LOCATION_ID);
       const savedLocationEntryTimes = await AsyncStorage.getItem(STORAGE_KEYS.LOCATION_ENTRY_TIMES);
       const savedPreviouslyEnteredLocations = await AsyncStorage.getItem(STORAGE_KEYS.PREVIOUSLY_ENTERED_LOCATIONS);
+      const savedIsEditingTour = await AsyncStorage.getItem(STORAGE_KEYS.IS_EDITING_TOUR);
       
       if (savedShowInterestSelection !== null) {
         setShowInterestSelection(JSON.parse(savedShowInterestSelection));
@@ -343,6 +395,10 @@ export default function TourScreen() {
         const locationsArray = JSON.parse(savedPreviouslyEnteredLocations);
         setPreviouslyEnteredLocations(new Set(locationsArray));
       }
+
+      if (savedIsEditingTour !== null) {
+        setIsEditingTour(JSON.parse(savedIsEditingTour));
+      }
     } catch (error) {
       console.error('Error loading saved tour state:', error);
     }
@@ -365,6 +421,7 @@ export default function TourScreen() {
       }
       await AsyncStorage.setItem(STORAGE_KEYS.LOCATION_ENTRY_TIMES, JSON.stringify(locationEntryTimes));
       await AsyncStorage.setItem(STORAGE_KEYS.PREVIOUSLY_ENTERED_LOCATIONS, JSON.stringify(Array.from(previouslyEnteredLocations)));
+      await AsyncStorage.setItem(STORAGE_KEYS.IS_EDITING_TOUR, JSON.stringify(isEditingTour));
     } catch (error) {
       console.error('Error saving tour state:', error);
     }
@@ -538,6 +595,7 @@ export default function TourScreen() {
     setCurrentLocationId(null);
     setLocationEntryTimes({});
     setPreviouslyEnteredLocations(new Set());
+    setIsEditingTour(false);
     stopLocationTracking();
   };
 
@@ -552,6 +610,158 @@ export default function TourScreen() {
       // Check if tour is now complete
       checkTourCompletion(newVisitedLocations);
     }
+  };
+
+  // Toggle tour editing mode
+  const toggleEditingMode = () => {
+    if (!canEditTour) {
+      return;
+    };
+
+    if (isEditingTour) {
+      // User is exiting edit mode - save changes
+      saveTourChanges();
+    } else {
+      setOriginalTourStops([...tourStops]);
+    }
+    
+    setIsEditingTour(!isEditingTour);
+  };
+
+  const cancelEditing = () => {
+    setNeedsToCancelEditing(true);
+    setIsEditingTour(false);
+    // replace tour stops with original tour stops
+    setTourStops([...originalTourStops]);
+  };
+
+  // Save tour changes when exiting edit mode
+  const saveTourChanges = async () => {
+    try {
+      // Save the current tour state to storage
+      await saveTourState();
+      
+      // If this is an ambassador, broadcast the updated tour to group members
+      if (isAmbassador) {
+        const tourId = await tourGroupSelectionService.getSelectedTourGroup();
+        if (tourId) {
+          wsManager.send('tour:state_update', {
+            tourId,
+            state: {
+              tour_stops: tourStops,
+              current_location_id: currentLocationId,
+              visited_locations: visitedLocations,
+            }
+          });
+        }
+      }
+      
+      console.log('Tour changes saved successfully');
+    } catch (error) {
+      console.error('Error saving tour changes:', error);
+    }
+  };
+
+
+
+  // Delete a tour stop
+  const deleteTourStop = (locationId: string) => {
+    const locationToDelete = tourStops.find(stop => stop.id === locationId);
+    if (!locationToDelete) return;
+
+    Alert.alert(
+      'Delete Location',
+      `Are you sure you want to delete "${locationToDelete.name}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            // Remove from tour stops
+            const newTourStops = tourStops.filter(stop => stop.id !== locationId);
+            setTourStops(newTourStops);
+            
+            // If the deleted location was the current one, reset it
+            if (currentLocationId === locationId) {
+              setCurrentLocationId(null);
+            }
+            
+            // If the deleted location was previously entered, remove it
+            setPreviouslyEnteredLocations(prev => new Set([...prev].filter(id => id !== locationId)));
+            
+            // If the deleted location was visited, remove it
+            setVisitedLocations(prev => prev.filter(id => id !== locationId));
+            
+            // Clean up entry times
+            setLocationEntryTimes(prev => {
+              const newEntryTimes = { ...prev };
+              delete newEntryTimes[locationId];
+              return newEntryTimes;
+            });
+            
+            // If no more tour stops, finish the tour
+            if (newTourStops.length === 0) {
+              setTourFinished(true);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Add a new tour stop from available locations
+  const addTourStop = async () => {
+    if (!schoolId) return;
+    
+    try {
+      // Get all available locations that aren't already in the tour
+      const allLocations = await locationService.getTourStops(schoolId);
+      const availableLocations = allLocations.filter(location => 
+        !tourStops.some(stop => stop.id === location.id)
+      );
+      
+      if (availableLocations.length === 0) {
+        Alert.alert('No More Locations', 'All available locations are already in your tour.');
+        return;
+      }
+      
+      // For now, just add the first available location
+      // In the future, you could show a selection modal
+      const newLocation = availableLocations[0];
+      setTourStops([...tourStops, newLocation]);
+      
+      console.log(`Added ${newLocation.name} to tour`);
+    } catch (error) {
+      console.error('Error adding tour stop:', error);
+      Alert.alert('Error', 'Failed to add location to tour. Please try again.');
+    }
+  };
+
+  // Move a tour stop up in the list
+  const moveTourStopUp = (locationId: string) => {
+    const currentIndex = tourStops.findIndex(stop => stop.id === locationId);
+    if (currentIndex <= 0) return; // Can't move up if already at top
+    
+    const newTourStops = [...tourStops];
+    const temp = newTourStops[currentIndex];
+    newTourStops[currentIndex] = newTourStops[currentIndex - 1];
+    newTourStops[currentIndex - 1] = temp;
+    
+    setTourStops(newTourStops);
+  };
+
+  // Move a tour stop down in the list
+  const moveTourStopDown = (locationId: string) => {
+    const currentIndex = tourStops.findIndex(stop => stop.id === locationId);
+    if (currentIndex >= tourStops.length - 1) return; // Can't move down if already at bottom
+    
+    const newTourStops = [...tourStops];
+    const temp = newTourStops[currentIndex];
+    newTourStops[currentIndex] = newTourStops[currentIndex + 1];
+    newTourStops[currentIndex + 1] = temp;
+    
+    setTourStops(newTourStops);
   };
 
   // Check if all tour stops have been visited
@@ -792,14 +1002,27 @@ export default function TourScreen() {
       <View style={[styles.header, dynamicStyles.headerBorder]}>
         <HamburgerMenu primaryColor={primaryColor} />
         <Text style={styles.headerText}>Campus Tour</Text>
+        {isEditingTour && (
+          <TouchableOpacity
+            style={styles.resetButton}
+            onPress={cancelEditing}
+          >
+            <Text style={styles.resetButtonText}>
+              Cancel
+            </Text>
+          </TouchableOpacity>
+        )}
         {!showInterestSelection && (
           <TouchableOpacity
             style={styles.resetButton}
-            onPress={resetTour}
+            onPress={toggleEditingMode}
           >
-            <Text style={styles.resetButtonText}>New Tour</Text>
+            <Text style={styles.resetButtonText}>
+              {isEditingTour ? 'Save Changes' : 'Edit Tour'}
+            </Text>
           </TouchableOpacity>
         )}
+
       </View>
       
       {showInterestSelection ? (
@@ -838,38 +1061,90 @@ export default function TourScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={tourStops}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TourStopItem 
-              item={item}
-              onDetailsPress={handleDetailsPress}
-              onLocationPress={handleLocationPress}
-              visited={visitedLocations.includes(item.id)}
-              onToggleVisited={toggleVisited}
-              primaryColor={primaryColor}
-            />
-          )}
-          style={styles.tourList}
-          contentContainerStyle={styles.tourListContent}
-          ListHeaderComponent={
-            <View style={styles.tourHeaderContainer}>
-              <Text style={styles.tourHeaderText}>Your Tour</Text>
-            </View>
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyTourContainer}>
-              <Text style={styles.emptyTourText}>No buildings match your selected interests.</Text>
-              <TouchableOpacity 
-                style={[styles.generateTourButton, dynamicStyles.generateTourButton]}
-                onPress={resetTour}
-              >
-                <Text style={styles.buttonText}>Select Different Interests</Text>
-              </TouchableOpacity>
-            </View>
-          }
-        />
+        isEditingTour ? (
+          <FlatList
+            data={tourStops}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <TourStopItem 
+                item={item}
+                onDetailsPress={handleDetailsPress}
+                onLocationPress={handleLocationPress}
+                visited={visitedLocations.includes(item.id)}
+                onToggleVisited={toggleVisited}
+                primaryColor={primaryColor}
+                isEditing={isEditingTour}
+                onDelete={deleteTourStop}
+                drag={() => {}}
+                onMoveUp={moveTourStopUp}
+                onMoveDown={moveTourStopDown}
+              />
+            )}
+            style={styles.tourList}
+            contentContainerStyle={styles.tourListContent}
+            ListHeaderComponent={
+              <View style={styles.tourHeaderContainer}>
+                <Text style={styles.tourHeaderText}>Your Tour</Text>
+                <Text style={styles.editingHintText}>Use arrows to reorder</Text>
+                {/* <TouchableOpacity
+                  style={[styles.addLocationButton, dynamicStyles.generateTourButton]}
+                  onPress={addTourStop}
+                >
+                  <Text style={styles.buttonText}>Add Location</Text>
+                </TouchableOpacity> */}
+              </View>
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyTourContainer}>
+                <Text style={styles.emptyTourText}>No buildings match your selected interests.</Text>
+                <TouchableOpacity 
+                  style={[styles.generateTourButton, dynamicStyles.generateTourButton]}
+                  onPress={resetTour}
+                >
+                  <Text style={styles.buttonText}>Select Different Interests</Text>
+                </TouchableOpacity>
+              </View>
+            }
+          />
+        ) : (
+          <FlatList
+            data={tourStops}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <TourStopItem 
+                item={item}
+                onDetailsPress={handleDetailsPress}
+                onLocationPress={handleLocationPress}
+                visited={visitedLocations.includes(item.id)}
+                onToggleVisited={toggleVisited}
+                primaryColor={primaryColor}
+                isEditing={isEditingTour}
+                onDelete={deleteTourStop}
+                drag={() => {console.log('dragging')}}
+                onMoveUp={() => {console.log('moving up')}}
+                onMoveDown={() => {console.log('moving down')}}
+              />
+            )}
+            style={styles.tourList}
+            contentContainerStyle={styles.tourListContent}
+            ListHeaderComponent={
+              <View style={styles.tourHeaderContainer}>
+                <Text style={styles.tourHeaderText}>Your Tour</Text>
+              </View>
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyTourContainer}>
+                <Text style={styles.emptyTourText}>No buildings match your selected interests.</Text>
+                <TouchableOpacity 
+                  style={[styles.generateTourButton, dynamicStyles.generateTourButton]}
+                  onPress={resetTour}
+                >
+                  <Text style={styles.buttonText}>Select Different Interests</Text>
+                </TouchableOpacity>
+              </View>
+            }
+          />
+        )
       )}
     </SafeAreaView>
   );
@@ -984,6 +1259,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#FFFFFF',
   },
+  newTourButton: {
+    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  dragHandle: {
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0F0F0',
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  deleteButton: {
+    backgroundColor: '#D22B2B',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   emptyTourContainer: {
     padding: 24,
     alignItems: 'center',
@@ -1088,5 +1385,30 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  editingHintText: {
+    fontSize: 12,
+    color: '#999999',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  addLocationButton: {
+    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  reorderButtons: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  reorderButton: {
+    padding: 4,
+    backgroundColor: '#666666',
+    borderRadius: 4,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

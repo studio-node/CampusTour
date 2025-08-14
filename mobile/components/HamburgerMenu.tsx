@@ -29,9 +29,20 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ primaryColor }) => {
     });
   };
 
+  const resetTour = () => {
+    console.log('resetting tour');
+  };
+
   const handleMenuItemPress = (item: string) => {
     console.log(`${item} pressed`);
-    // TODO: Implement actual functionality
+    switch (item) {
+      case 'New Tour':
+        resetTour();
+        break;
+      default:
+        break;  
+    }
+    // TODO: Implement rest of actual functionality
     closeMenu();
   };
 
@@ -106,6 +117,15 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ primaryColor }) => {
                 >
                   <IconSymbol name="pause.circle" size={24} color="#333" style={styles.menuIcon} />
                   <Text style={styles.menuItemText}>Pause Tour</Text>
+                  <IconSymbol name="chevron.right" size={16} color="#999" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.menuItem, dynamicStyles.menuItem]}
+                  onPress={() => handleMenuItemPress('New Tour')}
+                >
+                  <IconSymbol name="plus.circle" size={24} color="#333" style={styles.menuIcon} />
+                  <Text style={styles.menuItemText}>New Tour</Text>
                   <IconSymbol name="chevron.right" size={16} color="#999" />
                 </TouchableOpacity>
               </View>
