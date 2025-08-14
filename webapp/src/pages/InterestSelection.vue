@@ -8,6 +8,7 @@ import { schoolService } from '../services/schoolService.js'
 const route = useRoute()
 const router = useRouter()
 const tourAppointmentId = ref(null)
+const leadId = ref(null)
 const schoolId = ref(null)
 
 // Placeholder interests (will be extracted from mobile app later)
@@ -38,6 +39,7 @@ const isGenerating = ref(false)
 // Get tour appointment ID and school ID from query parameters and storage
 onMounted(() => {
   tourAppointmentId.value = route.query.tour_appointment_id || null
+  leadId.value = route.query.lead_id || null
   schoolId.value = schoolService.getSelectedSchool()
   
   console.log('Tour Appointment ID:', tourAppointmentId.value)
@@ -66,17 +68,12 @@ const generateTour = async () => {
         tourAppointmentId: tourAppointmentId.value
       })
       
-      // Try to retrieve lead id from local storage (webapp should save it on lead capture flow)
-      let leadId = null
-      try {
-        leadId = localStorage.getItem('LEAD_ID')
-      } catch (e) {}
 
       const analyticsResult = await analyticsService.exportInterestsChosen(
         schoolId.value,
         selectedInterests.value,
         tourAppointmentId.value,
-        leadId
+        leadId.value
       )
       
       if (!analyticsResult.success) {

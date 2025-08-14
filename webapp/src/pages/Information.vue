@@ -190,19 +190,17 @@ const handleSubmit = async () => {
     // Save to database
     const result = await leadsService.createLead(leadData)
 
+    console.log('result of creating lead:', result)
+
     if (result.success) {
       success.value = 'Information saved successfully!'
-      // Navigate to interest selection screen
       router.push({
         path: '/select-interests',
-        query: { tour_appointment_id: tourAppointmentId.value }
+        query: { 
+          tour_appointment_id: tourAppointmentId.value,
+          lead_id: result.data.id
+        }
       })
-      // setTimeout(() => {
-      //   router.push({
-      //     path: '/select-interests',
-      //     query: { tour_appointment_id: tourAppointmentId.value }
-      //   })
-      // }, 1000)
     } else {
       error.value = result.error || 'Failed to save your information. Please try again.'
     }
