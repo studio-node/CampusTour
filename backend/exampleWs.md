@@ -1,3 +1,17 @@
+# Tour group
+
+```json
+{
+  "type": "join_session",
+  "payload": {
+    "tourId": "ad3b271a-6843-4c50-bc1e-aa818032bde0"  
+  }
+}
+
+```
+
+# Ambassador
+
 ```json
 {
   "type": "auth",
@@ -18,4 +32,5 @@
   "type": "tour:start",
   "payload": { "tourId": "ad3b271a-6843-4c50-bc1e-aa818032bde0" }
 }
+
 ```

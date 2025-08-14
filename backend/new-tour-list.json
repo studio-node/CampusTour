@@ -1,0 +1,60 @@
+{
+    "type": "tour_structure_updated",
+    "changes": {
+        "new_structure": {
+            "tour_stops": [
+                {
+                    "id": "f2a12cf5-6108-4fba-99be-9dedd97f8a8b",
+                    "name": "Burns Arena",
+                    "coordinates": {
+                        "latitude": 37.1014679171981,
+                        "longitude": -113.566997963735
+                    },
+                    "image": "https://photos.smugmug.com/Campus-Photography/Burns-Arena-/2425/i-p6zFMFq/0/LhH6zV4srXFRRgGGBFnCcjcNs5fznKLnZm8np3RPh/L/DJI_0410%20copy-L.jpg",
+                    "media": [
+                        {
+                            "id": "c6eb088a-0885-462e-b6e2-1d66681e7874",
+                            "url": "https://photos.smugmug.com/Campus-Photography/Burns-Arena-/2425/i-p6zFMFq/0/LhH6zV4srXFRRgGGBFnCcjcNs5fznKLnZm8np3RPh/L/DJI_0410%20copy-L.jpg",
+                            "created_at": "2025-07-09T21:59:48.705957+00:00",
+                            "media_type": "primaryImage",
+                            "location_id": "f2a12cf5-6108-4fba-99be-9dedd97f8a8b",
+                            "stored_in_supabase": false
+                        }
+                    ],
+                    "description": "The Burns Arena is a multi-purpose arena that is home to the men's and women's basketball, volleyball, and other teams. It is also used for concerts and other events.",
+                    "interests": [
+                        "Sports",
+                        "Basketball",
+                        "Events",
+                        "Offices",
+                        "Student Life",
+                        "Volleyball"
+                    ],
+                    "careers": [
+                        "Software Developer",
+                        "Project Manager"
+                    ],
+                    "talking_points": [
+                        "Talking point one",
+                        "Talking point two idk",
+                        "Third fake talking point"
+                    ],
+                    "features": [
+                        "Student Services",
+                        "Student Services"
+                    ],
+                    "isTourStop": true,
+                    "order_index": 2
+                }
+            ],
+            "interests_used": [
+                "faith_and_spirituality",
+                "nature_and_outdoor-spots",
+                "campus-dining",
+                "music",
+                "computing"
+            ],
+            "last_updated": "2025-08-14T22:15:00.637Z"
+        }
+    }
+}

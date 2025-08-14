@@ -16,6 +16,7 @@ export function sessionManager(ws, supabase, tourSessions) {
     'tour:start': (payload, session) => handleTourStart(ws, supabase, tourSessions, payload.tourId, session),
     'tour:state_update': (payload, session) => handleTourStateUpdate(supabase, session, payload),
     'tour:structure_update': (payload, session) => handleTourStructureUpdate(supabase, session, payload),
+    'tour:tour-list-changed': (payload, session) => handleTourListChanged(supabase, session, payload),
     'tour:end': (payload, session) => handleTourEnd(ws, supabase, tourSessions, payload.tourId, session),
     'ambassador:ping': (payload, session) => handleAmbassadorPing(ws, session, payload),
   };
@@ -44,7 +45,7 @@ export function sessionManager(ws, supabase, tourSessions) {
         handler(data.payload, session);
       } else {
         console.log(`Unknown message type: ${data.type}`);
-        ws.send(JSON.stringify({ type: 'error', message: 'Unknown message type.' }));
+        ws.send(JSON.stringify({ type: 'error', message: `Unknown message type: ${data.type}` }));
       }
     } catch (error) {
       console.error('Failed to parse message or handle event:', error);
@@ -262,6 +263,36 @@ async function handleTourEnd(ws, supabase, tourSessions, tourId, session) {
   ws.send(JSON.stringify({ type: 'tour_ended_confirmation' }));
 }
 
+async function handleTourListChanged(supabase, session, payload) {
+  const { tourId, newTourStructure } = payload;
+  console.log(`Broadcasting and persisting tour list changes for tour ${tourId}:`, newTourStructure);
+
+  try {
+    // Update the database with the new tour structure
+    await updateLiveTourSession(supabase, tourId, {
+      live_tour_structure: {
+        ...newTourStructure,
+        last_updated: new Date().toISOString()
+      }
+    });
+
+    // Broadcast the changes to all group members
+    broadcastToMembers(session, { 
+      type: 'tour_list_changed', 
+      payload: {
+        tourId,
+        newTourStructure,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    console.log(`Tour list changes for ${tourId} successfully broadcasted to ${session.members.size} members`);
+  } catch (error) {
+    console.error(`Error handling tour list changes for ${tourId}:`, error);
+    // Note: We don't send error back to ambassador here as it's a broadcast operation
+    // The ambassador should handle errors on their end
+  }
+}
 
 function handleAmbassadorPing(ws, session, payload) {
   console.log(`Member ${ws.id} is pinging the ambassador for tour ${session.ambassador.tourId}`);
