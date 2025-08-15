@@ -7,8 +7,8 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Image,
-  Alert
+  Alert,
+  FlatList
 } from 'react-native';
 import {
   tourAppointmentsService,
@@ -20,10 +20,14 @@ import {
   schoolService,
   School,
   locationService,
-  Location
+  Location,
+  leadsService,
+  TourParticipant
 } from '@/services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { wsManager } from '@/services/ws';
+import { IconSymbol } from '@/components/ui/IconSymbol';
+import { Image } from 'expo-image';
 
 export default function TourDetailsScreen() {
   const router = useRouter();
@@ -32,6 +36,23 @@ export default function TourDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [userType, setUserType] = useState<UserType>(null);
+  const [participants, setParticipants] = useState<TourParticipant[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Function to refresh participants
+  const refreshParticipants = async () => {
+    if (!tour?.id) return;
+    
+    try {
+      setRefreshing(true);
+      const tourParticipants = await leadsService.getTourParticipants(tour.id);
+      setParticipants(tourParticipants);
+    } catch (error) {
+      console.error('Error refreshing participants:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     const initialize = async () => {
@@ -52,6 +73,15 @@ export default function TourDetailsScreen() {
         if (tourDetails) {
           const schoolDetails = await schoolService.getSchoolById(tourDetails.school_id);
           setSchool(schoolDetails);
+          
+          // Fetch tour participants
+          try {
+            const tourParticipants = await leadsService.getTourParticipants(tourId);
+            setParticipants(tourParticipants);
+          } catch (participantError) {
+            console.error('Error fetching participants:', participantError);
+            setParticipants([]);
+          }
         }
       } catch (err) {
         setError('Failed to load tour details.');
@@ -169,17 +199,92 @@ export default function TourDetailsScreen() {
       {tour && (
         <>
           <View style={styles.header}>
-            <Image source={{ uri: school?.logo_url }} style={styles.schoolLogo} />
+            {/* <Image source={{ uri: school?.logo_url }} style={styles.schoolLogo} /> */}
             <Text style={styles.title}>{tour.title || 'Tour Details'}</Text>
-            <Text style={styles.subtitle}>
+            {/* <Text style={styles.subtitle}>
               Led by {tour.profiles?.full_name || 'TBA'}
+            </Text> */}
+          </View>
+          <View style={styles.memberHeader}>
+            <Text style={styles.memberHeaderText}>
+              Tour Members ({participants.length}/{tour?.max_participants || '∞'})
             </Text>
+
           </View>
           <View style={styles.content}>
             {userType === 'ambassador' ? (
-              <TouchableOpacity style={styles.button} onPress={handleStartTour}>
-                <Text style={styles.buttonText}>Start Tour</Text>
-              </TouchableOpacity>
+              <>
+                {/* Member List Section */}
+                <View style={styles.memberListSection}>
+                  
+                  
+                  {/* Capacity indicator */}
+                  {tour?.max_participants && (
+                    <View style={styles.capacityIndicator}>
+                      <View style={styles.capacityBar}>
+                        <View 
+                          style={[
+                            styles.capacityFill, 
+                            { width: `${Math.min((participants.length / tour.max_participants) * 100, 100)}%` }
+                          ]} 
+                        />
+                      </View>
+                      <Text style={styles.capacityText}>
+                        {tour.max_participants - participants.length} spots remaining
+                      </Text>
+                      <TouchableOpacity 
+                        style={styles.refreshButton} 
+                        onPress={refreshParticipants}
+                        disabled={refreshing}
+                      >
+                        <IconSymbol 
+                          name="arrow.clockwise" 
+                          size={16} 
+                          color={refreshing ? "#666" : "#fff"} 
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  
+                  {participants.length > 0 ? (
+                    <FlatList
+                      data={participants}
+                      keyExtractor={(item) => item.id || item.email}
+                      renderItem={({ item }) => (
+                        <View style={styles.memberItem}>
+                          <View style={styles.memberInfo}>
+                            <Text style={styles.memberName}>{item.name}</Text>
+                            <Text style={styles.memberEmail}>{item.email}</Text>
+                            {item.interests && item.interests.length > 0 && (
+                              <Text style={styles.memberInterests}>
+                                Interests: {item.interests.join(', ')}
+                              </Text>
+                            )}
+                          </View>
+                          <View style={styles.memberStatus}>
+                            <IconSymbol name="checkmark.circle.fill" size={12} color="#fff" />
+                            <Text style={styles.memberStatusText}>Joined</Text>
+                          </View>
+                        </View>
+                      )}
+                      style={styles.memberList}
+                      contentContainerStyle={styles.memberListContent}
+                      refreshing={refreshing}
+                      onRefresh={refreshParticipants}
+                    />
+                  ) : (
+                    <View style={styles.noMembersContainer}>
+                      <IconSymbol name="person.3.fill" size={32} color="#666" />
+                      <Text style={styles.noMembersText}>No members have joined yet</Text>
+                      <Text style={styles.noMembersSubtext}>Members will appear here once they join the tour</Text>
+                    </View>
+                  )}
+                </View>
+                
+                <TouchableOpacity style={styles.button} onPress={handleStartTour}>
+                  <Text style={styles.buttonText}>Start Tour</Text>
+                </TouchableOpacity>
+              </>
             ) : (
               <View style={styles.waitingContainer}>
                 <ActivityIndicator size="large" />
@@ -230,6 +335,7 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
+    width: '95%',
   },
   button: {
     backgroundColor: '#3B82F6',
@@ -247,5 +353,123 @@ const styles = StyleSheet.create({
     marginTop: 20,
     fontSize: 16,
     color: '#ccc',
+  },
+  memberListSection: {
+    width: '100%',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    padding: 15,
+  },
+  memberHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  memberHeaderText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  memberItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#333',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  memberInfo: {
+    flex: 1,
+    marginRight: 10,
+  },
+  memberName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  memberEmail: {
+    fontSize: 14,
+    color: '#ccc',
+    marginBottom: 2,
+  },
+  memberInterests: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  memberStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  memberStatusText: {
+    fontSize: 12,
+    color: '#fff',
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  memberList: {
+    maxHeight: 450, // Limit height so it doesn't take up too much space
+  },
+  memberListContent: {
+    paddingBottom: 10,
+  },
+  noMembersContainer: {
+    alignItems: 'center',
+    paddingVertical: 30,
+  },
+  noMembersText: {
+    fontSize: 16,
+    color: '#ccc',
+    fontStyle: 'italic',
+  },
+  noMembersSubtext: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 5,
+  },
+  refreshButton: {
+    padding: 8,
+    backgroundColor: '#333',
+    borderRadius: 6,
+  },
+  capacityIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 15,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: '#333',
+    borderRadius: 8,
+  },
+  capacityBar: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#555',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  capacityFill: {
+    height: '100%',
+    backgroundColor: '#4CAF50',
+    borderRadius: 4,
+  },
+  capacityText: {
+    fontSize: 14,
+    color: '#fff',
+    marginLeft: 10,
+    fontWeight: '600',
   },
 });

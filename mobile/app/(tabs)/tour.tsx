@@ -124,7 +124,7 @@ const TourStopItem = ({
                 ]} 
                 onPress={() => onToggleVisited(item.id)}
               >
-                {visited && <IconSymbol name="checkmark" size={14} color="red" />}
+                {visited && <IconSymbol name="checkmark" size={14} color="white" />}
               </TouchableOpacity>
             )}
             <Text style={styles.tourStopName}>{item.name}</Text>
