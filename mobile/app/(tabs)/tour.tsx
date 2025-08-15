@@ -67,7 +67,6 @@ const TourStopItem = ({
   isEditing,
   isAmbassador,
   onDelete,
-  drag,
   onMoveUp,
   onMoveDown
 }: { 
@@ -80,7 +79,6 @@ const TourStopItem = ({
   isEditing: boolean;
   isAmbassador: boolean;
   onDelete: (id: string) => void;
-  drag: () => void;
   onMoveUp: (id: string) => void;
   onMoveDown: (id: string) => void;
 }) => {
@@ -237,8 +235,6 @@ export default function TourScreen() {
   const isAmbassador: boolean = userType === 'ambassador';
   const isAmbassadorLedMember: boolean = userType === 'ambassador-led' && !isAmbassador;
   const canEditTour: boolean = isAmbassador || userType === 'self-guided';
-  const [originalTourStops, setOriginalTourStops] = useState<TourStop[]>([]);
-  const [needsToCancelEditing, setNeedsToCancelEditing] = useState<boolean>(false);
   
   // Tour update notification state
   const [tourUpdatedByAmbassador, setTourUpdatedByAmbassador] = useState<boolean>(false);
@@ -544,12 +540,6 @@ export default function TourScreen() {
     }
   };
 
-  // Handle changing school
-  const handleChangeSchool = async () => {
-    await schoolService.clearSelectedSchool();
-    router.replace('/');
-  };
-
   // Toggle an interest
   const toggleInterest = (interestId: string) => {
     if (!canEditTour) return;
@@ -715,18 +705,17 @@ export default function TourScreen() {
     if (isEditingTour) {
       // User is exiting edit mode - save changes
       saveTourChanges();
-    } else {
-      setOriginalTourStops([...tourStops]);
     }
     
     setIsEditingTour(!isEditingTour);
   };
 
   const cancelEditing = () => {
-    setNeedsToCancelEditing(true);
+    // Get the current tour stops before editing started
+    const currentTourStops = [...tourStops];
     setIsEditingTour(false);
-    // replace tour stops with original tour stops
-    setTourStops([...originalTourStops]);
+    // Reset tour stops to what they were before editing
+    setTourStops(currentTourStops);
   };
 
   // Save tour changes when exiting edit mode
@@ -804,34 +793,6 @@ export default function TourScreen() {
         }
       ]
     );
-  };
-
-  // Add a new tour stop from available locations
-  const addTourStop = async () => {
-    if (!schoolId) return;
-    
-    try {
-      // Get all available locations that aren't already in the tour
-      const allLocations = await locationService.getTourStops(schoolId);
-      const availableLocations = allLocations.filter(location => 
-        !tourStops.some(stop => stop.id === location.id)
-      );
-      
-      if (availableLocations.length === 0) {
-        Alert.alert('No More Locations', 'All available locations are already in your tour.');
-        return;
-      }
-      
-      // For now, just add the first available location
-      // In the future, you could show a selection modal
-      const newLocation = availableLocations[0];
-      setTourStops([...tourStops, newLocation]);
-      
-      console.log(`Added ${newLocation.name} to tour`);
-    } catch (error) {
-      console.error('Error adding tour stop:', error);
-      Alert.alert('Error', 'Failed to add location to tour. Please try again.');
-    }
   };
 
   // Move a tour stop up in the list
@@ -1100,7 +1061,6 @@ export default function TourScreen() {
         <Text style={styles.headerText}>Campus Tour</Text>
         {!showInterestSelection && isAmbassador && (
           <View style={styles.headerButtons}>
-            <label>isAmbassador: {isAmbassador.toString()}</label>
             {isEditingTour && (
               <TouchableOpacity
                 style={styles.cancelButton}
@@ -1165,86 +1125,44 @@ export default function TourScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        isEditingTour ? (
-          <FlatList
-            data={tourStops}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TourStopItem 
-                item={item}
-                onDetailsPress={handleDetailsPress}
-                onLocationPress={handleLocationPress}
-                visited={visitedLocations.includes(item.id)}
-                onToggleVisited={toggleVisited}
-                primaryColor={primaryColor}
-                isEditing={isEditingTour}
-                isAmbassador={isAmbassador}
-                onDelete={deleteTourStop}
-                drag={() => {}}
-                onMoveUp={moveTourStopUp}
-                onMoveDown={moveTourStopDown}
-              />
-            )}
-            style={styles.tourList}
-            contentContainerStyle={styles.tourListContent}
-            ListHeaderComponent={
-              <View style={styles.tourHeaderContainer}>
-                <Text style={styles.tourHeaderText}>Your Tour</Text>
-                <Text style={styles.editingHintText}>Use arrows to reorder</Text>
-              </View>
-            }
-            ListEmptyComponent={
-              <View style={styles.emptyTourContainer}>
-                <Text style={styles.emptyTourText}>No buildings match your selected interests.</Text>
-                <TouchableOpacity 
-                  style={[styles.generateTourButton, dynamicStyles.generateTourButton]}
-                  onPress={resetTour}
-                >
-                  <Text style={styles.buttonText}>Select Different Interests</Text>
-                </TouchableOpacity>
-              </View>
-            }
-          />
-        ) : (
-          <FlatList
-            data={tourStops}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TourStopItem 
-                item={item}
-                onDetailsPress={handleDetailsPress}
-                onLocationPress={handleLocationPress}
-                visited={visitedLocations.includes(item.id)}
-                onToggleVisited={toggleVisited}
-                primaryColor={primaryColor}
-                isEditing={isEditingTour}
-                isAmbassador={isAmbassador}
-                onDelete={deleteTourStop}
-                drag={() => {console.log('dragging')}}
-                onMoveUp={() => {console.log('moving up')}}
-                onMoveDown={() => {console.log('moving down')}}
-              />
-            )}
-            style={styles.tourList}
-            contentContainerStyle={styles.tourListContent}
-            ListHeaderComponent={
-              <View style={styles.tourHeaderContainer}>
-                <Text style={styles.tourHeaderText}>Your Tour</Text>
-              </View>
-            }
-            ListEmptyComponent={
-              <View style={styles.emptyTourContainer}>
-                <Text style={styles.emptyTourText}>No buildings match your selected interests.</Text>
-                <TouchableOpacity 
-                  style={[styles.generateTourButton, dynamicStyles.generateTourButton]}
-                  onPress={resetTour}
-                >
-                  <Text style={styles.buttonText}>Select Different Interests</Text>
-                </TouchableOpacity>
-              </View>
-            }
-          />
-        )
+        <FlatList
+          data={tourStops}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TourStopItem 
+              item={item}
+              onDetailsPress={handleDetailsPress}
+              onLocationPress={handleLocationPress}
+              visited={visitedLocations.includes(item.id)}
+              onToggleVisited={toggleVisited}
+              primaryColor={primaryColor}
+              isEditing={isEditingTour}
+              isAmbassador={isAmbassador}
+              onDelete={deleteTourStop}
+              onMoveUp={isEditingTour ? moveTourStopUp : () => {}}
+              onMoveDown={isEditingTour ? moveTourStopDown : () => {}}
+            />
+          )}
+          style={styles.tourList}
+          contentContainerStyle={styles.tourListContent}
+          ListHeaderComponent={
+            <View style={styles.tourHeaderContainer}>
+              <Text style={styles.tourHeaderText}>Your Tour</Text>
+              {isEditingTour && <Text style={styles.editingHintText}>Use arrows to reorder</Text>}
+            </View>
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyTourContainer}>
+              <Text style={styles.emptyTourText}>No buildings match your selected interests.</Text>
+              <TouchableOpacity 
+                style={[styles.generateTourButton, dynamicStyles.generateTourButton]}
+                onPress={resetTour}
+              >
+                <Text style={styles.buttonText}>Select Different Interests</Text>
+              </TouchableOpacity>
+            </View>
+          }
+        />
       )}
     </SafeAreaView>
   );
@@ -1358,20 +1276,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     color: '#FFFFFF',
-  },
-  newTourButton: {
-    marginTop: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  dragHandle: {
-    width: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F0F0F0',
-    borderRadius: 8,
-    marginRight: 8,
   },
   deleteButton: {
     backgroundColor: '#D22B2B',
@@ -1491,12 +1395,6 @@ const styles = StyleSheet.create({
     color: '#999999',
     textAlign: 'center',
     marginTop: 4,
-  },
-  addLocationButton: {
-    marginTop: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
   },
   reorderButtons: {
     flexDirection: 'row',
