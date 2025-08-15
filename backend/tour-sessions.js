@@ -268,12 +268,13 @@ async function handleTourListChanged(supabase, session, payload) {
   console.log(`Broadcasting and persisting tour list changes for tour ${tourId}:`, newTourStructure);
 
   try {
-    // Update the database with the new tour structure
+    // Update the database with the new tour structure and visited locations
     await updateLiveTourSession(supabase, tourId, {
       live_tour_structure: {
         ...newTourStructure,
         last_updated: new Date().toISOString()
-      }
+      },
+      visited_locations: newTourStructure.visited_locations || []
     });
 
     // Broadcast the changes to all group members
