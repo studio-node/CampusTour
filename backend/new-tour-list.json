@@ -1,7 +1,9 @@
+
 {
-    "type": "tour_structure_updated",
-    "changes": {
-        "new_structure": {
+    "type": "tour:tour-list-changed",
+    "payload": {
+        "tourId": "ad3b271a-6843-4c50-bc1e-aa818032bde0",
+        "newTourStructure": {
             "tour_stops": [
                 {
                     "id": "f2a12cf5-6108-4fba-99be-9dedd97f8a8b",
@@ -54,6 +56,7 @@
                 "music",
                 "computing"
             ],
+            "visited_locations": [],
             "last_updated": "2025-08-14T22:15:00.637Z"
         }
     }

@@ -33,4 +33,12 @@
   "payload": { "tourId": "ad3b271a-6843-4c50-bc1e-aa818032bde0" }
 }
 
+
+{
+  "type": "tour:state_update",
+  "payload": {
+    "tourId": "ad3b271a-6843-4c50-bc1e-aa818032bde0",
+    "state": { "current_location_id": "f2a12cf5-6108-4fba-99be-9dedd97f8a8b", "visited_locations": ["f2a12cf5-6108-4fba-99be-9dedd97f8a8b"] }
+  }
+}
 ```

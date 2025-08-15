@@ -65,6 +65,7 @@ const TourStopItem = ({
   onToggleVisited,
   primaryColor,
   isEditing,
+  isAmbassador,
   onDelete,
   drag,
   onMoveUp,
@@ -77,6 +78,7 @@ const TourStopItem = ({
   onToggleVisited: (id: string) => void;
   primaryColor: string;
   isEditing: boolean;
+  isAmbassador: boolean;
   onDelete: (id: string) => void;
   drag: () => void;
   onMoveUp: (id: string) => void;
@@ -115,7 +117,7 @@ const TourStopItem = ({
         
         <View style={styles.tourStopInfo}>
           <View style={styles.tourStopHeader}>
-            {!isEditing && (
+            {!isEditing && isAmbassador && (
               <TouchableOpacity 
                 style={[
                   styles.checkboxContainer, 
@@ -124,10 +126,11 @@ const TourStopItem = ({
                 ]} 
                 onPress={() => onToggleVisited(item.id)}
               >
-                {visited && <IconSymbol name="checkmark" size={14} color="white" />}
+                {visited && <IconSymbol name="checkmark" size={14} color="red" />}
               </TouchableOpacity>
             )}
             <Text style={styles.tourStopName}>{item.name}</Text>
+            {!isAmbassador && visited && <Text style={styles.visitedText}>Visited</Text>}
           </View>
           <Text style={styles.tourStopDescription} numberOfLines={2}>{item.description}</Text>
           <View style={styles.tourStopButtons}>
@@ -237,6 +240,9 @@ export default function TourScreen() {
   const [originalTourStops, setOriginalTourStops] = useState<TourStop[]>([]);
   const [needsToCancelEditing, setNeedsToCancelEditing] = useState<boolean>(false);
   
+  // Tour update notification state
+  const [tourUpdatedByAmbassador, setTourUpdatedByAmbassador] = useState<boolean>(false);
+  
   // Location tracking and geofencing state
   const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<string | null>(null);
@@ -339,6 +345,94 @@ export default function TourScreen() {
     };
     syncStateToServer();
   }, [isAmbassador, currentLocationId, visitedLocations]);
+
+  // Listen for tour list changes from ambassador (for ambassador-led members)
+  useEffect(() => {
+    if (!isAmbassadorLedMember) return;
+
+    const handleTourListChanged = (data: any) => {
+      const { newTourStructure } = data.payload;
+      if (newTourStructure && newTourStructure.tour_stops) {
+        console.log('Received tour list changes from ambassador:', newTourStructure);
+        
+        // Update the local tour stops with the ambassador's changes
+        setTourStops(newTourStructure.tour_stops);
+        
+        // Update selected interests if they changed
+        if (newTourStructure.interests_used) {
+          setSelectedInterests(newTourStructure.interests_used);
+        }
+        
+        // Update visited locations if they changed
+        if (newTourStructure.visited_locations) {
+          setVisitedLocations(newTourStructure.visited_locations);
+        }
+        
+        // Show notification that tour was updated
+        setTourUpdatedByAmbassador(true);
+        
+        // Hide notification after 5 seconds
+        setTimeout(() => setTourUpdatedByAmbassador(false), 5000);
+        
+        console.log('Tour updated by ambassador');
+      }
+    };
+
+    const handleTourStateUpdated = (data: any) => {
+      const { state } = data;
+      if (state) {
+        console.log('Received tour state update from ambassador:', state);
+        
+        // Update visited locations if they changed
+        if (state.visited_locations) {
+          setVisitedLocations(state.visited_locations);
+          console.log('Visited locations updated by ambassador:', state.visited_locations);
+          
+          // Show notification that tour state was updated
+          setTourUpdatedByAmbassador(true);
+          
+          // Hide notification after 5 seconds
+          setTimeout(() => setTourUpdatedByAmbassador(false), 5000);
+        }
+        
+        // Update current location if it changed
+        if (state.current_location_id !== undefined) {
+          setCurrentLocationId(state.current_location_id);
+          console.log('Current location updated by ambassador:', state.current_location_id);
+        }
+      }
+    };
+
+    wsManager.on('tour_list_changed', handleTourListChanged);
+    wsManager.on('tour_state_updated', handleTourStateUpdated);
+
+    return () => {
+      wsManager.off('tour_list_changed', handleTourListChanged);
+      wsManager.off('tour_state_updated', handleTourStateUpdated);
+    };
+  }, [isAmbassadorLedMember]);
+
+  // Listen for WebSocket events (for ambassadors to confirm their changes)
+  useEffect(() => {
+    if (!isAmbassador) return;
+
+    const handleWebSocketMessage = (data: any) => {
+      // Log all WebSocket messages for debugging
+      console.log('WebSocket message received:', data);
+    };
+
+    const handleWebSocketError = (error: any) => {
+      console.error('WebSocket error:', error);
+    };
+
+    wsManager.on('message', handleWebSocketMessage);
+    wsManager.on('error', handleWebSocketError);
+
+    return () => {
+      wsManager.off('message', handleWebSocketMessage);
+      wsManager.off('error', handleWebSocketError);
+    };
+  }, [isAmbassador]);
 
   // Load saved state from storage
   const loadSavedState = async () => {
@@ -645,12 +739,14 @@ export default function TourScreen() {
       if (isAmbassador) {
         const tourId = await tourGroupSelectionService.getSelectedTourGroup();
         if (tourId) {
-          wsManager.send('tour:state_update', {
+          // Send tour list changed event for immediate member updates
+          wsManager.send('tour:tour-list-changed', {
             tourId,
-            state: {
+            newTourStructure: {
               tour_stops: tourStops,
-              current_location_id: currentLocationId,
-              visited_locations: visitedLocations,
+              interests_used: selectedInterests,
+              visited_locations: visitedLocations, // Include checked off stops
+              last_updated: new Date().toISOString()
             }
           });
         }
@@ -1002,28 +1098,36 @@ export default function TourScreen() {
       <View style={[styles.header, dynamicStyles.headerBorder]}>
         <HamburgerMenu primaryColor={primaryColor} />
         <Text style={styles.headerText}>Campus Tour</Text>
-        {isEditingTour && (
-          <TouchableOpacity
-            style={styles.resetButton}
-            onPress={cancelEditing}
-          >
-            <Text style={styles.resetButtonText}>
-              Cancel
-            </Text>
-          </TouchableOpacity>
+        {!showInterestSelection && isAmbassador && (
+          <View style={styles.headerButtons}>
+            <label>isAmbassador: {isAmbassador.toString()}</label>
+            {isEditingTour && (
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={cancelEditing}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.resetButton}
+              onPress={toggleEditingMode}
+            >
+              <Text style={styles.resetButtonText}>
+                {isEditingTour ? 'Save Changes' : 'Edit Tour'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
-        {!showInterestSelection && (
-          <TouchableOpacity
-            style={styles.resetButton}
-            onPress={toggleEditingMode}
-          >
-            <Text style={styles.resetButtonText}>
-              {isEditingTour ? 'Save Changes' : 'Edit Tour'}
-            </Text>
-          </TouchableOpacity>
-        )}
-
       </View>
+      
+      {tourUpdatedByAmbassador && (
+        <View style={styles.tourUpdateNotification}>
+          <Text style={styles.tourUpdateNotificationText}>
+            🎯 Tour updated by ambassador
+          </Text>
+        </View>
+      )}
       
       {showInterestSelection ? (
         <View style={styles.interestSelectionContainer}>
@@ -1074,6 +1178,7 @@ export default function TourScreen() {
                 onToggleVisited={toggleVisited}
                 primaryColor={primaryColor}
                 isEditing={isEditingTour}
+                isAmbassador={isAmbassador}
                 onDelete={deleteTourStop}
                 drag={() => {}}
                 onMoveUp={moveTourStopUp}
@@ -1086,12 +1191,6 @@ export default function TourScreen() {
               <View style={styles.tourHeaderContainer}>
                 <Text style={styles.tourHeaderText}>Your Tour</Text>
                 <Text style={styles.editingHintText}>Use arrows to reorder</Text>
-                {/* <TouchableOpacity
-                  style={[styles.addLocationButton, dynamicStyles.generateTourButton]}
-                  onPress={addTourStop}
-                >
-                  <Text style={styles.buttonText}>Add Location</Text>
-                </TouchableOpacity> */}
               </View>
             }
             ListEmptyComponent={
@@ -1119,6 +1218,7 @@ export default function TourScreen() {
                 onToggleVisited={toggleVisited}
                 primaryColor={primaryColor}
                 isEditing={isEditingTour}
+                isAmbassador={isAmbassador}
                 onDelete={deleteTourStop}
                 drag={() => {console.log('dragging')}}
                 onMoveUp={() => {console.log('moving up')}}
@@ -1410,5 +1510,38 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  tourUpdateNotification: {
+    backgroundColor: '#FFD700', // Gold color for notification
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 20,
+    alignSelf: 'center',
+  },
+  tourUpdateNotificationText: {
+    color: '#333333',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#666666',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+  },
+  cancelButtonText: {
+    fontSize: 12,
+    color: '#FFFFFF',
+  },
+  visitedText: {
+    color: '#4CAF50',
+    fontSize: 15,
+    fontWeight: 'bold',
   },
 });
