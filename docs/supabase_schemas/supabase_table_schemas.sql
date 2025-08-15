@@ -20,6 +20,7 @@ CREATE TABLE public.analytics_events (
 CREATE TABLE public.leads (
   tour_type USER-DEFINED,
   tour_appointment_id uuid,
+  appointment_confirmation text UNIQUE,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   grad_year smallint DEFAULT (EXTRACT(year FROM CURRENT_DATE) + (4)::numeric),
   id uuid NOT NULL DEFAULT gen_random_uuid(),

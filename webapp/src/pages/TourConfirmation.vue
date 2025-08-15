@@ -12,6 +12,7 @@ const schoolData = ref(null)
 const tourData = ref(null)
 const loading = ref(true)
 const error = ref('')
+const confirmationCode = ref(null)
 
 // Interest mapping for display
 const interestNames = {
@@ -40,7 +41,7 @@ onMounted(async () => {
     // Get data from query parameters
     tourAppointmentId.value = route.query.tour_appointment_id || null
     schoolId.value = schoolService.getSelectedSchool()
-    
+    confirmationCode.value = route.query.confirmation_code || null
     // Parse selected interests from query parameter
     if (route.query.interests) {
       selectedInterests.value = route.query.interests.split(',')
@@ -172,7 +173,7 @@ const formatTime = (dateString) => {
 
             <div v-if="tourAppointmentId">
               <h3 class="text-lg font-semibold text-blue-300 mb-2">Confirmation ID</h3>
-              <p class="text-white font-mono text-sm">{{ tourAppointmentId.slice(-8).toUpperCase() }}</p>
+              <p class="text-white font-mono text-sm">{{ confirmationCode }}</p>
             </div>
           </div>
         </div>

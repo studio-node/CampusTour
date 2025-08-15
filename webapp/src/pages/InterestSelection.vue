@@ -10,6 +10,7 @@ const router = useRouter()
 const tourAppointmentId = ref(null)
 const leadId = ref(null)
 const schoolId = ref(null)
+const confirmationCode = ref(null)
 
 // Placeholder interests (will be extracted from mobile app later)
 const interests = ref([
@@ -40,6 +41,7 @@ const isGenerating = ref(false)
 onMounted(() => {
   tourAppointmentId.value = route.query.tour_appointment_id || null
   leadId.value = route.query.lead_id || null
+  confirmationCode.value = route.query.confirmation_code || null
   schoolId.value = schoolService.getSelectedSchool()
   
   console.log('Tour Appointment ID:', tourAppointmentId.value)
@@ -84,7 +86,8 @@ const generateTour = async () => {
     
     // Navigate to confirmation page with tour details
     const queryParams = {
-      interests: selectedInterests.value.join(',')
+      interests: selectedInterests.value.join(','),
+      confirmation_code: confirmationCode.value
     }
     
     if (tourAppointmentId.value) {

@@ -150,6 +150,16 @@ const formatDateForDatabase = (dateString) => {
   return null
 }
 
+
+const generateConfirmationCode = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
 // Handle form submission
 const handleSubmit = async () => {
   // Validate all fields
@@ -184,7 +194,8 @@ const handleSubmit = async () => {
       gender: userInfo.value.gender || null,
       grad_year: userInfo.value.gradYear.trim() ? parseInt(userInfo.value.gradYear.trim()) : null,
       tour_type: 'ambassador-led',
-      tour_appointment_id: tourAppointmentId.value
+      tour_appointment_id: tourAppointmentId.value,
+      appointment_confirmation: generateConfirmationCode()
     }
 
     // Save to database
@@ -198,7 +209,8 @@ const handleSubmit = async () => {
         path: '/select-interests',
         query: { 
           tour_appointment_id: tourAppointmentId.value,
-          lead_id: result.data.id
+          lead_id: result.data.id,
+          confirmation_code: leadData.appointment_confirmation
         }
       })
     } else {
