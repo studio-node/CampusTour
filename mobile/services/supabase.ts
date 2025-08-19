@@ -658,6 +658,46 @@ export const leadsService = {
       console.error('Exception fetching participant interests:', error);
       return [];
     }
+  },
+
+  /**
+   * Verify confirmation code for a tour appointment
+   * @param confirmationCode - The 6-character confirmation code
+   * @param tourAppointmentId - The tour appointment ID
+   * @returns Promise<{ success: boolean; lead?: Lead; error?: string }>
+   */
+  async verifyConfirmationCode(confirmationCode: string, tourAppointmentId: string): Promise<{ success: boolean; lead?: Lead; error?: string }> {
+    try {
+      console.log('confirmationCode', confirmationCode);
+      console.log('tourAppointmentId', tourAppointmentId);
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('appointment_confirmation', confirmationCode)
+        .eq('tour_appointment_id', tourAppointmentId)
+        .single();
+
+      if (error) {
+        console.log('error', error);
+        if (error.code === 'PGRST116') {
+          // No rows returned
+          return { success: false, error: 'Invalid confirmation code' };
+        }
+        console.error('Error verifying confirmation code:', error);
+        return { success: false, error: 'Failed to verify confirmation code' };
+      }
+
+      console.log('data', data);
+
+      if (data) {
+        return { success: true, lead: data };
+      }
+
+      return { success: false, error: 'Invalid confirmation code' };
+    } catch (error) {
+      console.error('Exception verifying confirmation code:', error);
+      return { success: false, error: 'Failed to verify confirmation code' };
+    }
   }
 };
 

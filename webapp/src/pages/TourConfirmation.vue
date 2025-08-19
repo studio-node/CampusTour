@@ -173,7 +173,9 @@ const formatTime = (dateString) => {
 
             <div v-if="tourAppointmentId">
               <h3 class="text-lg font-semibold text-blue-300 mb-2">Confirmation ID</h3>
-              <p class="text-white font-mono text-sm">{{ confirmationCode }}</p>
+              <p class="text-white font-mono text-sm">
+                <strong>{{ confirmationCode }}</strong>
+              </p>
             </div>
           </div>
         </div>

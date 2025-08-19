@@ -4,6 +4,20 @@
 ## UT SCHOOL ID: e5a9dfd2-0c88-419e-b891-0a62283b8abd
 
 
+## TODO
+
+- Do emails with confirmation codes
+- Cut fat from gemini requests
+- media (maybe not mvp)
+
+
+
+
+
+
+
+
+
 - Create tour
   - Assign Ambassador
   - Schedule Time
@@ -14,13 +28,6 @@
   - In details
     - Edit assigned ambassador
     - Add ambassador
-
-
-## TODO
-
-- Cut fat from gemini requests
-- media (maybe not mvp)
-
 
 
 

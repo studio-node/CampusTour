@@ -173,6 +173,8 @@ export default function TourDetailsScreen() {
     // Navigate after 'tour_started' message
   };
 
+
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -294,6 +296,8 @@ export default function TourDetailsScreen() {
           </View>
         </>
       )}
+
+
     </View>
   );
 }
@@ -472,4 +476,5 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontWeight: '600',
   },
+
 });

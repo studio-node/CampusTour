@@ -92,8 +92,13 @@ export default function TourGroupSelectionScreen() {
 
   const handleContinue = () => {
     if (selectedTourGroup) {
-      // Navigate to tour details, which will handle the logic for both user types
-      router.push('/tour-details');
+      if (userType === 'ambassador-led') {
+        // For ambassador-led users, go to confirmation code screen first
+        router.push('/tour-confirmation');
+      } else {
+        // For ambassadors, go directly to tour details
+        router.push('/tour-details');
+      }
     }
   };
 
