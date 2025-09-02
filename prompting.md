@@ -12,7 +12,6 @@ I am in the process of handling the ambassador-led tour part of this product. We
 
 
 
-
 # Reccomened Changes by gpt5
 
 I'll first scan the `mobile/app` directory to see all pages and layouts, then open any files not already provided for a full review.
