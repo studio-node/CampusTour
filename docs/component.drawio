@@ -1,0 +1,115 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36" version="28.2.1">
+  <diagram name="Page-1" id="MAV6HC6_jgMQOxzPLh2g">
+    <mxGraphModel dx="1590" dy="792" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="wD_a_n_78P6fpO60LEGA-5" value="" style="group" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="15" y="390" width="370" height="350" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-6" value="" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-5">
+          <mxGeometry width="370" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-7" value="&lt;font style=&quot;font-size: 24px;&quot;&gt;WebApp&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-5">
+          <mxGeometry x="108.35714285714286" y="10" width="153.28571428571428" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-14" value="" style="endArrow=none;html=1;rounded=0;" edge="1" parent="wD_a_n_78P6fpO60LEGA-5">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="184.50368421052644" y="49.999999999999886" as="sourcePoint" />
+            <mxPoint x="185" y="230" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-15" value="&lt;u&gt;Auth Side&lt;/u&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-5">
+          <mxGeometry x="58" y="50" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-16" value="&lt;u&gt;Un-Auth Side&lt;/u&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-5">
+          <mxGeometry x="240" y="50" width="90" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-17" value="Builder" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-5">
+          <mxGeometry x="40" y="90" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-26" value="Admin" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-5">
+          <mxGeometry x="40" y="140" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-27" value="Ambassador" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-5">
+          <mxGeometry x="40" y="190" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-29" value="Tour Appointment Sign up" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-5">
+          <mxGeometry x="230" y="110" width="110" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-8" value="" style="group" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="550" y="10" width="270" height="350" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-9" value="" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-8">
+          <mxGeometry width="270" height="350" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-10" value="&lt;span style=&quot;font-size: 24px;&quot;&gt;Supabase&lt;/span&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-8">
+          <mxGeometry x="89.69250000000001" y="10" width="90.625" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-48" value="Postgres/Cloud" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-8">
+          <mxGeometry x="52.973749999999995" y="40" width="164.0625" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-11" value="" style="group" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="450" y="380" width="370" height="350" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-12" value="" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-11">
+          <mxGeometry width="370" height="350" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-13" value="&lt;font style=&quot;font-size: 24px;&quot;&gt;Server&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-11">
+          <mxGeometry x="108.35714285714286" y="10" width="153.28571428571428" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-3" value="" style="group" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="15" y="10" width="495" height="350" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-1" value="" style="rounded=0;whiteSpace=wrap;html=1;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;locked=1;connectable=0;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-3">
+          <mxGeometry width="495" height="350" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-2" value="&lt;font style=&quot;font-size: 24px;&quot;&gt;Mobile App&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-3">
+          <mxGeometry x="144.9642857142857" y="10" width="205.07142857142856" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-34" value="" style="group" vertex="1" connectable="0" parent="wD_a_n_78P6fpO60LEGA-3">
+          <mxGeometry x="15.950000000000003" y="90" width="226.55" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-39" value="" style="group" vertex="1" connectable="0" parent="wD_a_n_78P6fpO60LEGA-34">
+          <mxGeometry width="226.55" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-32" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=light-dark(#FFFFFF,#1D1D1D);" vertex="1" parent="wD_a_n_78P6fpO60LEGA-39">
+          <mxGeometry width="226.55" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-33" value="App Screens" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-39">
+          <mxGeometry x="73.18550567559781" width="80.17690002881015" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-35" value="Tour Intake Screens&lt;div&gt;- School Select&lt;/div&gt;&lt;div&gt;- Information Capture&lt;/div&gt;&lt;div&gt;- Join Tour (if ambassador led)&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-39">
+          <mxGeometry x="13.29" y="30" width="199.97" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-38" value="Main Screens (tabs)&lt;div&gt;- Map&lt;/div&gt;&lt;div&gt;- Current Location&lt;/div&gt;&lt;div&gt;- Tour&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-39">
+          <mxGeometry x="13.290000000000006" y="140" width="199.97" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-40" value="" style="group" vertex="1" connectable="0" parent="wD_a_n_78P6fpO60LEGA-3">
+          <mxGeometry x="267.5" y="90" width="211.55" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-41" value="" style="group" vertex="1" connectable="0" parent="wD_a_n_78P6fpO60LEGA-40">
+          <mxGeometry width="211.55" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-42" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=light-dark(#FFFFFF,#1D1D1D);" vertex="1" parent="wD_a_n_78P6fpO60LEGA-41">
+          <mxGeometry width="211.55" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-43" value="Services" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-41">
+          <mxGeometry x="68.33985312590032" width="74.86834341688275" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-44" value="Server Caller (Websocket)" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-41">
+          <mxGeometry x="12.41" y="30" width="186.73" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-45" value="SupaBase Caller" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-41">
+          <mxGeometry x="12.41" y="160" width="186.73" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-46" value="Server Caller (Tour Generation)" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-41">
+          <mxGeometry x="12.41" y="90" width="186.73" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="wD_a_n_78P6fpO60LEGA-47" value="(React Native w/ Expo)" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="wD_a_n_78P6fpO60LEGA-3">
+          <mxGeometry x="171" y="40" width="153" height="30" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
