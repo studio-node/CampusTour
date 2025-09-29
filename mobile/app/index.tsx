@@ -99,7 +99,7 @@ export default function TourTypeSelectionScreen() {
         keyboardShouldPersistTaps="handled"
         bounces
       >
-        <View style={[styles.header, { paddingTop: Math.max(insets.top, ms(16, width)) + ms(16, width) }]}>
+        <View style={[styles.header]}>
           <TouchableOpacity style={[styles.ambassadorButton, { paddingVertical: ms(8, width), paddingHorizontal: ms(16, width) }]} onPress={handleAmbassadorAction}>
             <Text style={[styles.ambassadorButtonText, { fontSize: clamp(12, ms(14, width), 16) }]}>Ambassador</Text>
           </TouchableOpacity>
