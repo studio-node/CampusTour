@@ -1,14 +1,33 @@
+// index.tsx
+
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState, useEffect } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ScrollView,
+  useWindowDimensions,
+  Platform,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { userTypeService, UserType, schoolService, authService } from '@/services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const BASE_WIDTH = 375;
+const clamp = (min:number, val:number, max:number) => Math.max(min, Math.min(val, max));
+const ms = (n:number, width:number, factor=0.5) => n + ((width / BASE_WIDTH) * n - n) * factor;
 
 export default function TourTypeSelectionScreen() {
   const [selectedTourType, setSelectedTourType] = useState<UserType>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     checkAuthenticationStatus();
@@ -16,21 +35,15 @@ export default function TourTypeSelectionScreen() {
 
   const checkAuthenticationStatus = async () => {
     try {
-      // Check if user is authenticated and is an ambassador using AsyncStorage
       const isAuthenticated = await authService.isAuthenticated();
       const isAmbassador = await authService.isStoredUserAmbassador();
-      
       if (isAuthenticated && isAmbassador) {
-        // User is an authenticated ambassador, redirect to tours screen
         router.replace('/ambassador-tours');
         return;
       }
-      
-      // No authentication or not an ambassador, continue with normal flow
       setIsLoading(false);
     } catch (error) {
       console.error('Error checking authentication status:', error);
-      // On any error, just continue with normal flow
       setIsLoading(false);
     }
   };
@@ -41,24 +54,20 @@ export default function TourTypeSelectionScreen() {
 
   const handleContinue = async () => {
     if (selectedTourType) {
-      // Store the selected tour type using the service
       await userTypeService.setUserType(selectedTourType);
-      
       if (selectedTourType === 'self-guided') {
         router.push('/school-selection');
       } else {
-        // For ambassador-led, go directly to school selection for now
         router.push('/school-selection');
       }
     }
   };
 
   const handleAmbassadorAction = () => {
-    // Navigate to ambassador sign-in screen
     router.push('/ambassador-signin');
   };
 
-    //  This is just here for testing purposes
+  //  This is just here for testing purposes
   const skipToMap = async () => {
     await userTypeService.setUserType('self-guided');
     await schoolService.setSelectedSchool('e5a9dfd2-0c88-419e-b891-0a62283b8abd');
@@ -70,95 +79,141 @@ export default function TourTypeSelectionScreen() {
     console.log('Async Storage cleared');
   };
 
-  // Show loading or nothing while checking authentication
   if (isLoading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]} edges={['top','left','right']}>
         <StatusBar style="light" />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top','left','right']}>
       <StatusBar style="light" />
-      
-      {/* Header with Ambassador button */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.ambassadorButton} onPress={handleAmbassadorAction}>
-          <Text style={styles.ambassadorButtonText}>Ambassador</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.skipToMapButton} onPress={skipToMap}>
-          <Text>Skip to map</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.skipToMapButton} onPress={clearAsyncStorage}>
-          <Text>Clear Async Storage</Text>
-        </TouchableOpacity>
-      </View>
 
-      {/* Hero Image */}
-      <Image 
-        style={styles.heroImage} 
-        source={{ uri: "https://images.pexels.com/photos/1438072/pexels-photo-1438072.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" }}
-      />
-
-      {/* Main Content */}
-      <View style={styles.content}>
-        <Text style={styles.title}>Choose your tour type</Text>
-        
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            style={[
-              styles.tourTypeButton, 
-              selectedTourType === 'self-guided' && styles.selectedButton
-            ]} 
-            onPress={() => handleTourTypeSelect('self-guided')}
-          >
-            <Text style={[
-              styles.tourTypeButtonText,
-              selectedTourType === 'self-guided' && styles.selectedButtonText
-            ]}>
-              Self-Guided
-            </Text>
-            <Text style={[
-              styles.tourTypeDescription,
-              selectedTourType === 'self-guided' && styles.selectedDescriptionText
-            ]}>
-              Explore at your own pace with interactive maps and audio guides
-            </Text>
+      <ScrollView
+        contentContainerStyle={[
+          styles.contentContainer,
+          { paddingBottom: insets.bottom + ms(8, width) }
+        ]}
+        keyboardShouldPersistTaps="handled"
+        bounces
+      >
+        <View style={[styles.header]}>
+          <TouchableOpacity style={[styles.ambassadorButton, { paddingVertical: ms(8, width), paddingHorizontal: ms(16, width) }]} onPress={handleAmbassadorAction}>
+            <Text style={[styles.ambassadorButtonText, { fontSize: clamp(12, ms(14, width), 16) }]}>Ambassador</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[
-              styles.tourTypeButton, 
-              selectedTourType === 'ambassador-led' && styles.selectedButton
-            ]} 
-            onPress={() => handleTourTypeSelect('ambassador-led')}
-          >
-            <Text style={[
-              styles.tourTypeButtonText,
-              selectedTourType === 'ambassador-led' && styles.selectedButtonText
-            ]}>
-              Ambassador-Led
-            </Text>
-            <Text style={[
-              styles.tourTypeDescription,
-              selectedTourType === 'ambassador-led' && styles.selectedDescriptionText
-            ]}>
-              Join a guided tour with a student ambassador
-            </Text>
+          <TouchableOpacity style={[styles.skipToMapButton, { paddingVertical: ms(8, width), paddingHorizontal: ms(16, width) }]} onPress={skipToMap}>
+            <Text style={{ color: '#fff' }}>Skip to map</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.skipToMapButton, { paddingVertical: ms(8, width), paddingHorizontal: ms(16, width) }]} onPress={clearAsyncStorage}>
+            <Text style={{ color: '#fff' }}>Clear Async Storage</Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity 
-          style={[styles.continueButton, !selectedTourType && styles.continueButtonDisabled]} 
-          onPress={handleContinue}
-          disabled={!selectedTourType}
-        >
-          <Text style={styles.continueButtonText}>Continue</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+        <Image
+          style={styles.heroImage}
+          source={{ uri: "https://images.pexels.com/photos/1438072/pexels-photo-1438072.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" }}
+        />
+
+        <View style={[styles.main, { paddingHorizontal: ms(20, width) }]}>
+          <Text
+            style={[
+              styles.title,
+              {
+                fontSize: clamp(22, ms(32, width), 36),
+                marginBottom: ms(24, width),
+                lineHeight: clamp(26, ms(38, width), 44),
+              },
+            ]}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
+            Choose your tour type
+          </Text>
+
+          <View style={[styles.buttonContainer, { marginBottom: ms(24, width) }]}>
+            <TouchableOpacity
+              style={[
+                styles.tourTypeButton,
+                { padding: ms(20, width), borderRadius: ms(12, width) },
+                selectedTourType === 'self-guided' && styles.selectedButton
+              ]}
+              onPress={() => handleTourTypeSelect('self-guided')}
+            >
+              <Text
+                style={[
+                  styles.tourTypeButtonText,
+                  { fontSize: clamp(18, ms(24, width), 28), marginBottom: ms(8, width) },
+                  selectedTourType === 'self-guided' && styles.selectedButtonText
+                ]}
+              >
+                Self-Guided
+              </Text>
+              <Text
+                style={[
+                  styles.tourTypeDescription,
+                  { fontSize: clamp(13, ms(16, width), 18), lineHeight: clamp(18, ms(22, width), 26) },
+                  selectedTourType === 'self-guided' && styles.selectedDescriptionText
+                ]}
+              >
+                Explore at your own pace with interactive maps and audio guides
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.tourTypeButton,
+                { padding: ms(20, width), borderRadius: ms(12, width) },
+                selectedTourType === 'ambassador-led' && styles.selectedButton
+              ]}
+              onPress={() => handleTourTypeSelect('ambassador-led')}
+            >
+              <Text
+                style={[
+                  styles.tourTypeButtonText,
+                  { fontSize: clamp(18, ms(24, width), 28), marginBottom: ms(8, width) },
+                  selectedTourType === 'ambassador-led' && styles.selectedButtonText
+                ]}
+              >
+                Ambassador-Led
+              </Text>
+              <Text
+                style={[
+                  styles.tourTypeDescription,
+                  { fontSize: clamp(13, ms(16, width), 18), lineHeight: clamp(18, ms(22, width), 26) },
+                  selectedTourType === 'ambassador-led' && styles.selectedDescriptionText
+                ]}
+              >
+                Join a guided tour with a student ambassador
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.continueButton,
+              { paddingVertical: ms(16, width), borderRadius: ms(10, width) },
+              !selectedTourType && styles.continueButtonDisabled
+            ]}
+            onPress={handleContinue}
+            disabled={!selectedTourType}
+          >
+            <Text
+              style={[
+                styles.continueButtonText,
+                { fontSize: clamp(16, ms(18, width), 20) }
+              ]}
+            >
+              Continue
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -167,54 +222,48 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#282828',
   },
+  contentContainer: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+  },
   header: {
-    paddingTop: 60,
     paddingHorizontal: 20,
     paddingBottom: 10,
     alignItems: 'flex-end',
+    gap: 8,
   },
   ambassadorButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   ambassadorButtonText: {
     color: '#fff',
-    fontSize: 14,
     fontWeight: '500',
   },
   heroImage: {
     width: '100%',
-    height: 200,
+    aspectRatio: 16 / 9,
     resizeMode: 'cover',
   },
-  content: {
-    flex: 1,
-    padding: 20,
+  main: {
+    paddingTop: 20,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   title: {
-    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 40,
     textAlign: 'center',
     color: '#fff',
   },
   buttonContainer: {
     width: '100%',
-    marginBottom: 40,
   },
   tourTypeButton: {
     width: '100%',
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 12,
-    padding: 20,
     marginBottom: 16,
     alignItems: 'center',
   },
@@ -223,28 +272,22 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
   },
   tourTypeButtonText: {
-    fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 8,
   },
   selectedButtonText: {
     color: '#fff',
   },
   tourTypeDescription: {
-    fontSize: 16,
     color: '#ccc',
     textAlign: 'center',
-    lineHeight: 22,
   },
   selectedDescriptionText: {
     color: '#fff',
   },
   continueButton: {
     backgroundColor: '#fff',
-    paddingVertical: 16,
     paddingHorizontal: 50,
-    borderRadius: 8,
     width: '100%',
     alignItems: 'center',
   },
@@ -253,17 +296,14 @@ const styles = StyleSheet.create({
   },
   continueButtonText: {
     color: '#282828',
-    fontSize: 18,
     fontWeight: 'bold',
   },
   //  This is just here for testing purposes
   skipToMapButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-    paddingVertical: 8, 
-    paddingHorizontal: 16, 
-    borderRadius: 20, 
-    borderWidth: 1, 
-    borderColor: 'rgba(255, 255, 255, 0.3)', 
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     alignSelf: 'flex-start',
   },
-}); 
+});
