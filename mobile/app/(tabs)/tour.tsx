@@ -66,6 +66,7 @@ const TourStopItem = ({
   primaryColor,
   isEditing,
   isAmbassador,
+  canEdit,
   onDelete,
   onMoveUp,
   onMoveDown
@@ -78,6 +79,7 @@ const TourStopItem = ({
   primaryColor: string;
   isEditing: boolean;
   isAmbassador: boolean;
+  canEdit: boolean;
   onDelete: (id: string) => void;
   onMoveUp: (id: string) => void;
   onMoveDown: (id: string) => void;
@@ -150,7 +152,7 @@ const TourStopItem = ({
                 <Text style={styles.buttonText}>Location</Text>
               </TouchableOpacity>
             )}
-            {isEditing && (
+            {isEditing && canEdit && (
               <TouchableOpacity 
                 style={styles.deleteButton}
                 onPress={() => onDelete(item.id)}
@@ -159,7 +161,7 @@ const TourStopItem = ({
                 <Text style={styles.buttonText}>Delete</Text>
               </TouchableOpacity>
             )}
-            {isEditing && (
+            {isEditing && canEdit && (
               <View style={styles.reorderButtons}>
                 <TouchableOpacity 
                   style={styles.reorderButton}
@@ -1059,7 +1061,7 @@ export default function TourScreen() {
       <View style={[styles.header, dynamicStyles.headerBorder]}>
         <HamburgerMenu primaryColor={primaryColor} />
         <Text style={styles.headerText}>Campus Tour</Text>
-        {!showInterestSelection && isAmbassador && (
+        {!showInterestSelection && canEditTour && (
           <View style={styles.headerButtons}>
             {isEditingTour && (
               <TouchableOpacity
@@ -1138,6 +1140,7 @@ export default function TourScreen() {
               primaryColor={primaryColor}
               isEditing={isEditingTour}
               isAmbassador={isAmbassador}
+              canEdit={canEditTour}
               onDelete={deleteTourStop}
               onMoveUp={isEditingTour ? moveTourStopUp : () => {}}
               onMoveDown={isEditingTour ? moveTourStopDown : () => {}}
