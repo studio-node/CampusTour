@@ -66,6 +66,7 @@ const TourStopItem = ({
   primaryColor,
   isEditing,
   isAmbassador,
+  canEdit,
   onDelete,
   onMoveUp,
   onMoveDown
@@ -78,6 +79,7 @@ const TourStopItem = ({
   primaryColor: string;
   isEditing: boolean;
   isAmbassador: boolean;
+  canEdit: boolean;
   onDelete: (id: string) => void;
   onMoveUp: (id: string) => void;
   onMoveDown: (id: string) => void;
@@ -115,14 +117,16 @@ const TourStopItem = ({
         
         <View style={styles.tourStopInfo}>
           <View style={styles.tourStopHeader}>
-            {!isEditing && isAmbassador && (
+            {!isEditing && (
               <TouchableOpacity 
                 style={[
                   styles.checkboxContainer, 
                   dynamicStyles.checkboxContainer,
-                  visited && dynamicStyles.checkboxContainerChecked
+                  visited && dynamicStyles.checkboxContainerChecked,
+                  !canEdit && styles.checkboxContainerDisabled
                 ]} 
-                onPress={() => onToggleVisited(item.id)}
+                onPress={canEdit ? () => onToggleVisited(item.id) : undefined}
+                disabled={!canEdit}
               >
                 {visited && <IconSymbol name="checkmark" size={14} color="white" />}
               </TouchableOpacity>
@@ -150,7 +154,7 @@ const TourStopItem = ({
                 <Text style={styles.buttonText}>Location</Text>
               </TouchableOpacity>
             )}
-            {isEditing && (
+            {isEditing && canEdit && (
               <TouchableOpacity 
                 style={styles.deleteButton}
                 onPress={() => onDelete(item.id)}
@@ -159,7 +163,7 @@ const TourStopItem = ({
                 <Text style={styles.buttonText}>Delete</Text>
               </TouchableOpacity>
             )}
-            {isEditing && (
+            {isEditing && canEdit && (
               <View style={styles.reorderButtons}>
                 <TouchableOpacity 
                   style={styles.reorderButton}
@@ -350,7 +354,7 @@ export default function TourScreen() {
       const { newTourStructure } = data.payload;
       if (newTourStructure && newTourStructure.tour_stops) {
         console.log('Received tour list changes from ambassador:', newTourStructure);
-        
+         
         // Update the local tour stops with the ambassador's changes
         setTourStops(newTourStructure.tour_stops);
         
@@ -1059,7 +1063,7 @@ export default function TourScreen() {
       <View style={[styles.header, dynamicStyles.headerBorder]}>
         <HamburgerMenu primaryColor={primaryColor} />
         <Text style={styles.headerText}>Campus Tour</Text>
-        {!showInterestSelection && isAmbassador && (
+        {!showInterestSelection && canEditTour && (
           <View style={styles.headerButtons}>
             {isEditingTour && (
               <TouchableOpacity
@@ -1138,6 +1142,7 @@ export default function TourScreen() {
               primaryColor={primaryColor}
               isEditing={isEditingTour}
               isAmbassador={isAmbassador}
+              canEdit={canEditTour}
               onDelete={deleteTourStop}
               onMoveUp={isEditingTour ? moveTourStopUp : () => {}}
               onMoveDown={isEditingTour ? moveTourStopDown : () => {}}
@@ -1379,6 +1384,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
+  },
+  checkboxContainerDisabled: {
+    opacity: 0.5,
+    backgroundColor: '#F5F5F5',
   },
   loadingContainer: {
     flex: 1,
