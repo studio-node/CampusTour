@@ -1,5 +1,6 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Location, Region, locationService, schoolService, userTypeService } from '@/services/supabase';
+import { appStateManager, PersistedAppState } from '@/services/appStateManager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ExpoLocation from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -35,6 +36,10 @@ export default function MapScreen() {
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [defaultRegion, setDefaultRegion] = useState<Region>(FALLBACK_REGION);
   const [primaryColor, setPrimaryColor] = useState<string>('#990000'); // Utah Tech red as fallback
+  
+  // Map state tracking
+  const [currentMapRegion, setCurrentMapRegion] = useState<Region>(FALLBACK_REGION);
+  const [lastViewedLocationId, setLastViewedLocationId] = useState<string | null>(null);
   
   // Modal state for tour generation prompt
   const [showTourModal, setShowTourModal] = useState(false);
@@ -143,6 +148,20 @@ export default function MapScreen() {
     requestLocationPermission();
   }, []);
 
+  // Load map state on mount
+  useEffect(() => {
+    if (schoolId) {
+      loadMapState();
+    }
+  }, [schoolId]);
+
+  // Save map state when it changes
+  useEffect(() => {
+    if (schoolId && currentMapRegion) {
+      saveMapState();
+    }
+  }, [currentMapRegion, lastViewedLocationId, schoolId]);
+
   // Check for existing tour whenever the map screen is focused
   useFocusEffect(
     React.useCallback(() => {
@@ -210,6 +229,7 @@ export default function MapScreen() {
   // Handle marker press - Navigate to building info page
   const handleMarkerPress = (location: LocationItem) => {
     console.log(`Selected location: ${location.name}`);
+    setLastViewedLocationId(location.id);
     router.push({
       pathname: '/building/[id]',
       params: { id: location.id }
@@ -219,6 +239,75 @@ export default function MapScreen() {
   // Handle callout press - This provides a backup way to navigate if needed
   const handleCalloutPress = (location: LocationItem) => {
     handleMarkerPress(location);
+  };
+
+  // Load map state from app state manager
+  const loadMapState = async () => {
+    try {
+      const persistedState = appStateManager.getCurrentState();
+      
+      if (!persistedState) {
+        console.log('No persisted map state found, using defaults');
+        return;
+      }
+
+      const { mapState } = persistedState;
+      
+      // Restore map region
+      if (mapState.region) {
+        setCurrentMapRegion(mapState.region);
+      }
+      
+      // Restore last viewed location
+      if (mapState.lastViewedLocationId) {
+        setLastViewedLocationId(mapState.lastViewedLocationId);
+      }
+      
+      console.log('Map state restored from app state manager');
+    } catch (error) {
+      console.error('Error loading map state:', error);
+    }
+  };
+
+  // Save map state to app state manager
+  const saveMapState = async () => {
+    try {
+      if (!schoolId) return;
+
+      // Get current state or create new one
+      let currentState = appStateManager.getCurrentState();
+      if (!currentState) {
+        // Create new state if none exists
+        appStateManager.updateState({
+          schoolId,
+          userType: await userTypeService.getUserType(),
+          currentRoute: '/(tabs)/map',
+        });
+        currentState = appStateManager.getCurrentState();
+      }
+
+      if (!currentState) return;
+
+      // Update map state
+      const updatedState: Partial<PersistedAppState> = {
+        currentRoute: '/(tabs)/map',
+        mapState: {
+          region: currentMapRegion,
+          lastViewedLocationId,
+        },
+      };
+
+      appStateManager.updateState(updatedState);
+      
+      console.log('Map state saved to app state manager');
+    } catch (error) {
+      console.error('Error saving map state:', error);
+    }
+  };
+
+  // Handle map region change
+  const handleMapRegionChange = (region: Region) => {
+    setCurrentMapRegion(region);
   };
 
   // Determine which map provider to use based on platform
@@ -301,7 +390,8 @@ export default function MapScreen() {
             style={styles.map}
             provider={mapProvider}
             mapType="standard"
-            initialRegion={defaultRegion}
+            initialRegion={currentMapRegion}
+            region={currentMapRegion}
             showsUserLocation={locationPermissionStatus === 'granted'}
             showsMyLocationButton={false}
             showsCompass={true}
@@ -309,6 +399,7 @@ export default function MapScreen() {
             scrollEnabled={true}
             zoomEnabled={true}
             onMapReady={() => setMapReady(true)}
+            onRegionChangeComplete={handleMapRegionChange}
           >
             <Overlay image={require('@/assets/images/buildings_overlay_3.png')} bounds={[
               // [ 37.09798939695663, -113.57067719268706 ],

@@ -1,6 +1,7 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { analyticsService, Location, locationService, schoolService, userTypeService, UserType, tourGroupSelectionService, authService } from '@/services/supabase';
 import { wsManager } from '@/services/ws';
+import { appStateManager, PersistedAppState } from '@/services/appStateManager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import * as ExpoLocation from 'expo-location';
@@ -9,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import StateDebugger from '@/components/StateDebugger';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -259,6 +261,9 @@ export default function TourScreen() {
   // Tour editing mode state
   const [isEditingTour, setIsEditingTour] = useState<boolean>(false);
 
+  // Debug state (for development/testing)
+  const [showDebugger, setShowDebugger] = useState<boolean>(false);
+
 
   // Get the selected school ID and details
   useEffect(() => {
@@ -434,79 +439,89 @@ export default function TourScreen() {
     };
   }, [isAmbassador]);
 
-  // Load saved state from storage
+  // Load saved state from app state manager
   const loadSavedState = async () => {
     try {
-      const savedShowInterestSelection = await AsyncStorage.getItem(STORAGE_KEYS.SHOW_INTEREST_SELECTION);
-      const savedSelectedInterests = await AsyncStorage.getItem(STORAGE_KEYS.SELECTED_INTERESTS);
-      const savedTourStops = await AsyncStorage.getItem(STORAGE_KEYS.TOUR_STOPS);
-      const savedVisitedLocations = await AsyncStorage.getItem(STORAGE_KEYS.VISITED_LOCATIONS);
-      const savedTourStarted = await AsyncStorage.getItem(STORAGE_KEYS.TOUR_STARTED);
-      const savedTourFinished = await AsyncStorage.getItem(STORAGE_KEYS.TOUR_FINISHED);
-      const savedLocationPermissionStatus = await AsyncStorage.getItem(STORAGE_KEYS.LOCATION_PERMISSION_STATUS);
-      const savedCurrentLocationId = await AsyncStorage.getItem(STORAGE_KEYS.CURRENT_LOCATION_ID);
-      const savedLocationEntryTimes = await AsyncStorage.getItem(STORAGE_KEYS.LOCATION_ENTRY_TIMES);
-      const savedPreviouslyEnteredLocations = await AsyncStorage.getItem(STORAGE_KEYS.PREVIOUSLY_ENTERED_LOCATIONS);
-      const savedIsEditingTour = await AsyncStorage.getItem(STORAGE_KEYS.IS_EDITING_TOUR);
+      const persistedState = appStateManager.getCurrentState();
       
-      if (savedShowInterestSelection !== null) {
-        setShowInterestSelection(JSON.parse(savedShowInterestSelection));
+      if (!persistedState) {
+        console.log('No persisted state found, using defaults');
+        return;
+      }
+
+      const { tourState } = persistedState;
+      
+      // Restore tour state
+      setShowInterestSelection(tourState.stops.length === 0); // Show interest selection if no stops
+      setSelectedInterests(tourState.selectedInterests);
+      setTourStops(tourState.stops);
+      setVisitedLocations(tourState.visitedLocations);
+      setTourStarted(tourState.tourStarted);
+      setTourFinished(tourState.tourFinished);
+      setIsEditingTour(tourState.isEditingTour);
+      
+      // Restore location tracking state
+      if (persistedState.tourProgress) {
+        setCurrentLocationId(persistedState.tourProgress.currentStopIndex.toString());
       }
       
-      if (savedSelectedInterests !== null) {
-        setSelectedInterests(JSON.parse(savedSelectedInterests));
-      }
-      
-      if (savedTourStops !== null) {
-        setTourStops(JSON.parse(savedTourStops));
-      }
-
-      if (savedVisitedLocations !== null) {
-        setVisitedLocations(JSON.parse(savedVisitedLocations));
-      }
-
-      if (savedTourStarted !== null) {
-        setTourStarted(JSON.parse(savedTourStarted));
-      }
-
-      if (savedTourFinished !== null) {
-        setTourFinished(JSON.parse(savedTourFinished));
-      }
-
-      if (savedLocationPermissionStatus !== null) {
-        setLocationPermissionStatus(savedLocationPermissionStatus);
-      }
-
-      if (savedCurrentLocationId !== null) {
-        setCurrentLocationId(savedCurrentLocationId);
-      }
-
-      if (savedLocationEntryTimes !== null) {
-        setLocationEntryTimes(JSON.parse(savedLocationEntryTimes));
-      }
-
-      if (savedPreviouslyEnteredLocations !== null) {
-        const locationsArray = JSON.parse(savedPreviouslyEnteredLocations);
-        setPreviouslyEnteredLocations(new Set(locationsArray));
-      }
-
-      if (savedIsEditingTour !== null) {
-        setIsEditingTour(JSON.parse(savedIsEditingTour));
-      }
+      console.log('Tour state restored from app state manager');
     } catch (error) {
       console.error('Error loading saved tour state:', error);
     }
   };
 
-  // Save tour state to storage
+  // Save tour state to app state manager
   const saveTourState = async () => {
     try {
+      if (!schoolId) return;
+
+      // Get current state or create new one
+      let currentState = appStateManager.getCurrentState();
+      if (!currentState) {
+        // Create new state if none exists
+        appStateManager.updateState({
+          schoolId,
+          userType,
+          currentRoute: '/(tabs)/tour',
+        });
+        currentState = appStateManager.getCurrentState();
+      }
+
+      if (!currentState) return;
+
+      // Update tour state
+      const updatedState: Partial<PersistedAppState> = {
+        currentRoute: '/(tabs)/tour',
+        tourState: {
+          stops: tourStops,
+          selectedInterests,
+          visitedLocations,
+          currentStopIndex: tourStops.findIndex(stop => stop.id === currentLocationId) || 0,
+          tourStarted,
+          tourFinished,
+          isEditingTour,
+        },
+        tourProgress: {
+          totalStops: tourStops.length,
+          visitedStops: visitedLocations.length,
+          currentStopIndex: tourStops.findIndex(stop => stop.id === currentLocationId) || 0,
+          tourStartedAt: currentState.tourProgress?.tourStartedAt || new Date().toISOString(),
+          lastActiveAt: new Date().toISOString(),
+        },
+      };
+
+      appStateManager.updateState(updatedState);
+      
+      // Also save to AsyncStorage for backward compatibility
       await AsyncStorage.setItem(STORAGE_KEYS.SHOW_INTEREST_SELECTION, JSON.stringify(showInterestSelection));
       await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_INTERESTS, JSON.stringify(selectedInterests));
       await AsyncStorage.setItem(STORAGE_KEYS.TOUR_STOPS, JSON.stringify(tourStops));
       await AsyncStorage.setItem(STORAGE_KEYS.VISITED_LOCATIONS, JSON.stringify(visitedLocations));
       await AsyncStorage.setItem(STORAGE_KEYS.TOUR_STARTED, JSON.stringify(tourStarted));
       await AsyncStorage.setItem(STORAGE_KEYS.TOUR_FINISHED, JSON.stringify(tourFinished));
+      await AsyncStorage.setItem(STORAGE_KEYS.IS_EDITING_TOUR, JSON.stringify(isEditingTour));
+      
       if (locationPermissionStatus) {
         await AsyncStorage.setItem(STORAGE_KEYS.LOCATION_PERMISSION_STATUS, locationPermissionStatus);
       }
@@ -515,7 +530,6 @@ export default function TourScreen() {
       }
       await AsyncStorage.setItem(STORAGE_KEYS.LOCATION_ENTRY_TIMES, JSON.stringify(locationEntryTimes));
       await AsyncStorage.setItem(STORAGE_KEYS.PREVIOUSLY_ENTERED_LOCATIONS, JSON.stringify(Array.from(previouslyEnteredLocations)));
-      await AsyncStorage.setItem(STORAGE_KEYS.IS_EDITING_TOUR, JSON.stringify(isEditingTour));
     } catch (error) {
       console.error('Error saving tour state:', error);
     }
@@ -1169,6 +1183,20 @@ export default function TourScreen() {
           }
         />
       )}
+      
+      {/* Debug State Debugger - Triple tap to show */}
+      <TouchableOpacity
+        style={styles.debugButton}
+        onPress={() => setShowDebugger(true)}
+        onLongPress={() => setShowDebugger(true)}
+      >
+        <Text style={styles.debugButtonText}>🐛</Text>
+      </TouchableOpacity>
+      
+      <StateDebugger
+        visible={showDebugger}
+        onClose={() => setShowDebugger(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -1450,5 +1478,20 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  debugButton: {
+    position: 'absolute',
+    top: 100,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  debugButtonText: {
+    fontSize: 20,
   },
 });
