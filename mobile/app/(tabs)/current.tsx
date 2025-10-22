@@ -1,7 +1,7 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { analyticsService, Location, locationService, schoolService, userTypeService, tourGroupSelectionService } from '@/services/supabase';
 import { wsManager } from '@/services/ws';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { appStateManager } from '@/services/appStateManager';
 import * as ExpoLocation from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -10,12 +10,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import HamburgerMenu from '@/components/HamburgerMenu';
 
-// Storage keys (same as tour.tsx)
-const STORAGE_KEYS = {
-  TOUR_STOPS: 'tourStops',
-  VISITED_LOCATIONS: 'visitedLocations',
-  CURRENT_LOCATION_ID: 'currentLocationId',
-};
 
 export default function CurrentLocationScreen() {
   const router = useRouter();
@@ -70,27 +64,27 @@ export default function CurrentLocationScreen() {
     React.useCallback(() => {
       const loadTourData = async () => {
         try {
-          const savedTourStops = await AsyncStorage.getItem(STORAGE_KEYS.TOUR_STOPS);
-          const savedVisitedLocations = await AsyncStorage.getItem(STORAGE_KEYS.VISITED_LOCATIONS);
-          const savedCurrentLocationId = await AsyncStorage.getItem(STORAGE_KEYS.CURRENT_LOCATION_ID);
+          const currentState = appStateManager.getCurrentState();
           
-          if (savedTourStops) {
-            const parsedTourStops = JSON.parse(savedTourStops);
-            setTourStops(parsedTourStops);
-            console.log('Current Location Tab: Loaded', parsedTourStops.length, 'tour stops from storage');
+          if (currentState?.tourState) {
+            const { stops, visitedLocations } = currentState.tourState;
+            setTourStops(stops);
+            setVisitedLocations(visitedLocations);
+            console.log('Current Location Tab: Loaded', stops.length, 'tour stops from app state manager');
           } else {
             setTourStops([]);
-            console.log('Current Location Tab: No tour stops found in storage');
-          }
-          
-          if (savedVisitedLocations) {
-            setVisitedLocations(JSON.parse(savedVisitedLocations));
-          } else {
             setVisitedLocations([]);
+            console.log('Current Location Tab: No tour state found in app state manager');
           }
           
-          if (savedCurrentLocationId) {
-            setCurrentLocationId(savedCurrentLocationId);
+          // Get current location from tour progress
+          if (currentState?.tourProgress) {
+            const currentStopIndex = currentState.tourProgress.currentStopIndex;
+            if (currentStopIndex >= 0 && currentStopIndex < tourStops.length) {
+              setCurrentLocationId(tourStops[currentStopIndex]?.id || null);
+            } else {
+              setCurrentLocationId(null);
+            }
           } else {
             setCurrentLocationId(null);
           }

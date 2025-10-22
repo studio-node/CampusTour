@@ -2,7 +2,6 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { analyticsService, Location, locationService, schoolService, userTypeService, UserType, tourGroupSelectionService, authService } from '@/services/supabase';
 import { wsManager } from '@/services/ws';
 import { appStateManager, PersistedAppState } from '@/services/appStateManager';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import * as ExpoLocation from 'expo-location';
 import { useRouter } from 'expo-router';
@@ -10,22 +9,7 @@ import { useEffect, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HamburgerMenu from '@/components/HamburgerMenu';
-import StateDebugger from '@/components/StateDebugger';
 
-// Storage keys
-const STORAGE_KEYS = {
-  TOUR_STOPS: 'tourStops',
-  SELECTED_INTERESTS: 'selectedInterests',
-  SHOW_INTEREST_SELECTION: 'showInterestSelection',
-  VISITED_LOCATIONS: 'visitedLocations',
-  TOUR_STARTED: 'tourStarted',
-  TOUR_FINISHED: 'tourFinished',
-  LOCATION_PERMISSION_STATUS: 'locationPermissionStatus',
-  CURRENT_LOCATION_ID: 'currentLocationId',
-  LOCATION_ENTRY_TIMES: 'locationEntryTimes',
-  PREVIOUSLY_ENTERED_LOCATIONS: 'previouslyEnteredLocations',
-  IS_EDITING_TOUR: 'isEditingTour'
-};
 
 // Define the interface for a tour stop
 type TourStop = Location;
@@ -261,8 +245,6 @@ export default function TourScreen() {
   // Tour editing mode state
   const [isEditingTour, setIsEditingTour] = useState<boolean>(false);
 
-  // Debug state (for development/testing)
-  const [showDebugger, setShowDebugger] = useState<boolean>(false);
 
 
   // Get the selected school ID and details
@@ -502,34 +484,9 @@ export default function TourScreen() {
           tourFinished,
           isEditingTour,
         },
-        tourProgress: {
-          totalStops: tourStops.length,
-          visitedStops: visitedLocations.length,
-          currentStopIndex: tourStops.findIndex(stop => stop.id === currentLocationId) || 0,
-          tourStartedAt: currentState.tourProgress?.tourStartedAt || new Date().toISOString(),
-          lastActiveAt: new Date().toISOString(),
-        },
       };
 
       appStateManager.updateState(updatedState);
-      
-      // Also save to AsyncStorage for backward compatibility
-      await AsyncStorage.setItem(STORAGE_KEYS.SHOW_INTEREST_SELECTION, JSON.stringify(showInterestSelection));
-      await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_INTERESTS, JSON.stringify(selectedInterests));
-      await AsyncStorage.setItem(STORAGE_KEYS.TOUR_STOPS, JSON.stringify(tourStops));
-      await AsyncStorage.setItem(STORAGE_KEYS.VISITED_LOCATIONS, JSON.stringify(visitedLocations));
-      await AsyncStorage.setItem(STORAGE_KEYS.TOUR_STARTED, JSON.stringify(tourStarted));
-      await AsyncStorage.setItem(STORAGE_KEYS.TOUR_FINISHED, JSON.stringify(tourFinished));
-      await AsyncStorage.setItem(STORAGE_KEYS.IS_EDITING_TOUR, JSON.stringify(isEditingTour));
-      
-      if (locationPermissionStatus) {
-        await AsyncStorage.setItem(STORAGE_KEYS.LOCATION_PERMISSION_STATUS, locationPermissionStatus);
-      }
-      if (currentLocationId) {
-        await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_LOCATION_ID, currentLocationId);
-      }
-      await AsyncStorage.setItem(STORAGE_KEYS.LOCATION_ENTRY_TIMES, JSON.stringify(locationEntryTimes));
-      await AsyncStorage.setItem(STORAGE_KEYS.PREVIOUSLY_ENTERED_LOCATIONS, JSON.stringify(Array.from(previouslyEnteredLocations)));
     } catch (error) {
       console.error('Error saving tour state:', error);
     }
@@ -1184,19 +1141,6 @@ export default function TourScreen() {
         />
       )}
       
-      {/* Debug State Debugger - Triple tap to show */}
-      <TouchableOpacity
-        style={styles.debugButton}
-        onPress={() => setShowDebugger(true)}
-        onLongPress={() => setShowDebugger(true)}
-      >
-        <Text style={styles.debugButtonText}>🐛</Text>
-      </TouchableOpacity>
-      
-      <StateDebugger
-        visible={showDebugger}
-        onClose={() => setShowDebugger(false)}
-      />
     </SafeAreaView>
   );
 }
@@ -1478,20 +1422,5 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     fontSize: 15,
     fontWeight: 'bold',
-  },
-  debugButton: {
-    position: 'absolute',
-    top: 100,
-    right: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 100,
-  },
-  debugButtonText: {
-    fontSize: 20,
   },
 });

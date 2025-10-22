@@ -5,12 +5,8 @@ import { Location, Region, UserType } from './supabase';
 // Storage keys with consistent prefix
 const STORAGE_KEYS = {
   APP_STATE: 'CAMPUS_TOUR_APP_STATE',
-  STATE_VERSION: 'CAMPUS_TOUR_STATE_VERSION',
   LAST_ACTIVE: 'CAMPUS_TOUR_LAST_ACTIVE',
 } as const;
-
-// Current state version for migration handling
-const CURRENT_STATE_VERSION = '1.0.0';
 
 // Tour progress interface
 export interface TourProgress {
@@ -36,7 +32,6 @@ export interface SessionData {
 
 // Main persisted app state interface
 export interface PersistedAppState {
-  version: string;
   lastUpdated: string;
   currentRoute: string;
   schoolId: string;
@@ -187,11 +182,9 @@ class AppStateManager {
         }
       }
 
-      // Validate state version and migrate if needed
-      const migratedState = await this.migrateState(parsedState);
-      this.currentState = migratedState;
+      this.currentState = parsedState;
       
-      return migratedState;
+      return parsedState;
     } catch (error) {
       console.error('Error loading persisted state:', error);
       this.currentState = null;
@@ -199,25 +192,6 @@ class AppStateManager {
     }
   }
 
-  /**
-   * Migrate state to current version if needed
-   */
-  private async migrateState(state: PersistedAppState): Promise<PersistedAppState> {
-    if (state.version === CURRENT_STATE_VERSION) {
-      return state;
-    }
-
-    console.log(`Migrating state from version ${state.version} to ${CURRENT_STATE_VERSION}`);
-    
-    // For now, just update the version
-    // In the future, add specific migration logic here
-    const migratedState: PersistedAppState = {
-      ...state,
-      version: CURRENT_STATE_VERSION,
-    };
-
-    return migratedState;
-  }
 
   /**
    * Update the current state
@@ -327,7 +301,6 @@ class AppStateManager {
    */
   private createEmptyState(): PersistedAppState {
     return {
-      version: CURRENT_STATE_VERSION,
       lastUpdated: new Date().toISOString(),
       currentRoute: '/',
       schoolId: '',

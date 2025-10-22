@@ -1,7 +1,6 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Location, Region, locationService, schoolService, userTypeService } from '@/services/supabase';
 import { appStateManager, PersistedAppState } from '@/services/appStateManager';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ExpoLocation from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -171,16 +170,14 @@ export default function MapScreen() {
           const userType = await userTypeService.getUserType();
           const isAmbassadorLed = userType === 'ambassador-led';
           
-          const savedTourStops = await AsyncStorage.getItem('tourStops');
-          const savedShowInterestSelection = await AsyncStorage.getItem('showInterestSelection');
-          
-          // User has a tour if there are tour stops and interest selection is not showing
+          // Check for active tour using appStateManager
+          const currentState = appStateManager.getCurrentState();
           let hasActiveTour = false;
           
-          if (savedTourStops) {
-            const tourStops = JSON.parse(savedTourStops);
-            const showingInterestSelection = savedShowInterestSelection ? JSON.parse(savedShowInterestSelection) : true;
-            hasActiveTour = tourStops.length > 0 && !showingInterestSelection;
+          if (currentState?.tourState) {
+            const { stops, selectedInterests } = currentState.tourState;
+            // User has a tour if there are tour stops and interests are selected (not in selection mode)
+            hasActiveTour = stops.length > 0 && selectedInterests.length > 0;
           }
           
           setHasTour(hasActiveTour);
