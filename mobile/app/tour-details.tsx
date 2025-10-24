@@ -24,8 +24,8 @@ import {
   leadsService,
   TourParticipant
 } from '@/services/supabase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { wsManager } from '@/services/ws';
+import { appStateManager } from '@/services/appStateManager';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Image } from 'expo-image';
 
@@ -114,7 +114,7 @@ export default function TourDetailsScreen() {
     let joinRetryTimer: ReturnType<typeof setInterval> | null = null;
     const onMessage = async (message: any) => {
       if (userType === 'ambassador' && message?.type === 'tour_started') {
-        // Populate ordered tour in AsyncStorage before navigating
+        // Update app state with generated tour before navigating
         try {
           const schoolId = await schoolService.getSelectedSchool();
           if (schoolId && Array.isArray(message?.payload?.generated_tour_order)) {
@@ -122,9 +122,18 @@ export default function TourDetailsScreen() {
             const ordered: Location[] = message.payload.generated_tour_order
               .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
               .filter((loc: Location | undefined): loc is Location => Boolean(loc));
-            await AsyncStorage.setItem('tourStops', JSON.stringify(ordered));
-            await AsyncStorage.setItem('showInterestSelection', JSON.stringify(false));
-            await AsyncStorage.setItem('visitedLocations', JSON.stringify([]));
+            // Update app state with the generated tour
+            appStateManager.updateState({
+              tourState: {
+                stops: ordered,
+                selectedInterests: [], // Will be set when user selects interests
+                visitedLocations: [],
+                currentStopIndex: 0,
+                tourStarted: false,
+                tourFinished: false,
+                isEditingTour: false,
+              },
+            });
           }
         } catch (e) {
           console.error('Failed to persist generated tour:', e);
