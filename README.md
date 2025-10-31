@@ -1,22 +1,35 @@
 # Campus Tour
+> UT SCHOOL ID: e5a9dfd2-0c88-419e-b891-0a62283b8abd
 
 
-## UT SCHOOL ID: e5a9dfd2-0c88-419e-b891-0a62283b8abd
+## How to use Ambassador-led tour tester ([here](./backend/test/test_amb_led.cjs))
 
+Before you run it, make sure the tour you're trying to use 
+isn't in `live_tour_sessions`. Just delete it if it's in there.
+
+- Group
+  - `node test_amb_led.js --user-type group`
+- Ambassador
+  - `node test_amb_led.js --user-type ambassador`
+- Optional override flags:
+  - `--tour-id <example-tour-id>`
+  - `--ambassador-id <example-ambassador-id>`
+
+
+
+
+# General Notes I've made
+
+> These are all **maybes**
+
+- Make it so one school can have multiple campuses
+- Games or interactive section with each stop
 
 ## TODO
 
 - Do emails with confirmation codes
 - Cut fat from gemini requests
 - media (maybe not mvp)
-
-
-
-
-
-
-
-
 
 - Create tour
   - Assign Ambassador
@@ -30,30 +43,6 @@
     - Add ambassador
 
 
-
-
-# General Ideas with no rhyme or reason
-
-> These are all **maybes**
-
-- Make it so one school can have multiple campuses
-- Games or interactive section with each stop
-
-
-
-
-
-
-### Ways to close and reference an issue in commit message:
-- `fix #xxx`
-- `fixes #xxx`
-- `fixed #xxx`
-- `close #xxx`
-- `closes #xxx`
-- `closed #xxx`
-- `resolve #xxx`
-- `resolves #xxx`
-- `resolved #xxx`
 
 ## Other Apps
 
