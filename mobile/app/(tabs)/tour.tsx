@@ -337,22 +337,30 @@ export default function TourScreen() {
   useEffect(() => {
     if (!isAmbassadorLedMember) return;
 
-    const handleTourListChanged = (data: any) => {
+    const handleTourListChanged = async (data: any) => {
       const { newTourStructure } = data.payload;
-      if (newTourStructure && newTourStructure.tour_stops) {
-        console.log('Received tour list changes from ambassador:', newTourStructure);
-         
-        // Update the local tour stops with the ambassador's changes
-        setTourStops(newTourStructure.tour_stops);
+      // Handle both array format (new) and object format (backward compatibility)
+      const locationIds: string[] = Array.isArray(newTourStructure) 
+        ? newTourStructure 
+        : (newTourStructure?.generated_tour_order || []);
+      
+      if (locationIds.length > 0) {
+        console.log('Received tour list changes from ambassador:', locationIds);
         
-        // Update selected interests if they changed
-        if (newTourStructure.interests_used) {
-          setSelectedInterests(newTourStructure.interests_used);
-        }
-        
-        // Update visited locations if they changed
-        if (newTourStructure.visited_locations) {
-          setVisitedLocations(newTourStructure.visited_locations);
+        try {
+          // Fetch location details for the received location IDs
+          if (schoolId) {
+            const allLocations = await locationService.getTourStops(schoolId);
+            // Map the IDs to full location objects, preserving order
+            const orderedLocations: Location[] = locationIds
+              .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
+              .filter((loc: Location | undefined): loc is Location => Boolean(loc));
+            
+            // Update the local tour stops with the fetched locations
+            setTourStops(orderedLocations);
+          }
+        } catch (error) {
+          console.error('Error fetching location details for tour update:', error);
         }
         
         // Show notification that tour was updated
@@ -390,14 +398,51 @@ export default function TourScreen() {
       }
     };
 
+    const handleTourStructureUpdated = async (data: any) => {
+      const { changes } = data;
+      if (changes?.new_structure) {
+        const { new_structure } = changes;
+        // Handle both array format (new) and object format (backward compatibility)
+        const locationIds: string[] = Array.isArray(new_structure)
+          ? new_structure
+          : (new_structure?.generated_tour_order || []);
+        
+        if (locationIds.length > 0) {
+          console.log('Received tour structure update from ambassador:', locationIds);
+          
+          try {
+            // Fetch location details for the received location IDs
+            if (schoolId) {
+              const allLocations = await locationService.getTourStops(schoolId);
+              // Map the IDs to full location objects, preserving order
+              const orderedLocations: Location[] = locationIds
+                .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
+                .filter((loc: Location | undefined): loc is Location => Boolean(loc));
+              
+              // Update the local tour stops with the fetched locations
+              setTourStops(orderedLocations);
+            }
+          } catch (error) {
+            console.error('Error fetching location details for structure update:', error);
+          }
+          
+          // Show notification that tour was updated
+          setTourUpdatedByAmbassador(true);
+          setTimeout(() => setTourUpdatedByAmbassador(false), 5000);
+        }
+      }
+    };
+
     wsManager.on('tour_list_changed', handleTourListChanged);
     wsManager.on('tour_state_updated', handleTourStateUpdated);
+    wsManager.on('tour_structure_updated', handleTourStructureUpdated);
 
     return () => {
       wsManager.off('tour_list_changed', handleTourListChanged);
       wsManager.off('tour_state_updated', handleTourStateUpdated);
+      wsManager.off('tour_structure_updated', handleTourStructureUpdated);
     };
-  }, [isAmbassadorLedMember]);
+  }, [isAmbassadorLedMember, schoolId]);
 
   // Listen for WebSocket events (for ambassadors to confirm their changes)
   useEffect(() => {
@@ -703,15 +748,10 @@ export default function TourScreen() {
       if (isAmbassador) {
         const tourId = await tourGroupSelectionService.getSelectedTourGroup();
         if (tourId) {
-          // Send tour list changed event for immediate member updates
+          // Send tour list changed event with only location IDs (just the array)
           wsManager.send('tour:tour-list-changed', {
             tourId,
-            newTourStructure: {
-              tour_stops: tourStops,
-              interests_used: selectedInterests,
-              visited_locations: visitedLocations, // Include checked off stops
-              last_updated: new Date().toISOString()
-            }
+            newTourStructure: tourStops.map(stop => stop.id) // Just the array of location IDs
           });
         }
       }

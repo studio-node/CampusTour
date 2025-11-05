@@ -201,22 +201,18 @@ async function handleTourStart(ws, supabase, tourSessions, tourId, session) {
     console.error('Error generating tour on start:', e);
   }
 
-  // Persist session as active and save generated structure
+  // Persist session as active and save generated structure (just location IDs)
   await updateLiveTourSession(supabase, tourId, {
     status: 'active',
-    live_tour_structure: {
-      interests_used: interestsUsed,
-      generated_tour_order: generatedOrder,
-    }
+    live_tour_structure: generatedOrder, // Just the array of location IDs
   });
 
-  // Return generated tour to ambassador
+  // Return generated tour to ambassador (just the array of location IDs)
   ws.send(JSON.stringify({
     type: 'tour_started',
     payload: {
       tourId,
-      interests_used: interestsUsed,
-      generated_tour_order: generatedOrder,
+      generated_tour_order: generatedOrder, // Array of location IDs
     }
   }));
 
@@ -224,7 +220,7 @@ async function handleTourStart(ws, supabase, tourSessions, tourId, session) {
   if (session && session.members) {
     broadcastToMembers(session, {
       type: 'tour_structure_updated',
-      changes: { new_structure: { interests_used: interestsUsed, generated_tour_order: generatedOrder } }
+      changes: { new_structure: generatedOrder } // Just the array of location IDs
     });
   }
 }
@@ -245,11 +241,31 @@ async function handleTourStructureUpdate(supabase, session, payload) {
   const { tourId, changes } = payload;
   console.log(`Broadcasting and persisting structure update for tour ${tourId}:`, changes);
 
+  // Extract location IDs - handle both array format and object format for backward compatibility
+  let locationIds = [];
+  if (Array.isArray(changes.new_structure)) {
+    // Already in simple array format
+    locationIds = changes.new_structure;
+  } else if (changes.new_structure.generated_tour_order && Array.isArray(changes.new_structure.generated_tour_order)) {
+    // Object format with generated_tour_order
+    locationIds = changes.new_structure.generated_tour_order;
+  } else if (changes.new_structure.tour_stops && Array.isArray(changes.new_structure.tour_stops)) {
+    // Extract location IDs from full objects
+    locationIds = changes.new_structure.tour_stops.map(stop => 
+      typeof stop === 'string' ? stop : stop.id
+    );
+  }
+
+  // Store just the array of location IDs
   await updateLiveTourSession(supabase, tourId, {
-    live_tour_structure: changes.new_structure,
+    live_tour_structure: locationIds,
   });
 
-  broadcastToMembers(session, { type: 'tour_structure_updated', changes });
+  // Broadcast just the array of location IDs
+  broadcastToMembers(session, { 
+    type: 'tour_structure_updated', 
+    changes: { new_structure: locationIds } 
+  });
 }
 
 async function handleTourEnd(ws, supabase, tourSessions, tourId, session) {
@@ -268,22 +284,32 @@ async function handleTourListChanged(supabase, session, payload) {
   console.log(`Broadcasting and persisting tour list changes for tour ${tourId}:`, newTourStructure);
 
   try {
-    // Update the database with the new tour structure and visited locations
+    // Extract location IDs - handle both array format and object format for backward compatibility
+    let locationIds = [];
+    if (Array.isArray(newTourStructure)) {
+      // Already in simple array format
+      locationIds = newTourStructure;
+    } else if (newTourStructure.generated_tour_order && Array.isArray(newTourStructure.generated_tour_order)) {
+      // Object format with generated_tour_order
+      locationIds = newTourStructure.generated_tour_order;
+    } else if (newTourStructure.tour_stops && Array.isArray(newTourStructure.tour_stops)) {
+      // Extract location IDs from full objects
+      locationIds = newTourStructure.tour_stops.map(stop => 
+        typeof stop === 'string' ? stop : stop.id
+      );
+    }
+
+    // Store just the array of location IDs
     await updateLiveTourSession(supabase, tourId, {
-      live_tour_structure: {
-        ...newTourStructure,
-        last_updated: new Date().toISOString()
-      },
-      visited_locations: newTourStructure.visited_locations || []
+      live_tour_structure: locationIds,
     });
 
-    // Broadcast the changes to all group members
+    // Broadcast just the array of location IDs
     broadcastToMembers(session, { 
       type: 'tour_list_changed', 
       payload: {
         tourId,
-        newTourStructure,
-        timestamp: new Date().toISOString()
+        newTourStructure: locationIds, // Just the array of location IDs
       }
     });
 
