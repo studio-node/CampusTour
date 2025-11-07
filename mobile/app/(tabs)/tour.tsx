@@ -52,6 +52,7 @@ const TourStopItem = ({
   primaryColor,
   isEditing,
   isAmbassador,
+  isAmbassadorLedMember,
   canEdit,
   onDelete,
   onMoveUp,
@@ -65,6 +66,7 @@ const TourStopItem = ({
   primaryColor: string;
   isEditing: boolean;
   isAmbassador: boolean;
+  isAmbassadorLedMember: boolean;
   canEdit: boolean;
   onDelete: (id: string) => void;
   onMoveUp: (id: string) => void;
@@ -103,7 +105,7 @@ const TourStopItem = ({
         
         <View style={styles.tourStopInfo}>
           <View style={styles.tourStopHeader}>
-            {!isEditing && (
+            {!isEditing && !isAmbassadorLedMember && (
               <TouchableOpacity 
                 style={[
                   styles.checkboxContainer, 
@@ -1099,7 +1101,7 @@ export default function TourScreen() {
       {tourUpdatedByAmbassador && (
         <View style={styles.tourUpdateNotification}>
           <Text style={styles.tourUpdateNotificationText}>
-            🎯 Tour updated by ambassador
+            Tour updated by ambassador
           </Text>
         </View>
       )}
@@ -1153,6 +1155,7 @@ export default function TourScreen() {
               primaryColor={primaryColor}
               isEditing={isEditingTour}
               isAmbassador={isAmbassador}
+              isAmbassadorLedMember={isAmbassadorLedMember}
               canEdit={canEditTour}
               onDelete={deleteTourStop}
               onMoveUp={isEditingTour ? moveTourStopUp : () => {}}
