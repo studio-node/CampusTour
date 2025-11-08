@@ -37,16 +37,21 @@ export default function TourDetailsScreen() {
   const [error, setError] = useState('');
   const [userType, setUserType] = useState<UserType>(null);
   const [participants, setParticipants] = useState<TourParticipant[]>([]);
+  const [joinedMemberIds, setJoinedMemberIds] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
 
-  // Function to refresh participants
+  // Function to refresh participants and joined members
   const refreshParticipants = async () => {
     if (!tour?.id) return;
     
     try {
       setRefreshing(true);
-      const tourParticipants = await leadsService.getTourParticipants(tour.id);
+      const [tourParticipants, joinedIds] = await Promise.all([
+        leadsService.getTourParticipants(tour.id),
+        leadsService.getJoinedMembers(tour.id)
+      ]);
       setParticipants(tourParticipants);
+      setJoinedMemberIds(new Set(joinedIds));
     } catch (error) {
       console.error('Error refreshing participants:', error);
     } finally {
@@ -74,13 +79,18 @@ export default function TourDetailsScreen() {
           const schoolDetails = await schoolService.getSchoolById(tourDetails.school_id);
           setSchool(schoolDetails);
           
-          // Fetch tour participants
+          // Fetch tour participants and joined members
           try {
-            const tourParticipants = await leadsService.getTourParticipants(tourId);
+            const [tourParticipants, joinedIds] = await Promise.all([
+              leadsService.getTourParticipants(tourId),
+              leadsService.getJoinedMembers(tourId)
+            ]);
             setParticipants(tourParticipants);
+            setJoinedMemberIds(new Set(joinedIds));
           } catch (participantError) {
             console.error('Error fetching participants:', participantError);
             setParticipants([]);
+            setJoinedMemberIds(new Set());
           }
         }
       } catch (err) {
@@ -111,7 +121,6 @@ export default function TourDetailsScreen() {
     };
     wsManager.on('open', onOpen);
 
-    let joinRetryTimer: ReturnType<typeof setInterval> | null = null;
     const onMessage = async (message: any) => {
       if (userType === 'ambassador' && message?.type === 'tour_started') {
         // Update app state with generated tour before navigating
@@ -140,27 +149,68 @@ export default function TourDetailsScreen() {
         }
         router.replace('/map');
       }
-      if (userType === 'ambassador-led' && message?.type === 'session_joined') {
-        if (joinRetryTimer) { clearInterval(joinRetryTimer as number); joinRetryTimer = null; }
+      if (userType === 'ambassador' && message?.type === 'member_joined' && message?.lead) {
+        // Add new member to joined set and update participants list
+        const newLead = message.lead;
+        setJoinedMemberIds(prev => new Set([...prev, newLead.id]));
+        
+        // Check if this participant is already in the list
+        setParticipants(prev => {
+          const exists = prev.some(p => p.id === newLead.id);
+          if (exists) {
+            // Update existing participant
+            return prev.map(p => p.id === newLead.id ? { ...p, ...newLead } : p);
+          } else {
+            // Add new participant
+            return [...prev, { ...newLead, interests: [] } as TourParticipant];
+          }
+        });
+      }
+      if (userType === 'ambassador' && message?.type === 'member_left' && message?.leadId) {
+        // Remove member from joined set
+        setJoinedMemberIds(prev => {
+          const updated = new Set(prev);
+          updated.delete(message.leadId);
+          return updated;
+        });
+      }
+      if (userType === 'ambassador-led' && message?.type === 'tour_started') {
+        // Navigate to map when tour actually starts
         router.replace('/map');
+      }
+      if (userType === 'ambassador-led' && message?.type === 'session_joined') {
+        // Stay on tour-details screen after joining, don't navigate yet
+        console.log('Successfully joined session');
       }
     };
     wsManager.on('message', onMessage);
 
-    // If member, try to join session until success
+    // If member, send join_session once when screen loads
     (async () => {
       const tId = await tourGroupSelectionService.getSelectedTourGroup();
       if (userType === 'ambassador-led' && tId) {
-        const sendJoin = () => wsManager.send('join_session', { tourId: tId });
-        sendJoin();
-        joinRetryTimer = setInterval(sendJoin, 3000);
+        const leadId = await leadsService.getStoredLeadId();
+        if (leadId) {
+          // Wait for websocket to be open before sending
+          if (wsManager.getStatus() === 'open') {
+            wsManager.send('join_session', { tourId: tId, leadId });
+          } else {
+            // Wait for connection to open
+            const onOpenForJoin = () => {
+              wsManager.send('join_session', { tourId: tId, leadId });
+              wsManager.off('open', onOpenForJoin);
+            };
+            wsManager.on('open', onOpenForJoin);
+          }
+        } else {
+          console.error('No leadId found. Cannot join session.');
+        }
       }
     })();
 
     return () => {
       wsManager.off('open', onOpen);
       wsManager.off('message', onMessage);
-      if (joinRetryTimer) clearInterval(joinRetryTimer as number);
     }
   }, [userType]);
 
@@ -218,7 +268,7 @@ export default function TourDetailsScreen() {
           </View>
           <View style={styles.memberHeader}>
             <Text style={styles.memberHeaderText}>
-              Tour Members ({participants.length}/{tour?.max_participants || '∞'})
+              Tour Members ({joinedMemberIds.size}/{tour?.max_participants || '∞'})
             </Text>
 
           </View>
@@ -236,12 +286,12 @@ export default function TourDetailsScreen() {
                         <View 
                           style={[
                             styles.capacityFill, 
-                            { width: `${Math.min((participants.length / tour.max_participants) * 100, 100)}%` }
+                            { width: `${Math.min((joinedMemberIds.size / tour.max_participants) * 100, 100)}%` }
                           ]} 
                         />
                       </View>
                       <Text style={styles.capacityText}>
-                        {tour.max_participants - participants.length} spots remaining
+                        {tour.max_participants - joinedMemberIds.size} spots remaining
                       </Text>
                       <TouchableOpacity 
                         style={styles.refreshButton} 
@@ -261,23 +311,28 @@ export default function TourDetailsScreen() {
                     <FlatList
                       data={participants}
                       keyExtractor={(item) => item.id || item.email}
-                      renderItem={({ item }) => (
-                        <View style={styles.memberItem}>
-                          <View style={styles.memberInfo}>
-                            <Text style={styles.memberName}>{item.name}</Text>
-                            <Text style={styles.memberEmail}>{item.email}</Text>
-                            {item.interests && item.interests.length > 0 && (
-                              <Text style={styles.memberInterests}>
-                                Interests: {item.interests.join(', ')}
-                              </Text>
+                      renderItem={({ item }) => {
+                        const isJoined = item.id && joinedMemberIds.has(item.id);
+                        return (
+                          <View style={styles.memberItem}>
+                            <View style={styles.memberInfo}>
+                              <Text style={styles.memberName}>{item.name}</Text>
+                              <Text style={styles.memberEmail}>{item.email}</Text>
+                              {item.interests && item.interests.length > 0 && (
+                                <Text style={styles.memberInterests}>
+                                  Interests: {item.interests.join(', ')}
+                                </Text>
+                              )}
+                            </View>
+                            {isJoined && (
+                              <View style={styles.memberStatus}>
+                                <IconSymbol name="checkmark.circle.fill" size={12} color="#fff" />
+                                <Text style={styles.memberStatusText}>Joined</Text>
+                              </View>
                             )}
                           </View>
-                          <View style={styles.memberStatus}>
-                            <IconSymbol name="checkmark.circle.fill" size={12} color="#fff" />
-                            <Text style={styles.memberStatusText}>Joined</Text>
-                          </View>
-                        </View>
-                      )}
+                        );
+                      }}
                       style={styles.memberList}
                       contentContainerStyle={styles.memberListContent}
                       refreshing={refreshing}

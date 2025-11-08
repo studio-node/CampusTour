@@ -46,6 +46,7 @@ CREATE TABLE public.live_tour_sessions (
   visited_locations jsonb NOT NULL DEFAULT '[]'::jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  joined_members ARRAY NOT NULL DEFAULT '{}'::uuid[],
   CONSTRAINT live_tour_sessions_pkey PRIMARY KEY (id),
   CONSTRAINT live_tour_sessions_ambassador_id_fkey FOREIGN KEY (ambassador_id) REFERENCES auth.users(id),
   CONSTRAINT live_tour_sessions_current_location_id_fkey FOREIGN KEY (current_location_id) REFERENCES public.locations(id),

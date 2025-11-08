@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 
-const WS_URL = 'wss://campustourbackend.onrender.com';
-// const WS_URL = 'ws://localhost:3000';
+// const WS_URL = 'wss://campustourbackend.onrender.com';
+const WS_URL = 'ws://localhost:3000';
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -50,6 +50,7 @@ async function run() {
 
   const tourId = args['tour-id'] || 'cdb9d53f-89de-4a57-8735-a052bfeb3dbc';
   const ambassadorId = args['ambassador-id'] || '0a939b8f-0d00-4895-bb08-f881bbdfe8c8';
+  const email = args['email'] || 'pace.thomson@utahtech.edu';
 
   console.log(`Connecting to ${WS_URL} as ${userType}...`);
 
@@ -58,7 +59,7 @@ async function run() {
   ws.on('open', () => {
     console.log('WebSocket open');
     if (userType === 'group') {
-      send(ws, 'join_session', { tourId });
+      send(ws, 'join_session', { tourId, email });
     } else if (userType === 'ambassador') {
       send(ws, 'auth', { sub: ambassadorId });
     }

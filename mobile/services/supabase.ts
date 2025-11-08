@@ -661,6 +661,31 @@ export const leadsService = {
   },
 
   /**
+   * Get joined members for a tour appointment from live_tour_sessions
+   * @param tourAppointmentId - The tour appointment ID
+   * @returns Promise<string[]> Array of lead IDs that have joined
+   */
+  async getJoinedMembers(tourAppointmentId: string): Promise<string[]> {
+    try {
+      const { data, error } = await supabase
+        .from('live_tour_sessions')
+        .select('joined_members')
+        .eq('tour_appointment_id', tourAppointmentId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching joined members:', error);
+        return [];
+      }
+
+      return (data?.joined_members || []) as string[];
+    } catch (error) {
+      console.error('Exception fetching joined members:', error);
+      return [];
+    }
+  },
+
+  /**
    * Verify confirmation code for a tour appointment
    * @param confirmationCode - The 6-character confirmation code
    * @param tourAppointmentId - The tour appointment ID
