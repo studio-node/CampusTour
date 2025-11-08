@@ -298,8 +298,9 @@ export default function TourDetailsScreen() {
               </>
             ) : (
               <View style={styles.waitingContainer}>
-                <ActivityIndicator size="large" />
-                <Text style={styles.waitingText}>Waiting for the ambassador to start the tour...</Text>
+                <ActivityIndicator size="large" color="#3B82F6" />
+                <Text style={styles.waitingText}>Waiting for Ambassador</Text>
+                <Text style={styles.waitingSubtext}>The tour will begin once the ambassador starts it</Text>
               </View>
             )}
           </View>
@@ -361,11 +362,21 @@ const styles = StyleSheet.create({
   },
   waitingContainer: {
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
   },
   waitingText: {
     marginTop: 20,
-    fontSize: 16,
-    color: '#ccc',
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  waitingSubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    paddingHorizontal: 40,
   },
   memberListSection: {
     width: '100%',
