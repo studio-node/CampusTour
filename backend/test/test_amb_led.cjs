@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 
-const WS_URL = 'wss://campustourbackend.onrender.com';
-// const WS_URL = 'ws://localhost:3000';
+// const WS_URL = 'wss://campustourbackend.onrender.com';
+const WS_URL = 'ws://localhost:3000';
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -23,7 +23,7 @@ function parseArgs() {
 }
 
 function usageAndExit() {
-  console.log('Usage: node backend/test/test_amb_led.js --user-type <ambassador|group> [--tour-id <uuid>] [--ambassador-id <uuid>]');
+  console.log('Usage: node backend/test/test_amb_led.js --user-type <ambassador|group> [--tour-id <uuid>] [--ambassador-id <uuid>] [--lead-id <uuid>]');
   process.exit(1);
 }
 
@@ -50,6 +50,7 @@ async function run() {
 
   const tourId = args['tour-id'] || 'cdb9d53f-89de-4a57-8735-a052bfeb3dbc';
   const ambassadorId = args['ambassador-id'] || '0a939b8f-0d00-4895-bb08-f881bbdfe8c8';
+  const leadId = args['lead-id'] || args['leadId'] || '0ed17b61-7cc0-4add-99b0-c08285bb56e6' || null;
 
   console.log(`Connecting to ${WS_URL} as ${userType}...`);
 
@@ -58,7 +59,12 @@ async function run() {
   ws.on('open', () => {
     console.log('WebSocket open');
     if (userType === 'group') {
-      send(ws, 'join_session', { tourId });
+      if (!leadId) {
+        console.error('Error: --lead-id is required for group user type');
+        usageAndExit();
+        return;
+      }
+      send(ws, 'join_session', { tourId, leadId });
     } else if (userType === 'ambassador') {
       send(ws, 'auth', { sub: ambassadorId });
     }

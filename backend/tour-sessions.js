@@ -121,7 +121,34 @@ async function handleCreateSession(ws, supabase, tourSessions, payload) {
 
 
 async function handleJoinSession(ws, supabase, tourSessions, payload) {
-  const { tourId } = payload;
+  const { tourId, leadId } = payload;
+  
+  if (!leadId) {
+    ws.send(JSON.stringify({ type: 'error', message: 'leadId is required to join session.' }));
+    return;
+  }
+
+  // Fetch full lead information from database
+  let leadInfo = null;
+  try {
+    const { data: lead, error: leadError } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('id', leadId)
+      .single();
+    
+    if (leadError || !lead) {
+      console.error('Error fetching lead:', leadError);
+      ws.send(JSON.stringify({ type: 'error', message: 'Invalid leadId.' }));
+      return;
+    }
+    leadInfo = lead;
+  } catch (error) {
+    console.error('Exception fetching lead:', error);
+    ws.send(JSON.stringify({ type: 'error', message: 'Failed to fetch lead information.' }));
+    return;
+  }
+
   let session = tourSessions.get(tourId);
   if (!session) {
     // Create a new live tour session in DB with awaiting_start status for first joiner
@@ -143,13 +170,63 @@ async function handleJoinSession(ws, supabase, tourSessions, payload) {
     console.log(`Live tour session created in awaiting_start for ${tourId}`);
   }
 
+  // Update joined_members array in database
+  try {
+    // Get current joined_members array
+    const { data: currentSession, error: fetchError } = await supabase
+      .from('live_tour_sessions')
+      .select('joined_members')
+      .eq('tour_appointment_id', tourId)
+      .single();
+    
+    if (fetchError) {
+      console.error('Error fetching session:', fetchError);
+    } else {
+      const currentJoined = currentSession?.joined_members || [];
+      // Only add if not already present
+      if (!currentJoined.includes(leadId)) {
+        const updatedJoined = [...currentJoined, leadId];
+        const { error: updateError } = await supabase
+          .from('live_tour_sessions')
+          .update({ joined_members: updatedJoined })
+          .eq('tour_appointment_id', tourId);
+        
+        if (updateError) {
+          console.error('Error updating joined_members:', updateError);
+        } else {
+          console.log(`Added leadId ${leadId} to joined_members for tour ${tourId}`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Exception updating joined_members:', error);
+    // Continue even if update fails - we still want to add them to the session
+  }
+
+  // Store leadId on websocket for disconnect handling
+  ws.leadId = leadId;
+
   // Add this websocket as a member (ambassador will be set later on start)
   session.members.add(ws);
   ws.tourId = tourId;
-  console.log(`Client ${ws.id} joined tour: ${tourId}`);
+  console.log(`Client ${ws.id} (leadId: ${leadId}) joined tour: ${tourId}`);
   ws.send(JSON.stringify({ type: 'session_joined', tourId }));
+  
+  // Notify ambassador with full lead information
   if (session.ambassador && session.ambassador.readyState === 1) {
-    session.ambassador.send(JSON.stringify({ type: 'member_joined', memberId: ws.id }));
+    session.ambassador.send(JSON.stringify({ 
+      type: 'member_joined', 
+      lead: {
+        id: leadInfo.id,
+        name: leadInfo.name,
+        email: leadInfo.email,
+        identity: leadInfo.identity,
+        address: leadInfo.address,
+        date_of_birth: leadInfo.date_of_birth,
+        gender: leadInfo.gender,
+        grad_year: leadInfo.grad_year,
+      }
+    }));
   }
 }
 
@@ -334,11 +411,11 @@ function handleAmbassadorPing(ws, session, payload) {
 
 async function handleDisconnect(ws, supabase, tourSessions) {
   console.log(`Client ${ws.id} disconnected`);
-  const { tourId } = ws;
+  const { tourId, leadId } = ws;
   if (tourId) {
     const session = tourSessions.get(tourId);
     if (session) {
-      if (session.ambassador.id === ws.id) {
+      if (session.ambassador && session.ambassador.id === ws.id) {
         console.log(`Ambassador for tour ${tourId} disconnected. Closing session.`);
 
         await updateLiveTourSession(supabase, tourId, { status: 'ended' });
@@ -348,8 +425,43 @@ async function handleDisconnect(ws, supabase, tourSessions) {
         tourSessions.delete(tourId);
       } else if (session.members.has(ws)) {
         session.members.delete(ws);
-        console.log(`Member ${ws.id} left tour ${tourId}.`);
-        session.ambassador.send(JSON.stringify({ type: 'member_left', memberId: ws.id }));
+        console.log(`Member ${ws.id} (leadId: ${leadId}) left tour ${tourId}.`);
+        
+        // Remove leadId from joined_members array in database
+        if (leadId) {
+          try {
+            const { data: currentSession, error: fetchError } = await supabase
+              .from('live_tour_sessions')
+              .select('joined_members')
+              .eq('tour_appointment_id', tourId)
+              .single();
+            
+            if (!fetchError && currentSession?.joined_members) {
+              const updatedJoined = currentSession.joined_members.filter(id => id !== leadId);
+              const { error: updateError } = await supabase
+                .from('live_tour_sessions')
+                .update({ joined_members: updatedJoined })
+                .eq('tour_appointment_id', tourId);
+              
+              if (updateError) {
+                console.error('Error removing leadId from joined_members:', updateError);
+              } else {
+                console.log(`Removed leadId ${leadId} from joined_members for tour ${tourId}`);
+              }
+            }
+          } catch (error) {
+            console.error('Exception removing leadId from joined_members:', error);
+          }
+        }
+        
+        // Notify ambassador
+        if (session.ambassador && session.ambassador.readyState === 1) {
+          session.ambassador.send(JSON.stringify({ 
+            type: 'member_left', 
+            leadId: leadId || null,
+            memberId: ws.id 
+          }));
+        }
       }
     }
   }
