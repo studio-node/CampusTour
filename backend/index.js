@@ -45,7 +45,7 @@ app.post('/generate-tour', express.json(), async (req, res) => {
 });
 
 const server = app.listen(port, () => {
-  console.log(`Express is listening at http://localhost:${port}`);
+  console.log(`Express is listening and running now on port ${port}`);
 });
 
 

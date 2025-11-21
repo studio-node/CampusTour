@@ -8,9 +8,9 @@ Before you run it, make sure the tour you're trying to use
 isn't in `live_tour_sessions`. Just delete it if it's in there.
 
 - Group
-  - `node test_amb_led.js --user-type group`
+  - `node test_amb_led.cjs --user-type group`
 - Ambassador
-  - `node test_amb_led.js --user-type ambassador`
+  - `node test_amb_led.cjs --user-type ambassador`
 - Optional override flags:
   - `--tour-id <example-tour-id>`
   - `--ambassador-id <example-ambassador-id>`
