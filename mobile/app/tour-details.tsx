@@ -125,6 +125,15 @@ export default function TourDetailsScreen() {
           initial_structure: {},
           ambassador_id: u?.id || null,
         });
+        
+        // Fetch joined members after a short delay to ensure session is created/ready
+        // This handles the case where members joined before the ambassador loaded the screen
+        setTimeout(async () => {
+          const currentUserType = await userTypeService.getUserType();
+          if (currentUserType === 'ambassador') {
+            await fetchJoinedMembers(tId);
+          }
+        }, 500); // Small delay to ensure backend has processed the create_session
       }
     };
     wsManager.on('open', onOpen);
@@ -136,14 +145,16 @@ export default function TourDetailsScreen() {
 
     const onMessage = async (message: any) => {
       // Handle session creation/joining - fetch joined members after session is ready
-      if (userType === 'ambassador' && message?.type === 'session_created') {
+      const currentUserType = await userTypeService.getUserType();
+      
+      if (currentUserType === 'ambassador' && message?.type === 'session_created') {
         const tId = await tourGroupSelectionService.getSelectedTourGroup();
         if (tId) {
-          // Session created, now fetch joined members
+          // Session created, now fetch joined members (including those who joined before)
           await fetchJoinedMembers(tId);
         }
       }
-      if (userType === 'ambassador-led' && message?.type === 'session_joined') {
+      if (currentUserType === 'ambassador-led' && message?.type === 'session_joined') {
         const tId = await tourGroupSelectionService.getSelectedTourGroup();
         if (tId) {
           // Session joined, fetch joined members (for ambassador view if they're viewing)
