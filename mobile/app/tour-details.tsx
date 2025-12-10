@@ -46,10 +46,13 @@ export default function TourDetailsScreen() {
     
     try {
       setRefreshing(true);
-      const [tourParticipants, joinedIds] = await Promise.all([
-        leadsService.getTourParticipants(tour.id),
-        leadsService.getJoinedMembers(tour.id)
-      ]);
+      // const [tourParticipants, joinedIds] = await Promise.all([
+      //   leadsService.getTourParticipants(tour.id),
+      //   leadsService.getJoinedMembers(tour.id)
+      // ]);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const tourParticipants = await leadsService.getTourParticipants(tour.id);
+      const joinedIds = await leadsService.getJoinedMembers(tour.id);
       setParticipants(tourParticipants);
       setJoinedMemberIds(new Set(joinedIds));
     } catch (error) {

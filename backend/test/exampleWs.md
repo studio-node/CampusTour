@@ -4,7 +4,8 @@
 {
   "type": "join_session",
   "payload": {
-    "tourId": "cdb9d53f-89de-4a57-8735-a052bfeb3dbc"  
+    "tourId": "cdb9d53f-89de-4a57-8735-a052bfeb3dbc",
+    "leadId": "0ed17b61-7cc0-4add-99b0-c08285bb56e6"
   }
 }
 

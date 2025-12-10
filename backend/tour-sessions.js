@@ -66,6 +66,101 @@ function broadcastToMembers(session, message) {
   });
 }
 
+// Ensures a session exists in memory and database. Creates it if it doesn't exist.
+// Returns the session object or null if creation failed.
+async function ensureSessionExists(ws, supabase, tourSessions, tourId, options = {}) {
+  // Check if session exists in memory
+  let session = tourSessions.get(tourId);
+  if (session) {
+    return session;
+  }
+
+  // Check if session exists in database
+  try {
+    const { data: existingSession, error: fetchError } = await supabase
+      .from('live_tour_sessions')
+      .select('*')
+      .eq('tour_appointment_id', tourId)
+      .single();
+    
+    if (!fetchError && existingSession) {
+      // Session exists in DB but not in memory - restore it
+      session = { ambassador: null, members: new Set() };
+      tourSessions.set(tourId, session);
+      console.log(`Restored session ${tourId} from database`);
+      return session;
+    }
+  } catch (error) {
+    console.error('Error checking for existing session:', error);
+  }
+
+  // Session doesn't exist - create it
+  console.log(`No session found for ${tourId}. Creating new session.`);
+  
+  // Fetch ambassador_id from tour_appointments if not provided
+  let ambassadorId = options.ambassador_id || (ws.user && ws.user.sub) || null;
+  if (!ambassadorId) {
+    try {
+      const { data: tourAppt, error: tourApptError } = await supabase
+        .from('tour_appointments')
+        .select('ambassador_id')
+        .eq('id', tourId)
+        .single();
+      
+      if (!tourApptError && tourAppt?.ambassador_id) {
+        ambassadorId = tourAppt.ambassador_id;
+        console.log(`Fetched ambassador_id ${ambassadorId} from tour appointment ${tourId}`);
+      } else if (tourApptError) {
+        console.error('Error fetching tour appointment:', tourApptError);
+      }
+    } catch (error) {
+      console.error('Exception fetching tour appointment:', error);
+    }
+  }
+  
+  if (!ambassadorId) {
+    console.error(`Cannot create session for ${tourId}: ambassador_id is required but not found`);
+    return null;
+  }
+
+  const sessionData = {
+    tour_appointment_id: tourId,
+    ambassador_id: ambassadorId,
+    initial_structure: options.initial_structure || {},
+  };
+
+  const newSession = await createLiveTourSession(supabase, sessionData);
+  if (!newSession) {
+    // Creation failed - might be a race condition where another process created it
+    // Try to fetch it again
+    try {
+      const { data: existingSession, error: fetchError } = await supabase
+        .from('live_tour_sessions')
+        .select('*')
+        .eq('tour_appointment_id', tourId)
+        .single();
+      
+      if (!fetchError && existingSession) {
+        // Session was created by another process - restore it
+        session = { ambassador: null, members: new Set() };
+        tourSessions.set(tourId, session);
+        console.log(`Session ${tourId} was created by another process, restored from database`);
+        return session;
+      }
+    } catch (error) {
+      console.error('Error fetching session after creation failure:', error);
+    }
+    
+    console.error(`Failed to create session in database for tour ${tourId}`);
+    return null;
+  }
+
+  session = { ambassador: null, members: new Set() };
+  tourSessions.set(tourId, session);
+  console.log(`Live tour session created for ${tourId}`);
+  return session;
+}
+
 // Basic auth handler to attach a minimal user object to the websocket connection.
 // In production, validate a real JWT and fetch the user from Supabase.
 async function handleAuth(ws, _supabase, payload) {
@@ -87,44 +182,65 @@ async function handleAuth(ws, _supabase, payload) {
 
 async function handleCreateSession(ws, supabase, tourSessions, payload) {
   const { tourId, initial_structure } = payload;
-  if (!tourId || !initial_structure) {
-    ws.send(JSON.stringify({ type: 'error', message: 'tourId and initial_structure are required.' }));
-    return;
-  }
-  if (tourSessions.has(tourId)) {
-    // Session already exists; do not change status or ambassador binding here
-    ws.tourId = tourId;
-    ws.send(JSON.stringify({ type: 'session_created', tourId }));
+  if (!tourId) {
+    ws.send(JSON.stringify({ type: 'error', message: 'tourId is required.' }));
     return;
   }
 
-  const sessionData = {
-    tour_appointment_id: tourId,
+  // Ensure session exists (creates if it doesn't)
+  const session = await ensureSessionExists(ws, supabase, tourSessions, tourId, {
     ambassador_id: (ws.user && ws.user.sub) || payload.ambassador_id || null,
-    initial_structure,
-  };
+    initial_structure: initial_structure || {},
+  });
 
-  // Do not generate the tour here. Generation will occur on explicit 'tour:start'.
-
-  // Persist with default status awaiting_start (DB default assumed). Ensure status if needed.
-  const newSession = await createLiveTourSession(supabase, sessionData);
-  if (!newSession) {
+  if (!session) {
     ws.send(JSON.stringify({ type: 'error', message: 'Failed to create session in database.' }));
     return;
   }
 
-  tourSessions.set(tourId, { ambassador: ws, members: new Set() });
+  // Set ambassador if not already set
+  if (!session.ambassador) {
+    session.ambassador = ws;
+  }
+
   ws.tourId = tourId;
-  console.log(`Tour session created: ${tourId}`);
-  ws.send(JSON.stringify({ type: 'session_created', tourId, sessionData: newSession }));
+  console.log(`Ambassador ${ws.id} created/joined session: ${tourId}`);
+  
+  // Fetch the session data from DB to send back
+  try {
+    const { data: sessionData } = await supabase
+      .from('live_tour_sessions')
+      .select('*')
+      .eq('tour_appointment_id', tourId)
+      .single();
+    ws.send(JSON.stringify({ type: 'session_created', tourId, sessionData: sessionData || null }));
+  } catch (error) {
+    ws.send(JSON.stringify({ type: 'session_created', tourId }));
+  }
 }
 
 
 async function handleJoinSession(ws, supabase, tourSessions, payload) {
   const { tourId, leadId } = payload;
   
+  if (!tourId) {
+    ws.send(JSON.stringify({ type: 'error', message: 'tourId is required to join session.' }));
+    return;
+  }
+
   if (!leadId) {
     ws.send(JSON.stringify({ type: 'error', message: 'leadId is required to join session.' }));
+    return;
+  }
+
+  // Ensure session exists (creates if it doesn't) - first person to join creates it
+  const session = await ensureSessionExists(ws, supabase, tourSessions, tourId, {
+    ambassador_id: (ws.user && ws.user.sub) || null,
+    initial_structure: {},
+  });
+
+  if (!session) {
+    ws.send(JSON.stringify({ type: 'error', message: 'Failed to create session in database.' }));
     return;
   }
 
@@ -147,27 +263,6 @@ async function handleJoinSession(ws, supabase, tourSessions, payload) {
     console.error('Exception fetching lead:', error);
     ws.send(JSON.stringify({ type: 'error', message: 'Failed to fetch lead information.' }));
     return;
-  }
-
-  let session = tourSessions.get(tourId);
-  if (!session) {
-    // Create a new live tour session in DB with awaiting_start status for first joiner
-    console.log(`No session found for ${tourId}. Creating new session in awaiting_start status.`);
-    const sessionData = {
-      tour_appointment_id: tourId,
-      ambassador_id: (ws.user && ws.user.sub) || null,
-      initial_structure: {},
-    };
-    // Do not generate here. Generation is performed on 'tour:start'.
-
-    const created = await createLiveTourSession(supabase, sessionData);
-    if (!created) {
-      ws.send(JSON.stringify({ type: 'error', message: 'Failed to create session in database.' }));
-      return;
-    }
-    session = { ambassador: null, members: new Set() };
-    tourSessions.set(tourId, session);
-    console.log(`Live tour session created in awaiting_start for ${tourId}`);
   }
 
   // Update joined_members array in database
