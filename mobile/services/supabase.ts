@@ -674,6 +674,10 @@ export const leadsService = {
         .single();
 
       if (error) {
+        // PGRST116 means "no rows returned" - session doesn't exist yet, which is fine
+        if (error.code === 'PGRST116') {
+          return [];
+        }
         console.error('Error fetching joined members:', error);
         return [];
       }

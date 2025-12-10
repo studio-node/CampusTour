@@ -40,19 +40,27 @@ export default function TourDetailsScreen() {
   const [joinedMemberIds, setJoinedMemberIds] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
 
+  // Function to fetch joined members
+  const fetchJoinedMembers = async (tourId: string) => {
+    try {
+      const joinedIds = await leadsService.getJoinedMembers(tourId);
+      setJoinedMemberIds(new Set(joinedIds));
+    } catch (error) {
+      console.error('Error fetching joined members:', error);
+      setJoinedMemberIds(new Set());
+    }
+  };
+
   // Function to refresh participants and joined members
   const refreshParticipants = async () => {
     if (!tour?.id) return;
     
     try {
       setRefreshing(true);
-      // const [tourParticipants, joinedIds] = await Promise.all([
-      //   leadsService.getTourParticipants(tour.id),
-      //   leadsService.getJoinedMembers(tour.id)
-      // ]);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const tourParticipants = await leadsService.getTourParticipants(tour.id);
-      const joinedIds = await leadsService.getJoinedMembers(tour.id);
+      const [tourParticipants, joinedIds] = await Promise.all([
+        leadsService.getTourParticipants(tour.id),
+        leadsService.getJoinedMembers(tour.id)
+      ]);
       setParticipants(tourParticipants);
       setJoinedMemberIds(new Set(joinedIds));
     } catch (error) {
@@ -82,14 +90,11 @@ export default function TourDetailsScreen() {
           const schoolDetails = await schoolService.getSchoolById(tourDetails.school_id);
           setSchool(schoolDetails);
           
-          // Fetch tour participants and joined members
+          // Fetch tour participants (joined members will be fetched after session is created/joined)
           try {
-            const [tourParticipants, joinedIds] = await Promise.all([
-              leadsService.getTourParticipants(tourId),
-              leadsService.getJoinedMembers(tourId)
-            ]);
+            const tourParticipants = await leadsService.getTourParticipants(tourId);
             setParticipants(tourParticipants);
-            setJoinedMemberIds(new Set(joinedIds));
+            setJoinedMemberIds(new Set());
           } catch (participantError) {
             console.error('Error fetching participants:', participantError);
             setParticipants([]);
@@ -123,8 +128,30 @@ export default function TourDetailsScreen() {
       }
     };
     wsManager.on('open', onOpen);
+    
+    // If websocket is already open, trigger onOpen immediately
+    if (wsManager.getStatus() === 'open') {
+      onOpen();
+    }
 
     const onMessage = async (message: any) => {
+      // Handle session creation/joining - fetch joined members after session is ready
+      if (userType === 'ambassador' && message?.type === 'session_created') {
+        const tId = await tourGroupSelectionService.getSelectedTourGroup();
+        if (tId) {
+          // Session created, now fetch joined members
+          await fetchJoinedMembers(tId);
+        }
+      }
+      if (userType === 'ambassador-led' && message?.type === 'session_joined') {
+        const tId = await tourGroupSelectionService.getSelectedTourGroup();
+        if (tId) {
+          // Session joined, fetch joined members (for ambassador view if they're viewing)
+          await fetchJoinedMembers(tId);
+        }
+        console.log('Successfully joined session');
+      }
+
       if (userType === 'ambassador' && message?.type === 'tour_started') {
         // Update app state with generated tour before navigating
         try {
@@ -180,10 +207,6 @@ export default function TourDetailsScreen() {
       if (userType === 'ambassador-led' && message?.type === 'tour_started') {
         // Navigate to map when tour actually starts
         router.replace('/map');
-      }
-      if (userType === 'ambassador-led' && message?.type === 'session_joined') {
-        // Stay on tour-details screen after joining, don't navigate yet
-        console.log('Successfully joined session');
       }
     };
     wsManager.on('message', onMessage);
