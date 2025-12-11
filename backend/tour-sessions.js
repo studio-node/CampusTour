@@ -118,8 +118,10 @@ async function ensureSessionExists(ws, supabase, tourSessions, tourId, options =
     }
   }
   
+  // ambassador_id is required by the database schema
+  // It should always be available from tour_appointments
   if (!ambassadorId) {
-    console.error(`Cannot create session for ${tourId}: ambassador_id is required but not found`);
+    console.error(`Cannot create session for ${tourId}: ambassador_id is required but not found in tour_appointments.`);
     return null;
   }
 
@@ -234,8 +236,29 @@ async function handleJoinSession(ws, supabase, tourSessions, payload) {
   }
 
   // Ensure session exists (creates if it doesn't) - first person to join creates it
+  // Always fetch ambassador_id from tour_appointments to ensure we can create the session
+  let ambassadorId = (ws.user && ws.user.sub) || null;
+  if (!ambassadorId) {
+    try {
+      const { data: tourAppt, error: tourApptError } = await supabase
+        .from('tour_appointments')
+        .select('ambassador_id')
+        .eq('id', tourId)
+        .single();
+      
+      if (!tourApptError && tourAppt?.ambassador_id) {
+        ambassadorId = tourAppt.ambassador_id;
+        console.log(`Fetched ambassador_id ${ambassadorId} from tour appointment for join_session`);
+      } else if (tourApptError) {
+        console.error('Error fetching tour appointment for join_session:', tourApptError);
+      }
+    } catch (error) {
+      console.error('Exception fetching tour appointment for join_session:', error);
+    }
+  }
+
   const session = await ensureSessionExists(ws, supabase, tourSessions, tourId, {
-    ambassador_id: (ws.user && ws.user.sub) || null,
+    ambassador_id: ambassadorId,
     initial_structure: {},
   });
 
