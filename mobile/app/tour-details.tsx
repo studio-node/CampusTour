@@ -83,6 +83,74 @@ export default function TourDetailsScreen() {
         return;
       }
 
+      // For ambassador-led members, check if tour is already active
+      if (type === 'ambassador-led') {
+        try {
+          const sessionData = await leadsService.getLiveTourSession(tourId);
+          if (sessionData && sessionData.status === 'active') {
+            // Tour is already active, fetch tour state and navigate to map
+            const schoolId = await schoolService.getSelectedSchool();
+            if (schoolId && sessionData.live_tour_structure && Array.isArray(sessionData.live_tour_structure)) {
+              // Fetch all locations to convert IDs to Location objects
+              const allLocations = await locationService.getTourStops(schoolId);
+              const ordered: Location[] = sessionData.live_tour_structure
+                .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
+                .filter((loc: Location | undefined): loc is Location => Boolean(loc));
+              
+              // Convert visited_locations from JSONB array format
+              const visitedLocations = Array.isArray(sessionData.visited_locations) 
+                ? sessionData.visited_locations 
+                : [];
+              
+              // Find current stop index
+              let currentStopIndex = 0;
+              if (sessionData.current_location_id) {
+                const foundIndex = ordered.findIndex(loc => loc.id === sessionData.current_location_id);
+                currentStopIndex = foundIndex >= 0 ? foundIndex : 0;
+              }
+              
+              // Update app state with the current tour state
+              appStateManager.updateState({
+                tourState: {
+                  stops: ordered,
+                  selectedInterests: [],
+                  visitedLocations: visitedLocations,
+                  currentStopIndex: currentStopIndex,
+                  tourStarted: true,
+                  tourFinished: false,
+                  isEditingTour: false,
+                },
+              });
+              
+              // Ensure websocket is connected and join session before navigating
+              wsManager.connect();
+              const leadId = await leadsService.getStoredLeadId();
+              if (leadId) {
+                // Wait for websocket to open, then join session
+                const joinSession = () => {
+                  wsManager.send('join_session', { tourId, leadId });
+                };
+                
+                if (wsManager.getStatus() === 'open') {
+                  joinSession();
+                } else {
+                  wsManager.on('open', () => {
+                    joinSession();
+                  });
+                }
+              }
+              
+              // Navigate to map
+              router.replace('/map');
+              return;
+            }
+          }
+        } catch (sessionError) {
+          console.error('Error checking tour session status:', sessionError);
+          // Continue with normal flow if check fails
+        }
+      }
+
       try {
         const tourDetails = await tourAppointmentsService.getTourAppointmentById(tourId);
         setTour(tourDetails);

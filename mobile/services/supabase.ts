@@ -661,6 +661,39 @@ export const leadsService = {
   },
 
   /**
+   * Get live tour session data including status and tour state
+   * @param tourAppointmentId - The tour appointment ID
+   * @returns Promise with session data including status, visited_locations, current_location_id, live_tour_structure
+   */
+  async getLiveTourSession(tourAppointmentId: string): Promise<{
+    status: string | null;
+    visited_locations: string[] | null;
+    current_location_id: string | null;
+    live_tour_structure: string[] | null;
+  } | null> {
+    try {
+      const { data, error } = await supabase
+        .from('live_tour_sessions')
+        .select('status, visited_locations, current_location_id, live_tour_structure')
+        .eq('tour_appointment_id', tourAppointmentId)
+        .maybeSingle();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null; // Session doesn't exist
+        }
+        console.error('Error fetching live tour session:', error);
+        return null;
+      }
+
+      return data || null;
+    } catch (error) {
+      console.error('Exception fetching live tour session:', error);
+      return null;
+    }
+  },
+
+  /**
    * Get joined members for a tour appointment from live_tour_sessions
    * @param tourAppointmentId - The tour appointment ID
    * @returns Promise<string[]> Array of lead IDs that have joined
