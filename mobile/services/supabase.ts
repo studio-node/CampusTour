@@ -671,7 +671,7 @@ export const leadsService = {
         .from('live_tour_sessions')
         .select('joined_members')
         .eq('tour_appointment_id', tourAppointmentId)
-        .single();
+        .maybeSingle(); // Use maybeSingle() instead of single() to handle case where row might not exist
 
       if (error) {
         // PGRST116 means "no rows returned" - session doesn't exist yet, which is fine
@@ -679,10 +679,28 @@ export const leadsService = {
           return [];
         }
         console.error('Error fetching joined members:', error);
+        console.error('Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          tourAppointmentId
+        });
         return [];
       }
-
-      return (data?.joined_members || []) as string[];
+      
+      // If no data (maybeSingle returns null when no row), return empty array
+      if (!data) {
+        return [];
+      }
+      
+      // Return the joined_members array, ensuring it's an array
+      const joinedMembers = data?.joined_members;
+      if (Array.isArray(joinedMembers)) {
+        return joinedMembers as string[];
+      }
+      
+      return [];
     } catch (error) {
       console.error('Exception fetching joined members:', error);
       return [];
