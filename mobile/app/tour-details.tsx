@@ -117,24 +117,16 @@ export default function TourDetailsScreen() {
       if (u?.id) {
         wsManager.authenticate(u.id);
       }
-      // Create or attach to the live tour session on socket open
-      const tId = await tourGroupSelectionService.getSelectedTourGroup();
-      if (tId) {
-        wsManager.send('create_session', {
-          tourId: tId,
-          initial_structure: {},
-          ambassador_id: u?.id || null,
-        });
-        
-        // Fetch joined members after a short delay to ensure session is created/ready
-        // This handles the case where members joined before the ambassador loaded the screen
-        setTimeout(async () => {
-          const currentUserType = await userTypeService.getUserType();
-          if (currentUserType === 'ambassador') {
-            await fetchJoinedMembers(tId);
-          }
-        }, 500); // Small delay to ensure backend has processed the create_session
-      }
+        // Create or attach to the live tour session on socket open
+        const tId = await tourGroupSelectionService.getSelectedTourGroup();
+        if (tId) {
+          wsManager.send('create_session', {
+            tourId: tId,
+            initial_structure: {},
+            ambassador_id: u?.id || null,
+          });
+          // joined_members will be loaded from the session_created message response
+        }
     };
     wsManager.on('open', onOpen);
     
@@ -144,14 +136,21 @@ export default function TourDetailsScreen() {
     }
 
     const onMessage = async (message: any) => {
-      // Handle session creation/joining - fetch joined members after session is ready
+      // Handle session creation/joining - use joined_members from session_created message
       const currentUserType = await userTypeService.getUserType();
       
       if (currentUserType === 'ambassador' && message?.type === 'session_created') {
-        const tId = await tourGroupSelectionService.getSelectedTourGroup();
-        if (tId) {
-          // Session created, now fetch joined members (including those who joined before)
-          await fetchJoinedMembers(tId);
+        // Extract joined_members from the sessionData in the message
+        const joinedMembers = message?.sessionData?.joined_members || [];
+        if (Array.isArray(joinedMembers) && joinedMembers.length > 0) {
+          setJoinedMemberIds(new Set(joinedMembers));
+          console.log('Loaded joined members from session_created:', joinedMembers);
+        } else {
+          // Fallback: fetch from database if not in message
+          const tId = await tourGroupSelectionService.getSelectedTourGroup();
+          if (tId) {
+            await fetchJoinedMembers(tId);
+          }
         }
       }
       if (currentUserType === 'ambassador-led' && message?.type === 'session_joined') {
