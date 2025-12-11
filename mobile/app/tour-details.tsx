@@ -214,7 +214,7 @@ export default function TourDetailsScreen() {
           return updated;
         });
       }
-      if (userType === 'ambassador-led' && message?.type === 'tour_started') {
+      if (userType === 'ambassador-led' && message?.type === 'tour_structure_updated') {
         // Navigate to map when tour actually starts
         router.replace('/map');
       }
