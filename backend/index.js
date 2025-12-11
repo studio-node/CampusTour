@@ -8,6 +8,8 @@ import { sessionManager } from './tour-sessions.js';
 const app = express();
 const port = process.env.PORT || 3000;
 
+console.log('Env variable for NODE_ENV:\x1b[32m', process.env.NODE_ENV, "\x1b[0m\n\n");
+
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 const tourSessions = new Map();
