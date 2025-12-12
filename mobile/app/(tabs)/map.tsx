@@ -166,9 +166,11 @@ export default function MapScreen() {
     React.useCallback(() => {
       const checkForTour = async () => {
         try {
-          // Check if user is in an ambassador-led tour
+          // Check if user is in an ambassador-led tour or is an ambassador
           const userType = await userTypeService.getUserType();
           const isAmbassadorLed = userType === 'ambassador-led';
+          const isAmbassador = userType === 'ambassador';
+          const isAmbassadorTour = isAmbassadorLed || isAmbassador;
           
           // Check for active tour using appStateManager
           const currentState = appStateManager.getCurrentState();
@@ -182,19 +184,21 @@ export default function MapScreen() {
           
           setHasTour(hasActiveTour);
           
-          // Don't show modal for ambassador-led tours, as they follow a different flow
+          // Don't show modal for ambassador-led tours or ambassadors, as they follow a different flow
           // Show modal only for self-guided users with no tour and hasn't been shown this session
-          if (!isAmbassadorLed && !hasActiveTour && !hasShownModalThisSession) {
+          if (!isAmbassadorTour && !hasActiveTour && !hasShownModalThisSession) {
             setShowTourModal(true);
           }
         } catch (error) {
           console.error('Error checking for tour:', error);
           const userType = await userTypeService.getUserType();
           const isAmbassadorLed = userType === 'ambassador-led';
+          const isAmbassador = userType === 'ambassador';
+          const isAmbassadorTour = isAmbassadorLed || isAmbassador;
           
           setHasTour(false);
           // Only show modal for self-guided users if hasn't been shown this session
-          if (!isAmbassadorLed && !hasShownModalThisSession) {
+          if (!isAmbassadorTour && !hasShownModalThisSession) {
             setShowTourModal(true);
           }
         }
