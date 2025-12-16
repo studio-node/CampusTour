@@ -81,4 +81,10 @@
     }
   }
 }
+
+{
+  "type": "tour:end",
+  "payload": { "tourId": "cdb9d53f-89de-4a57-8735-a052bfeb3dbc" }
+}
+
 ```

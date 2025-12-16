@@ -2,7 +2,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import GeminiCaller from './gemini_caller.mjs';
 import { createClient } from '@supabase/supabase-js';
-import { getLocations } from './supabase.mjs';
+import { getLocations, closeInactiveSessions } from './supabase.mjs';
 import { sessionManager } from './tour-sessions.js';
 
 const app = express();
@@ -55,5 +55,18 @@ const wss = new WebSocketServer({ server });
 
 // Pass the Supabase client into the session manager so handlers can auth and persist
 wss.on('connection', ws => sessionManager(ws, supabase, tourSessions));
+
+// Set up interval to check for inactive sessions every 10 minutes
+const INACTIVE_SESSION_CHECK_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+
+setInterval(async () => {
+  console.log('Checking for inactive sessions...');
+  const closedCount = await closeInactiveSessions(supabase);
+  if (closedCount > 0) {
+    console.log(`Session timeout check completed: ${closedCount} session(s) closed.`);
+  }
+}, INACTIVE_SESSION_CHECK_INTERVAL_MS);
+
+console.log(`Session timeout checker initialized: checking every ${INACTIVE_SESSION_CHECK_INTERVAL_MS / 1000 / 60} minutes`);
 
 
