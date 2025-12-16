@@ -217,9 +217,6 @@ export function useResumeTour(): UseResumeTourReturn {
       // Save state
       await appStateManager.saveCurrentState();
       
-      // Set selected tour group so other parts of the app can access it
-      await tourGroupSelectionService.setSelectedTourGroup(tourId);
-      
       // Ensure websocket is connected and join session
       wsManager.connect();
       const leadId = await leadsService.getStoredLeadId();

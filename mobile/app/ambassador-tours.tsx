@@ -22,6 +22,8 @@ import {
   TourParticipant 
 } from '@/services/supabase';
 import { formatInterest, formatIdentity } from '@/constants/labels';
+import { useResumeTour } from '@/hooks/useResumeTour';
+import ResumeTourModal from '@/components/ResumeTourModal';
 
 export default function AmbassadorToursScreen() {
   const [tours, setTours] = useState<TourAppointment[]>([]);
@@ -34,7 +36,14 @@ export default function AmbassadorToursScreen() {
   const [selectedTourId, setSelectedTourId] = useState<string | null>(null);
   const router = useRouter();
   
-
+  // Check for resumable tour
+  const {
+    showResumeModal,
+    tourProgress,
+    tourType,
+    handleResume,
+    handleStartFresh,
+  } = useResumeTour();
 
   
   useEffect(() => {
@@ -382,6 +391,16 @@ export default function AmbassadorToursScreen() {
           </>
         )}
       </View>
+      
+      {/* Resume Tour Modal */}
+      <ResumeTourModal
+        visible={showResumeModal}
+        tourProgress={tourProgress}
+        onResume={handleResume}
+        onStartFresh={handleStartFresh}
+        primaryColor="#4CAF50"
+        tourType={tourType}
+      />
     </View>
   );
 }
