@@ -534,13 +534,24 @@ async function handleDisconnect(ws, supabase, tourSessions) {
     const session = tourSessions.get(tourId);
     if (session) {
       if (session.ambassador && session.ambassador.id === ws.id) {
-        console.log(`Ambassador for tour ${tourId} disconnected. Closing session.`);
-
-        await updateLiveTourSession(supabase, tourId, { status: 'ended' });
-
-        broadcastToMembers(session, { type: 'session_ended', message: 'The ambassador has disconnected.' });
-        session.members.forEach(member => member.close());
-        tourSessions.delete(tourId);
+        // Ambassador disconnected - don't end the tour, just remove ambassador reference
+        // This allows the ambassador to rejoin later
+        console.log(`Ambassador for tour ${tourId} disconnected. Tour continues, ambassador can rejoin.`);
+        
+        // Clear the ambassador reference but keep the session active
+        session.ambassador = null;
+        
+        // Optionally notify members that ambassador disconnected (but tour continues)
+        // Uncomment if you want to notify members:
+        // broadcastToMembers(session, { 
+        //   type: 'ambassador_disconnected', 
+        //   message: 'The ambassador has disconnected. The tour will continue when they rejoin.' 
+        // });
+        
+        // Do NOT:
+        // - Update status to 'ended' (keep it 'active')
+        // - Close member connections
+        // - Delete the session
       } else if (session.members.has(ws)) {
         session.members.delete(ws);
         console.log(`Member ${ws.id} (leadId: ${leadId}) left tour ${tourId}.`);
