@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus } from 'react-native';
-import { Location, Region, UserType } from './supabase';
+import { Location, Region, UserType, leadsService } from './supabase';
 
 // Storage keys with consistent prefix
 const STORAGE_KEYS = {
@@ -216,7 +216,7 @@ class AppStateManager {
   }
 
   /**
-   * Check if there's a resumable tour (for self-guided users only)
+   * Check if there's a resumable tour (for self-guided and ambassador-led users)
    */
   async hasResumableTour(): Promise<boolean> {
     try {
@@ -229,16 +229,64 @@ class AppStateManager {
         return false;
       }
       
-      // Only show resume for self-guided tours
-      if (state.userType !== 'self-guided') {
-        console.log('Not a self-guided tour, userType:', state.userType);
-        return false;
+      // Check for self-guided tours
+      if (state.userType === 'self-guided') {
+        // For now, assume all tours are resumable if they have any tour state
+        // This is a simplified approach for testing
+        console.log('Self-guided tour found, considering resumable');
+        return true;
       }
       
-      // For now, assume all tours are resumable if they have any tour state
-      // This is a simplified approach for testing
-      console.log('Self-guided tour found, considering resumable');
-      return true;
+      // Check for ambassador-led tours
+      if (state.userType === 'ambassador-led') {
+        // Verify tour ID exists
+        if (!state.sessionData?.tourAppointmentId) {
+          console.log('Ambassador-led tour but no tour ID found');
+          return false;
+        }
+        
+        // Verify tour session is still active via Supabase
+        try {
+          const sessionData = await leadsService.getLiveTourSession(state.sessionData.tourAppointmentId);
+          if (sessionData && sessionData.status === 'active') {
+            console.log('Ambassador-led tour found and still active');
+            return true;
+          } else {
+            console.log('Ambassador-led tour found but not active');
+            return false;
+          }
+        } catch (error) {
+          console.error('Error checking tour session status:', error);
+          return false;
+        }
+      }
+      
+      // Check for ambassador tours
+      if (state.userType === 'ambassador') {
+        // Verify tour ID exists
+        if (!state.sessionData?.tourAppointmentId) {
+          console.log('Ambassador tour but no tour ID found');
+          return false;
+        }
+        
+        // Verify tour session is still active via Supabase
+        try {
+          const sessionData = await leadsService.getLiveTourSession(state.sessionData.tourAppointmentId);
+          if (sessionData && sessionData.status === 'active') {
+            console.log('Ambassador tour found and still active');
+            return true;
+          } else {
+            console.log('Ambassador tour found but not active');
+            return false;
+          }
+        } catch (error) {
+          console.error('Error checking tour session status:', error);
+          return false;
+        }
+      }
+      
+      console.log('Not a resumable tour type, userType:', state.userType);
+      return false;
     } catch (error) {
       console.error('Error checking for resumable tour:', error);
       return false;
@@ -263,6 +311,20 @@ class AppStateManager {
       tourStartedAt: this.currentState.tourProgress?.tourStartedAt || new Date().toISOString(),
       lastActiveAt: this.currentState.lastUpdated,
     };
+  }
+
+  /**
+   * Get the user type from current state
+   */
+  getUserType(): UserType | null {
+    return this.currentState?.userType || null;
+  }
+
+  /**
+   * Get the tour appointment ID from current state (for ambassador-led tours)
+   */
+  getTourAppointmentId(): string | null {
+    return this.currentState?.sessionData?.tourAppointmentId || null;
   }
 
   /**

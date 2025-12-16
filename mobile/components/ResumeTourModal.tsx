@@ -16,6 +16,7 @@ interface ResumeTourModalProps {
   onResume: () => void;
   onStartFresh: () => void;
   primaryColor?: string;
+  tourType?: 'self-guided' | 'ambassador-led' | 'ambassador' | null;
 }
 
 const { width } = Dimensions.get('window');
@@ -26,10 +27,15 @@ export default function ResumeTourModal({
   onResume,
   onStartFresh,
   primaryColor = '#3B82F6',
+  tourType = 'self-guided',
 }: ResumeTourModalProps) {
-  if (!tourProgress) return null;
+  // For ambassador-led and ambassador tours, we don't need tourProgress to show the modal
+  if (!tourProgress && tourType !== 'ambassador-led' && tourType !== 'ambassador') return null;
 
-  const progressPercentage = tourProgress.totalStops > 0 
+  const isAmbassadorLed = tourType === 'ambassador-led';
+  const isAmbassador = tourType === 'ambassador';
+  const isAmbassadorTour = isAmbassadorLed || isAmbassador;
+  const progressPercentage = tourProgress && tourProgress.totalStops > 0 
     ? Math.round((tourProgress.visitedStops / tourProgress.totalStops) * 100)
     : 0;
 
@@ -73,44 +79,54 @@ export default function ResumeTourModal({
               <View style={styles.iconContainer}>
                 <IconSymbol name="figure.walk" size={32} color={primaryColor} />
               </View>
-              <Text style={styles.title}>Resume Your Tour</Text>
+              <Text style={styles.title}>
+                {isAmbassadorTour ? 'Rejoin Tour' : 'Resume Your Tour'}
+              </Text>
               <Text style={styles.subtitle}>
-                You have an unfinished campus tour
+                {isAmbassador
+                  ? 'You were leading an ambassador-led tour, would you like to rejoin?'
+                  : isAmbassadorLed
+                  ? 'You were in the middle of an ambassador-led tour, would you like to rejoin?'
+                  : 'You have an unfinished campus tour'}
               </Text>
             </View>
 
-            {/* Progress Section */}
-            <View style={styles.progressSection}>
-              <View style={styles.progressHeader}>
-                <Text style={styles.progressTitle}>Tour Progress</Text>
-                <Text style={styles.progressStats}>
-                  {tourProgress.visitedStops} of {tourProgress.totalStops} stops visited
+            {/* Progress Section - Only show for self-guided tours */}
+            {!isAmbassadorTour && tourProgress && (
+              <View style={styles.progressSection}>
+                <View style={styles.progressHeader}>
+                  <Text style={styles.progressTitle}>Tour Progress</Text>
+                  <Text style={styles.progressStats}>
+                    {tourProgress.visitedStops} of {tourProgress.totalStops} stops visited
+                  </Text>
+                </View>
+                
+                {/* Progress Bar */}
+                <View style={styles.progressBarContainer}>
+                  <View 
+                    style={[
+                      styles.progressBar, 
+                      dynamicStyles.progressBar,
+                      { width: `${progressPercentage}%` }
+                    ]} 
+                  />
+                </View>
+                
+                <Text style={styles.progressPercentage}>
+                  {progressPercentage}% Complete
                 </Text>
               </View>
-              
-              {/* Progress Bar */}
-              <View style={styles.progressBarContainer}>
-                <View 
-                  style={[
-                    styles.progressBar, 
-                    dynamicStyles.progressBar,
-                    { width: `${progressPercentage}%` }
-                  ]} 
-                />
-              </View>
-              
-              <Text style={styles.progressPercentage}>
-                {progressPercentage}% Complete
-              </Text>
-            </View>
+            )}
 
-            {/* Last Active Info */}
-            <View style={styles.lastActiveSection}>
-              <IconSymbol name="clock" size={16} color="#666" />
-              <Text style={styles.lastActiveText}>
-                Last active: {formatLastActive(tourProgress.lastActiveAt)}
-              </Text>
-            </View>
+            {/* Last Active Info - Only show for self-guided tours */}
+            {!isAmbassadorTour && tourProgress && (
+              <View style={styles.lastActiveSection}>
+                <IconSymbol name="clock" size={16} color="#666" />
+                <Text style={styles.lastActiveText}>
+                  Last active: {formatLastActive(tourProgress.lastActiveAt)}
+                </Text>
+              </View>
+            )}
 
             {/* Action Buttons */}
             <View style={styles.buttonContainer}>
@@ -120,7 +136,9 @@ export default function ResumeTourModal({
                 activeOpacity={0.8}
               >
                 <IconSymbol name="play.fill" size={16} color="white" style={styles.buttonIcon} />
-                <Text style={styles.primaryButtonText}>Resume Tour</Text>
+                <Text style={styles.primaryButtonText}>
+                  {isAmbassadorTour ? 'Rejoin Tour' : 'Resume Tour'}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -129,14 +147,18 @@ export default function ResumeTourModal({
                 activeOpacity={0.8}
               >
                 <IconSymbol name="arrow.clockwise" size={16} color="#666" style={styles.buttonIcon} />
-                <Text style={styles.secondaryButtonText}>Start Fresh</Text>
+                <Text style={styles.secondaryButtonText}>
+                  {isAmbassadorTour ? 'Not Now' : 'Start Fresh'}
+                </Text>
               </TouchableOpacity>
             </View>
 
-            {/* Help Text */}
-            <Text style={styles.helpText}>
-              Starting fresh will clear your current tour progress and begin a new tour.
-            </Text>
+            {/* Help Text - Only show for self-guided tours */}
+            {!isAmbassadorTour && (
+              <Text style={styles.helpText}>
+                Starting fresh will clear your current tour progress and begin a new tour.
+              </Text>
+            )}
           </View>
         </View>
       </View>

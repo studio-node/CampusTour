@@ -22,6 +22,7 @@ export default function RootLayout() {
     showResumeModal,
     tourProgress,
     isLoading: isResumeLoading,
+    tourType,
     handleResume,
     handleStartFresh,
   } = useResumeTour();
@@ -80,6 +81,7 @@ export default function RootLayout() {
         onResume={handleResume}
         onStartFresh={handleStartFresh}
         primaryColor="#3B82F6" // Default blue, will be overridden by school color
+        tourType={tourType}
       />
       
       <StatusBar style="auto" />

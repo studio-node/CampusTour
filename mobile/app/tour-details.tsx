@@ -109,8 +109,18 @@ export default function TourDetailsScreen() {
                 currentStopIndex = foundIndex >= 0 ? foundIndex : 0;
               }
               
+              // Get user type for state saving
+              const currentUserType = await userTypeService.getUserType();
+              
               // Update app state with the current tour state
               appStateManager.updateState({
+                userType: currentUserType,
+                schoolId: schoolId || '',
+                sessionData: {
+                  sessionId: '',
+                  leadId: await leadsService.getStoredLeadId(),
+                  tourAppointmentId: tourId,
+                },
                 tourState: {
                   stops: ordered,
                   selectedInterests: [],
@@ -121,6 +131,9 @@ export default function TourDetailsScreen() {
                   isEditingTour: false,
                 },
               });
+              
+              // Save state to persist tour ID
+              await appStateManager.saveCurrentState();
               
               // Ensure websocket is connected and join session before navigating
               wsManager.connect();
@@ -234,23 +247,36 @@ export default function TourDetailsScreen() {
         // Update app state with generated tour before navigating
         try {
           const schoolId = await schoolService.getSelectedSchool();
+          const tourId = await tourGroupSelectionService.getSelectedTourGroup();
+          const currentUserType = await userTypeService.getUserType();
+          
           if (schoolId && Array.isArray(message?.payload?.generated_tour_order)) {
             const allLocations = await locationService.getTourStops(schoolId);
             const ordered: Location[] = message.payload.generated_tour_order
               .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
               .filter((loc: Location | undefined): loc is Location => Boolean(loc));
-            // Update app state with the generated tour
+            // Update app state with the generated tour and save tour ID
             appStateManager.updateState({
+              userType: currentUserType,
+              schoolId: schoolId,
+              sessionData: {
+                sessionId: '',
+                leadId: null,
+                tourAppointmentId: tourId || null,
+              },
               tourState: {
                 stops: ordered,
                 selectedInterests: [], // Will be set when user selects interests
                 visitedLocations: [],
                 currentStopIndex: 0,
-                tourStarted: false,
+                tourStarted: true,
                 tourFinished: false,
                 isEditingTour: false,
               },
             });
+            
+            // Save state to persist tour ID
+            await appStateManager.saveCurrentState();
           }
         } catch (e) {
           console.error('Failed to persist generated tour:', e);
@@ -283,6 +309,24 @@ export default function TourDetailsScreen() {
         });
       }
       if (userType === 'ambassador-led' && message?.type === 'tour_structure_updated') {
+        // Save tour ID and user type when tour starts
+        const tId = await tourGroupSelectionService.getSelectedTourGroup();
+        const schoolId = await schoolService.getSelectedSchool();
+        const currentUserType = await userTypeService.getUserType();
+        
+        if (tId && schoolId) {
+          appStateManager.updateState({
+            userType: currentUserType,
+            schoolId: schoolId,
+            sessionData: {
+              sessionId: '',
+              leadId: await leadsService.getStoredLeadId(),
+              tourAppointmentId: tId,
+            },
+          });
+          await appStateManager.saveCurrentState();
+        }
+        
         // Navigate to map when tour actually starts
         router.replace('/map');
       }
