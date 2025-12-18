@@ -10,6 +10,7 @@ import { appStateManager } from '@/services/appStateManager';
 import { cleanupStaleData } from '@/services/stateCleanup';
 import ResumeTourModal from '@/components/ResumeTourModal';
 import { useResumeTour } from '@/hooks/useResumeTour';
+import { RaiseHandProvider } from '@/contexts/RaiseHandContext';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -58,7 +59,8 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+      <RaiseHandProvider>
+        <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="ambassador-signin" options={{ headerShown: false }} />
         <Stack.Screen name="ambassador-tours" options={{ headerShown: false }} />
@@ -85,6 +87,7 @@ export default function RootLayout() {
       />
       
       <StatusBar style="auto" />
+      </RaiseHandProvider>
     </ThemeProvider>
   );
 }

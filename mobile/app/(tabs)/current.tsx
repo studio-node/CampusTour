@@ -1,14 +1,16 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { analyticsService, Location, locationService, schoolService, userTypeService, tourGroupSelectionService } from '@/services/supabase';
+import { analyticsService, Location, locationService, schoolService, userTypeService, tourGroupSelectionService, leadsService } from '@/services/supabase';
 import { wsManager } from '@/services/ws';
 import { appStateManager } from '@/services/appStateManager';
 import * as ExpoLocation from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
+import { useRaiseHand } from '@/contexts/RaiseHandContext';
 
 
 export default function CurrentLocationScreen() {
@@ -19,6 +21,7 @@ export default function CurrentLocationScreen() {
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [primaryColor, setPrimaryColor] = useState<string>('#990000');
   const [isAmbassador, setIsAmbassador] = useState<boolean>(false);
+  const [isAmbassadorLedMember, setIsAmbassadorLedMember] = useState<boolean>(false);
   const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<string | null>(null);
   const [locationWatcher, setLocationWatcher] = useState<any>(null);
@@ -27,6 +30,9 @@ export default function CurrentLocationScreen() {
   const [tourStops, setTourStops] = useState<Location[]>([]);
   const [visitedLocations, setVisitedLocations] = useState<string[]>([]);
   const [currentLocationId, setCurrentLocationId] = useState<string | null>(null);
+  
+  // Raise hand notification state from shared context
+  const { showModal: showRaiseHandModal, memberName: raiseHandMemberName, dismissModal: dismissRaiseHandModal } = useRaiseHand();
 
   // Get the selected school ID and details
   useEffect(() => {
@@ -49,11 +55,14 @@ export default function CurrentLocationScreen() {
     getSelectedSchool();
   }, [router]);
 
-  // Check if user is an ambassador
+  // Check if user is an ambassador or ambassador-led member
   useEffect(() => {
     const checkUserType = async () => {
       const ambassadorStatus = await userTypeService.isAmbassador();
       setIsAmbassador(ambassadorStatus);
+      
+      const userType = await userTypeService.getUserType();
+      setIsAmbassadorLedMember(userType === 'ambassador-led');
     };
 
     checkUserType();
@@ -271,6 +280,36 @@ export default function CurrentLocationScreen() {
     router.push('/tour');
   };
 
+  // Handle "Raise Hand" button press for ambassador-led members
+  const handleRaiseHand = async () => {
+    try {
+      const tourId = await tourGroupSelectionService.getSelectedTourGroup();
+      if (!tourId) {
+        Alert.alert('Error', 'No active tour session found.');
+        return;
+      }
+
+      // Ensure WebSocket is connected
+      if (wsManager.getStatus() !== 'open') {
+        wsManager.connect();
+        // Wait for connection to open
+        const onOpen = () => {
+          wsManager.send('ambassador:ping', { tourId });
+          wsManager.off('open', onOpen);
+        };
+        wsManager.on('open', onOpen);
+      } else {
+        wsManager.send('ambassador:ping', { tourId });
+      }
+
+      // Show confirmation feedback
+      Alert.alert('Hand Raised', 'The ambassador has been notified.');
+    } catch (error) {
+      console.error('Error raising hand:', error);
+      Alert.alert('Error', 'Failed to notify the ambassador. Please try again.');
+    }
+  };
+
   // Create dynamic styles with the primary color
   const dynamicStyles = {
     headerBorder: {
@@ -280,6 +319,9 @@ export default function CurrentLocationScreen() {
       backgroundColor: primaryColor,
     },
     startTourButton: {
+      backgroundColor: primaryColor,
+    },
+    raiseHandButton: {
       backgroundColor: primaryColor,
     }
   };
@@ -340,7 +382,17 @@ export default function CurrentLocationScreen() {
       <View style={[styles.header, dynamicStyles.headerBorder]}>
         <HamburgerMenu primaryColor={primaryColor} />
         <Text style={styles.headerText}>Current Location</Text>
-        <View style={styles.headerSpacer} />
+        {isAmbassadorLedMember ? (
+          <TouchableOpacity 
+            style={[styles.headerRaiseHandButton, dynamicStyles.raiseHandButton]}
+            onPress={handleRaiseHand}
+          >
+            <IconSymbol name="hand.raised.fill" size={18} color="white"/>
+            <Text style={styles.raiseHandText}>Raise Hand</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
       
       <ScrollView style={styles.scrollView}>
@@ -432,6 +484,14 @@ export default function CurrentLocationScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Raise Hand Notification Modal for Ambassadors */}
+      <RaiseHandNotificationModal
+        visible={showRaiseHandModal}
+        memberName={raiseHandMemberName}
+        primaryColor={primaryColor}
+        onClose={dismissRaiseHandModal}
+      />
     </SafeAreaView>
   );
 }
@@ -456,6 +516,21 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 50, // Approximate width to balance the hamburger menu
+  },
+  headerRaiseHandButton: {
+    width: 120,
+    height: 36,
+    borderRadius: 22,
+    marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  raiseHandText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+    marginLeft: 4,
   },
   loadingContainer: {
     flex: 1,

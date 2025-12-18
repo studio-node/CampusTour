@@ -9,6 +9,8 @@ import { useEffect, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
+import { useRaiseHand } from '@/contexts/RaiseHandContext';
 
 
 // Define the interface for a tour stop
@@ -230,6 +232,9 @@ export default function TourScreen() {
   
   // Tour update notification state
   const [tourUpdatedByAmbassador, setTourUpdatedByAmbassador] = useState<boolean>(false);
+  
+  // Raise hand notification state from shared context
+  const { showModal: showRaiseHandModal, memberName: raiseHandMemberName, dismissModal: dismissRaiseHandModal } = useRaiseHand();
   
   // Location tracking and geofencing state
   const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
@@ -740,6 +745,35 @@ export default function TourScreen() {
     setTourStops(currentTourStops);
   };
 
+  const handleRaiseHand = async () => {
+    try {
+      const tourId = await tourGroupSelectionService.getSelectedTourGroup();
+      if (!tourId) {
+        Alert.alert('Error', 'No active tour session found.');
+        return;
+      }
+
+      // Ensure WebSocket is connected
+      if (wsManager.getStatus() !== 'open') {
+        wsManager.connect();
+        // Wait for connection to open
+        const onOpen = () => {
+          wsManager.send('ambassador:ping', { tourId });
+          wsManager.off('open', onOpen);
+        };
+        wsManager.on('open', onOpen);
+      } else {
+        wsManager.send('ambassador:ping', { tourId });
+      }
+
+      // Show confirmation feedback
+      Alert.alert('Hand Raised', 'The ambassador has been notified.');
+    } catch (error) {
+      console.error('Error raising hand:', error);
+      Alert.alert('Error', 'Failed to notify the ambassador. Please try again.');
+    }
+  }
+
   // Save tour changes when exiting edit mode
   const saveTourChanges = async () => {
     try {
@@ -1076,26 +1110,37 @@ export default function TourScreen() {
       <View style={[styles.header, dynamicStyles.headerBorder]}>
         <HamburgerMenu primaryColor={primaryColor} />
         <Text style={styles.headerText}>Campus Tour</Text>
-        {!showInterestSelection && canEditTour && (
-          <View style={styles.headerButtons}>
-            {isEditingTour && (
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={cancelEditing}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={styles.resetButton}
-              onPress={toggleEditingMode}
+        <View style={styles.headerRightContainer}>
+          {isAmbassadorLedMember && (
+            <TouchableOpacity 
+              style={[styles.headerRaiseHandButton, { backgroundColor: primaryColor }]}
+              onPress={handleRaiseHand}
             >
-              <Text style={styles.resetButtonText}>
-                {isEditingTour ? 'Save Changes' : 'Edit Tour'}
-              </Text>
+              <IconSymbol name="hand.raised.fill" size={18} color="white"/>
+              <Text style={styles.raiseHandText}>Raise Hand</Text>
             </TouchableOpacity>
-          </View>
-        )}
+          )}
+          {!showInterestSelection && canEditTour && (
+            <View style={styles.headerButtons}>
+              {isEditingTour && (
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={cancelEditing}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={styles.resetButton}
+                onPress={toggleEditingMode}
+              >
+                <Text style={styles.resetButtonText}>
+                  {isEditingTour ? 'Save Changes' : 'Edit Tour'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </View>
       
       {tourUpdatedByAmbassador && (
@@ -1184,6 +1229,13 @@ export default function TourScreen() {
         />
       )}
       
+      {/* Raise Hand Notification Modal for Ambassadors */}
+      <RaiseHandNotificationModal
+        visible={showRaiseHandModal}
+        memberName={raiseHandMemberName}
+        primaryColor={primaryColor}
+        onClose={dismissRaiseHandModal}
+      />
     </SafeAreaView>
   );
 }
@@ -1443,13 +1495,33 @@ const styles = StyleSheet.create({
   },
   tourUpdateNotificationText: {
     color: '#333333',
-    fontSize: 14,
     fontWeight: '600',
+    fontSize: 14,
+  },
+  headerRightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   headerButtons: {
     flexDirection: 'row',
     gap: 10,
     alignItems: 'center',
+  },
+  headerRaiseHandButton: {
+    width: 120,
+    height: 36,
+    borderRadius: 22,
+    marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  raiseHandText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+    marginLeft: 4,
   },
   cancelButton: {
     backgroundColor: '#666666',

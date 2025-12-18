@@ -1,6 +1,7 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Location, Region, locationService, schoolService, userTypeService } from '@/services/supabase';
+import { Location, Region, locationService, schoolService, userTypeService, UserType } from '@/services/supabase';
 import { appStateManager, PersistedAppState } from '@/services/appStateManager';
+import { wsManager } from '@/services/ws';
 import * as ExpoLocation from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -9,6 +10,8 @@ import MapView, { Callout, Marker, Overlay, PROVIDER_DEFAULT, PROVIDER_GOOGLE } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
+import { useRaiseHand } from '@/contexts/RaiseHandContext';
 
 // Define the location type based on our supabase service
 type LocationItem = Location;
@@ -44,6 +47,9 @@ export default function MapScreen() {
   const [showTourModal, setShowTourModal] = useState(false);
   const [hasTour, setHasTour] = useState<boolean | null>(null); // null = checking, true = has tour, false = no tour
   const [hasShownModalThisSession, setHasShownModalThisSession] = useState(false); // Track if modal was shown this session
+  
+  // Raise hand notification state from shared context
+  const { showModal: showRaiseHandModal, memberName: raiseHandMemberName, dismissModal: dismissRaiseHandModal } = useRaiseHand();
 
   // Get the selected school ID and details
   useEffect(() => {
@@ -484,6 +490,14 @@ export default function MapScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Raise Hand Notification Modal for Ambassadors */}
+      <RaiseHandNotificationModal
+        visible={showRaiseHandModal}
+        memberName={raiseHandMemberName}
+        primaryColor={primaryColor}
+        onClose={dismissRaiseHandModal}
+      />
     </SafeAreaView>
   );
 }
