@@ -18,7 +18,7 @@ export function sessionManager(ws, supabase, tourSessions) {
     'tour:structure_update': (payload, session) => handleTourStructureUpdate(supabase, session, payload),
     'tour:tour-list-changed': (payload, session) => handleTourListChanged(supabase, session, payload),
     'tour:end': (payload, session) => handleTourEnd(ws, supabase, tourSessions, payload.tourId, session),
-    'ambassador:ping': (payload, session) => handleAmbassadorPing(ws, session, payload),
+    'ambassador:ping': async (payload, session) => handleAmbassadorPing(ws, supabase, session, payload),
   };
 
   ws.on('message', message => {
@@ -516,15 +516,42 @@ async function handleTourListChanged(supabase, session, payload) {
   }
 }
 
-function handleAmbassadorPing(ws, session, payload) {
+async function handleAmbassadorPing(ws, supabase, session, payload) {
   console.log(`Member ${ws.id} is pinging the ambassador for tour ${session.ambassador.tourId}`);
-  session.ambassador.send(JSON.stringify({
-    type: 'ambassador_ping',
-    payload: {
-      memberId: ws.id,
-      message: payload.message || 'A member needs your attention.'
+  
+  // Fetch lead information to get the member's name
+  let memberName = 'A member';
+  const leadId = ws.leadId;
+  
+  if (leadId) {
+    try {
+      const { data: lead, error: leadError } = await supabase
+        .from('leads')
+        .select('name')
+        .eq('id', leadId)
+        .single();
+      
+      if (!leadError && lead?.name) {
+        memberName = lead.name;
+      }
+    } catch (error) {
+      console.error('Error fetching lead name for ping:', error);
+      // Continue with default name if fetch fails
     }
-  }));
+  }
+  
+  // Send ping notification to ambassador
+  if (session.ambassador && session.ambassador.readyState === 1) {
+    session.ambassador.send(JSON.stringify({
+      type: 'ambassador_ping',
+      payload: {
+        memberId: ws.id,
+        leadId: leadId || null,
+        memberName: memberName,
+        message: payload.message || `${memberName} needs your attention.`
+      }
+    }));
+  }
 }
 
 async function handleDisconnect(ws, supabase, tourSessions) {
