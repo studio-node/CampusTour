@@ -40,9 +40,30 @@ const formData = ref({
 // Map coordinates (for v-model binding)
 const mapCoordinates = ref(null)
 
-// Tag input state for array fields
+// Predefined interests list
+const availableInterests = [
+  { id: "science_and_labs", name: "🔬 Science & Labs" },
+  { id: "engineering", name: "⚙️ Engineering" },
+  { id: "business", name: "💼 Business" },
+  { id: "computing", name: "💻 Computing" },
+  { id: "arts_and_theater", name: "🎭 Arts & Theater" },
+  { id: "music", name: "🎶 Music" },
+  { id: "athletics", name: "🏟️ Athletics" },
+  { id: "recreation_and_fitness", name: "🏋️ Recreation & Fitness" },
+  { id: "dorm-life", name: "🛏️ Dorm Life" },
+  { id: "campus-dining", name: "🍔 Campus Dining" },
+  { id: "clubs", name: "🧑‍🤝‍🧑 Student Clubs" },
+  { id: "library_and_study-spaces", name: "📚 Library & Study Spaces" },
+  { id: "nature_and_outdoor-spots", name: "🌳 Nature & Outdoor Spots" },
+  { id: "history_and_landmarks", name: "🏰 History & Landmarks" },
+  { id: "health_and_wellness", name: "🩺 Health & Wellness" },
+  { id: "faith_and_spirituality", name: "✝️ Faith & Spirituality" },
+  { id: "community", name: "🤝 Community" },
+  { id: "career-services", name: "🎓 Career Services" }
+]
+
+// Tag input state for array fields (excluding interests)
 const tagInputs = ref({
-  interests: '',
   careers: '',
   talking_points: '',
   features: ''
@@ -146,7 +167,22 @@ function resetForm() {
   successMessage.value = ''
 }
 
-// Add tag to array field
+// Toggle interest selection
+function toggleInterest(interestId) {
+  const index = formData.value.interests.indexOf(interestId)
+  if (index > -1) {
+    formData.value.interests.splice(index, 1)
+  } else {
+    formData.value.interests.push(interestId)
+  }
+}
+
+// Check if interest is selected
+function isInterestSelected(interestId) {
+  return formData.value.interests.includes(interestId)
+}
+
+// Add tag to array field (for careers, talking_points, features)
 function addTag(field) {
   const input = tagInputs.value[field]
   if (input.trim() === '') return
@@ -282,8 +318,8 @@ async function handleSubmit() {
                   :initial-lat="schoolCoordinates.latitude"
                   :initial-lng="schoolCoordinates.longitude"
                 />
-                <div v-if="formData.latitude && formData.longitude" class="mt-2 text-sm text-gray-400">
-                  Selected: {{ parseFloat(formData.latitude).toFixed(6) }}, {{ parseFloat(formData.longitude).toFixed(6) }}
+                <div v-if="formData.latitude && formData.longitude" class="mt-2 text-lg text-gray-400">
+                  Selected: <strong>{{ parseFloat(formData.latitude).toFixed(6) }}</strong>, <strong>{{ parseFloat(formData.longitude).toFixed(6) }}</strong>
                 </div>
                 <div v-else class="mt-2 text-sm text-yellow-400">
                   Please click on the map to select a location
@@ -303,34 +339,47 @@ async function handleSubmit() {
                 ></textarea>
               </div>
               
-              <!-- Interests (Tags) -->
+              <!-- Interests (Checkboxes) -->
               <div class="md:col-span-2">
                 <label class="block text-sm font-medium text-gray-300 mb-2">
                   Interests
                 </label>
-                <div class="flex flex-wrap gap-2 mb-2">
-                  <span
-                    v-for="(interest, index) in formData.interests"
-                    :key="index"
-                    class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-900 text-blue-200"
-                  >
-                    {{ interest }}
-                    <button
-                      type="button"
-                      @click="removeTag('interests', index)"
-                      class="ml-2 text-blue-300 hover:text-blue-100"
+                <div class="border border-gray-600 bg-gray-700 rounded-lg p-4 max-h-64 overflow-y-auto">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <label
+                      v-for="interest in availableInterests"
+                      :key="interest.id"
+                      class="flex items-center space-x-2 cursor-pointer hover:bg-gray-600 p-2 rounded transition-colors"
                     >
-                      ×
-                    </button>
-                  </span>
+                      <input
+                        type="checkbox"
+                        :checked="isInterestSelected(interest.id)"
+                        @change="toggleInterest(interest.id)"
+                        class="h-4 w-4 text-blue-600 border-gray-500 bg-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                      >
+                      <span class="text-sm text-gray-300">{{ interest.name }}</span>
+                    </label>
+                  </div>
                 </div>
-                <input
-                  v-model="tagInputs.interests"
-                  @keydown="handleTagKeydown($event, 'interests')"
-                  type="text"
-                  placeholder="Type and press Enter to add interest"
-                  class="w-full border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
+                <div v-if="formData.interests.length > 0" class="mt-3">
+                  <p class="text-xs text-gray-400 mb-2">Selected interests:</p>
+                  <div class="flex flex-wrap gap-2">
+                    <span
+                      v-for="interestId in formData.interests"
+                      :key="interestId"
+                      class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-900 text-blue-200"
+                    >
+                      {{ availableInterests.find(i => i.id === interestId)?.name || interestId }}
+                      <button
+                        type="button"
+                        @click="toggleInterest(interestId)"
+                        class="ml-2 text-blue-300 hover:text-blue-100"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  </div>
+                </div>
               </div>
               
               <!-- Careers (Tags) -->
@@ -338,7 +387,14 @@ async function handleSubmit() {
                 <label class="block text-sm font-medium text-gray-300 mb-2">
                   Careers
                 </label>
-                <div class="flex flex-wrap gap-2 mb-2">
+                <input
+                v-model="tagInputs.careers"
+                @keydown="handleTagKeydown($event, 'careers')"
+                type="text"
+                placeholder="Type and press Enter to add career"
+                class="w-full border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                <div class="flex flex-wrap gap-2 mt-2">
                   <span
                     v-for="(career, index) in formData.careers"
                     :key="index"
@@ -354,13 +410,6 @@ async function handleSubmit() {
                     </button>
                   </span>
                 </div>
-                <input
-                  v-model="tagInputs.careers"
-                  @keydown="handleTagKeydown($event, 'careers')"
-                  type="text"
-                  placeholder="Type and press Enter to add career"
-                  class="w-full border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
               </div>
               
               <!-- Talking Points (Tags) -->
@@ -368,7 +417,14 @@ async function handleSubmit() {
                 <label class="block text-sm font-medium text-gray-300 mb-2">
                   Talking Points
                 </label>
-                <div class="flex flex-wrap gap-2 mb-2">
+                <input
+                v-model="tagInputs.talking_points"
+                @keydown="handleTagKeydown($event, 'talking_points')"
+                type="text"
+                placeholder="Type and press Enter to add talking point"
+                class="w-full border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                <div class="flex flex-wrap gap-2 mt-2">
                   <span
                     v-for="(point, index) in formData.talking_points"
                     :key="index"
@@ -384,13 +440,6 @@ async function handleSubmit() {
                     </button>
                   </span>
                 </div>
-                <input
-                  v-model="tagInputs.talking_points"
-                  @keydown="handleTagKeydown($event, 'talking_points')"
-                  type="text"
-                  placeholder="Type and press Enter to add talking point"
-                  class="w-full border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
               </div>
               
               <!-- Features (Tags) -->
@@ -398,7 +447,14 @@ async function handleSubmit() {
                 <label class="block text-sm font-medium text-gray-300 mb-2">
                   Features
                 </label>
-                <div class="flex flex-wrap gap-2 mb-2">
+                <input
+                  v-model="tagInputs.features"
+                  @keydown="handleTagKeydown($event, 'features')"
+                  type="text"
+                  placeholder="Type and press Enter to add feature"
+                  class="w-full border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                <div class="flex flex-wrap gap-2 mt-2">
                   <span
                     v-for="(feature, index) in formData.features"
                     :key="index"
@@ -414,13 +470,6 @@ async function handleSubmit() {
                     </button>
                   </span>
                 </div>
-                <input
-                  v-model="tagInputs.features"
-                  @keydown="handleTagKeydown($event, 'features')"
-                  type="text"
-                  placeholder="Type and press Enter to add feature"
-                  class="w-full border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
               </div>
               
               <!-- Default Stop -->
