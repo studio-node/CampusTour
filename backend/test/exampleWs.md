@@ -40,6 +40,12 @@
 }
 
 {
+  "type": "tour:end",
+  "payload": { "tourId": "cdb9d53f-89de-4a57-8735-a052bfeb3dbc" }
+}
+
+
+{
   "type": "tour:state_update",
   "payload": {
     "tourId": "cdb9d53f-89de-4a57-8735-a052bfeb3dbc",
@@ -70,10 +76,6 @@
   }
 }
 
-{
-  "type": "tour:end",
-  "payload": { "tourId": "cdb9d53f-89de-4a57-8735-a052bfeb3dbc" }
-}
 
 
 // "dea95d28-cc6c-488c-992a-6ab01f18d02a",
