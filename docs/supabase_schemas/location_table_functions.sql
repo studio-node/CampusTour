@@ -60,3 +60,58 @@ COMMENT ON FUNCTION increment_location_order_index() IS
 -- 1. Check current locations: SELECT id, name, order_index FROM locations WHERE school_id = 'your-school-id' ORDER BY order_index;
 -- 2. Insert a new location with order_index = 1
 -- 3. Check again - locations with order_index >= 1 should be incremented
+
+
+
+
+-- ==============================================================================================================================
+-- ======================================== UPDATE AND DELETE POLICIES =========================================
+-- ==============================================================================================================================
+
+-- RLS Policies for locations table
+-- Allows authenticated users to update and delete locations for their school
+
+-- Enable RLS on locations table (if not already enabled)
+ALTER TABLE public.locations ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist (for idempotency)
+DROP POLICY IF EXISTS "Allow authenticated users to update locations in their school" ON public.locations;
+DROP POLICY IF EXISTS "Allow authenticated users to delete locations in their school" ON public.locations;
+
+-- Policy: Allow authenticated users to UPDATE locations in their school
+-- Users can only update locations where the location's school_id matches their profile's school_id
+CREATE POLICY "Allow authenticated users to update locations in their school"
+ON public.locations
+FOR UPDATE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE profiles.id = auth.uid()
+      AND profiles.school_id = locations.school_id
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE profiles.id = auth.uid()
+      AND profiles.school_id = locations.school_id
+  )
+);
+
+-- Policy: Allow authenticated users to DELETE locations in their school
+-- Users can only delete locations where the location's school_id matches their profile's school_id
+CREATE POLICY "Allow authenticated users to delete locations in their school"
+ON public.locations
+FOR DELETE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE profiles.id = auth.uid()
+      AND profiles.school_id = locations.school_id
+  )
+);

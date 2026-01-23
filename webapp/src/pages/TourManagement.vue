@@ -12,16 +12,13 @@ const tours = ref([
   { id: 3, name: 'Business School Tour', school: 'Utah Tech University', stops: 5, status: 'Draft', created: '3 days ago' }
 ])
 
-const locations = ref([
-  { id: 1, name: 'Smith Computing Center', interests: ['Computing', 'Engineering'], tours: 2, status: 'Active' },
-  { id: 2, name: 'Arts Building', interests: ['Arts', 'Theater'], tours: 1, status: 'Active' },
-  { id: 3, name: 'Library', interests: ['Study', 'Research'], tours: 3, status: 'Active' }
-])
-
+const locations = ref([])
 const activeTab = ref('tours')
 const showLocationForm = ref(false)
+const editingLocation = ref(null)
 const currentSchoolId = ref(null)
 const isLoadingSchoolId = ref(false)
+const isLoadingLocations = ref(false)
 
 // Function to fetch school_id
 async function fetchSchoolId() {
@@ -52,20 +49,68 @@ watch(user, () => {
   fetchSchoolId()
 }, { immediate: true })
 
-// Open location form
+// Watch for school_id to fetch locations
+watch(currentSchoolId, (schoolId) => {
+  if (schoolId) {
+    fetchLocations()
+  }
+})
+
+// Watch for form close to clear editing location
+watch(showLocationForm, (isOpen) => {
+  if (!isOpen) {
+    editingLocation.value = null
+  }
+})
+
+// Fetch locations for the school
+async function fetchLocations() {
+  if (!currentSchoolId.value) return
+  
+  isLoadingLocations.value = true
+  try {
+    const locationsData = await locationsService.getLocationsBySchool(currentSchoolId.value)
+    locations.value = locationsData || []
+  } catch (error) {
+    console.error('Error fetching locations:', error)
+    locations.value = []
+  } finally {
+    isLoadingLocations.value = false
+  }
+}
+
+// Open location form for adding
 function openLocationForm() {
   if (!currentSchoolId.value) {
     console.error('School ID not available')
     return
   }
+  editingLocation.value = null
+  showLocationForm.value = true
+}
+
+// Open location form for editing
+function openEditLocationForm(location) {
+  if (!currentSchoolId.value) {
+    console.error('School ID not available')
+    return
+  }
+  editingLocation.value = location
   showLocationForm.value = true
 }
 
 // Handle location created event
 function handleLocationCreated(locationData) {
   console.log('Location created:', locationData)
-  // Optionally refresh locations list here in the future
-  // For now, we'll just log it
+  // Refresh locations list
+  fetchLocations()
+}
+
+// Handle location updated event
+function handleLocationUpdated(locationData) {
+  console.log('Location updated:', locationData)
+  // Refresh locations list
+  fetchLocations()
 }
 </script>
 
@@ -76,7 +121,9 @@ function handleLocationCreated(locationData) {
       v-if="showLocationForm"
       v-model="showLocationForm"
       :school-id="currentSchoolId"
+      :edit-location="editingLocation"
       @location-created="handleLocationCreated"
+      @location-updated="handleLocationUpdated"
     />
     
     <!-- Default Tour Management View -->
@@ -179,28 +226,49 @@ function handleLocationCreated(locationData) {
                 </tr>
               </thead>
               <tbody class="bg-gray-800 divide-y divide-gray-700">
-                <tr v-for="location in locations" :key="location.id" class="hover:bg-gray-700">
+                <tr v-if="isLoadingLocations">
+                  <td colspan="5" class="px-6 py-4 text-center text-gray-400">
+                    Loading locations...
+                  </td>
+                </tr>
+                <tr v-else-if="locations.length === 0">
+                  <td colspan="5" class="px-6 py-4 text-center text-gray-400">
+                    No locations found. Click "Add Location" to create one.
+                  </td>
+                </tr>
+                <tr v-else v-for="location in locations" :key="location.id" class="hover:bg-gray-700">
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="text-sm font-medium text-white">{{ location.name }}</div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="flex flex-wrap gap-1">
-                      <span v-for="interest in location.interests" :key="interest" 
+                      <span v-for="interest in (location.interests || [])" :key="interest" 
                             class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-900 text-blue-200">
                         {{ interest }}
+                      </span>
+                      <span v-if="!location.interests || location.interests.length === 0" class="text-xs text-gray-500">
+                        No interests
                       </span>
                     </div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm text-white">{{ location.tours }} tours</div>
+                    <div class="text-sm text-white">
+                      Order: {{ location.order_index !== null && location.order_index !== undefined ? location.order_index : 'Not set' }}
+                    </div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-900 text-green-200">
-                      {{ location.status }}
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                          :class="location.default_stop ? 'bg-green-900 text-green-200' : 'bg-gray-700 text-gray-300'">
+                      {{ location.default_stop ? 'Default Stop' : 'Optional' }}
                     </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                    <button class="text-blue-400 hover:text-blue-300">Edit</button>
+                    <button 
+                      @click="openEditLocationForm(location)"
+                      class="text-blue-400 hover:text-blue-300"
+                    >
+                      Edit
+                    </button>
                     <button class="text-green-400 hover:text-green-300">View</button>
                     <button class="text-red-400 hover:text-red-300">Delete</button>
                   </td>

@@ -104,8 +104,59 @@ export async function getLocationsBySchool(schoolId) {
   }
 }
 
+/**
+ * Update an existing location in the database
+ * @param {string} locationId - The location ID to update
+ * @param {Object} locationData - The location data to update
+ * @returns {Promise<{success: boolean, error?: string, data?: any}>}
+ */
+export async function updateLocation(locationId, locationData) {
+  try {
+    // Prepare the data for update
+    const updateData = {
+      name: locationData.name,
+      latitude: locationData.latitude,
+      longitude: locationData.longitude,
+      description: locationData.description || null,
+      interests: locationData.interests || null,
+      careers: locationData.careers || null,
+      talking_points: locationData.talking_points || null,
+      features: locationData.features || null,
+      default_stop: locationData.default_stop !== undefined ? locationData.default_stop : true,
+      order_index: locationData.order_index || null
+    }
+
+    // Update the location in the database
+    const { data, error } = await supabase
+      .from('locations')
+      .update(updateData)
+      .eq('id', locationId)
+
+    if (error) {
+      console.error('Error updating location:', error)
+      return {
+        success: false,
+        error: error.message || 'Failed to update location'
+      }
+    }
+
+    console.log('data from updateLocation:', data)
+    return {
+      success: true,
+      data: data
+    }
+  } catch (error) {
+    console.error('Error in updateLocation:', error)
+    return {
+      success: false,
+      error: 'An unexpected error occurred'
+    }
+  }
+}
+
 export const locationsService = {
   createLocation,
+  updateLocation,
   getUserSchoolId,
   getLocationsBySchool
 }

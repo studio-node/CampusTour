@@ -13,10 +13,14 @@ const props = defineProps({
   schoolId: {
     type: String,
     required: true
+  },
+  editLocation: {
+    type: Object,
+    default: null
   }
 })
 
-const emit = defineEmits(['update:modelValue', 'location-created'])
+const emit = defineEmits(['update:modelValue', 'location-created', 'location-updated'])
 
 // School coordinates for map initialization
 const schoolCoordinates = ref({
@@ -99,7 +103,11 @@ const isFormValid = computed(() => {
 // Fetch school coordinates and existing locations when form opens or when component mounts
 watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
-    resetForm()
+    if (props.editLocation) {
+      populateFormForEdit()
+    } else {
+      resetForm()
+    }
     await Promise.all([
       fetchSchoolCoordinates(),
       fetchExistingLocations()
@@ -110,13 +118,24 @@ watch(() => props.modelValue, async (isOpen) => {
 // Also fetch on mount in case component is created with modelValue already true
 onMounted(async () => {
   if (props.modelValue) {
-    resetForm()
+    if (props.editLocation) {
+      populateFormForEdit()
+    } else {
+      resetForm()
+    }
     await Promise.all([
       fetchSchoolCoordinates(),
       fetchExistingLocations()
     ])
   }
 })
+
+// Watch for editLocation changes
+watch(() => props.editLocation, (newLocation) => {
+  if (newLocation && props.modelValue) {
+    populateFormForEdit()
+  }
+}, { deep: true })
 
 // Watch map coordinates and update form data
 watch(mapCoordinates, (coords) => {
@@ -167,6 +186,44 @@ async function fetchExistingLocations() {
   }
 }
 
+// Populate form with location data for editing
+function populateFormForEdit() {
+  if (!props.editLocation) return
+
+  const location = props.editLocation
+  
+  formData.value = {
+    name: location.name || '',
+    latitude: location.latitude?.toString() || '',
+    longitude: location.longitude?.toString() || '',
+    description: location.description || '',
+    interests: location.interests || [],
+    careers: location.careers || [],
+    talking_points: location.talking_points || [],
+    features: location.features || [],
+    default_stop: location.default_stop !== undefined ? location.default_stop : true,
+    order_index: location.order_index !== null && location.order_index !== undefined ? location.order_index.toString() : ''
+  }
+
+  // Set map coordinates if latitude/longitude exist
+  if (location.latitude && location.longitude) {
+    mapCoordinates.value = {
+      latitude: location.latitude,
+      longitude: location.longitude
+    }
+  } else {
+    mapCoordinates.value = null
+  }
+
+  tagInputs.value = {
+    careers: '',
+    talking_points: '',
+    features: ''
+  }
+  errorMessage.value = ''
+  successMessage.value = ''
+}
+
 // Reset form to initial state
 function resetForm() {
   formData.value = {
@@ -183,7 +240,6 @@ function resetForm() {
   }
   mapCoordinates.value = null
   tagInputs.value = {
-    interests: '',
     careers: '',
     talking_points: '',
     features: ''
@@ -261,20 +317,32 @@ async function handleSubmit() {
       order_index: formData.value.order_index ? parseInt(formData.value.order_index) : null
     }
     
-    const result = await locationsService.createLocation(locationData)
+    let result
+    if (props.editLocation) {
+      // Update existing location
+      result = await locationsService.updateLocation(props.editLocation.id, locationData)
+      if (result.success) {
+        successMessage.value = 'Location updated successfully!'
+        emit('location-updated', result.data)
+      } else {
+        errorMessage.value = result.error || 'Failed to update location'
+      }
+    } else {
+      // Create new location
+      result = await locationsService.createLocation(locationData)
+      if (result.success) {
+        successMessage.value = 'Location created successfully!'
+        emit('location-created', result.data)
+      } else {
+        errorMessage.value = result.error || 'Failed to create location'
+      }
+    }
     
     if (result.success) {
-      successMessage.value = 'Location created successfully!'
-      
-      // Emit event to parent
-      emit('location-created', result.data)
-      
       // Close form after a short delay
       setTimeout(() => {
         closeForm()
       }, 1500)
-    } else {
-      errorMessage.value = result.error || 'Failed to create location'
     }
   } catch (error) {
     console.error('Error submitting location form:', error)
@@ -287,12 +355,12 @@ async function handleSubmit() {
 
 <template>
   <div v-if="isOpen" class="space-y-6">
-    <!-- Header -->
+        <!-- Header -->
     <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
       <div class="flex justify-between items-center">
         <div>
-          <h1 class="text-2xl font-bold text-white">Add New Location</h1>
-          <p class="text-gray-400 mt-1">Create a new location for your school</p>
+          <h1 class="text-2xl font-bold text-white">{{ editLocation ? 'Edit Location' : 'Add New Location' }}</h1>
+          <p class="text-gray-400 mt-1">{{ editLocation ? 'Update location information' : 'Create a new location for your school' }}</p>
         </div>
         <button
           @click="closeForm"
@@ -561,8 +629,8 @@ async function handleSubmit() {
                 :disabled="!isFormValid || isSubmitting"
                 class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
               >
-                <span v-if="isSubmitting">Creating...</span>
-                <span v-else>Create Location</span>
+                <span v-if="isSubmitting">{{ editLocation ? 'Updating...' : 'Creating...' }}</span>
+                <span v-else>{{ editLocation ? 'Update Location' : 'Create Location' }}</span>
               </button>
             </div>
           </form>
