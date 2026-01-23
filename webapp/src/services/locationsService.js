@@ -154,9 +154,42 @@ export async function updateLocation(locationId, locationData) {
   }
 }
 
+/**
+ * Delete a location from the database
+ * @param {string} locationId - The location ID to delete
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function deleteLocation(locationId) {
+  try {
+    const { error } = await supabase
+      .from('locations')
+      .delete()
+      .eq('id', locationId)
+
+    if (error) {
+      console.error('Error deleting location:', error)
+      return {
+        success: false,
+        error: error.message || 'Failed to delete location'
+      }
+    }
+
+    return {
+      success: true
+    }
+  } catch (error) {
+    console.error('Error in deleteLocation:', error)
+    return {
+      success: false,
+      error: 'An unexpected error occurred'
+    }
+  }
+}
+
 export const locationsService = {
   createLocation,
   updateLocation,
+  deleteLocation,
   getUserSchoolId,
   getLocationsBySchool
 }

@@ -20,6 +20,12 @@ const currentSchoolId = ref(null)
 const isLoadingSchoolId = ref(false)
 const isLoadingLocations = ref(false)
 
+// Delete confirmation state
+const showDeleteDialog = ref(false)
+const locationToDelete = ref(null)
+const isDeleting = ref(false)
+const deleteError = ref('')
+
 // Function to fetch school_id
 async function fetchSchoolId() {
   if (!user.value?.id || currentSchoolId.value) return
@@ -111,6 +117,47 @@ function handleLocationUpdated(locationData) {
   console.log('Location updated:', locationData)
   // Refresh locations list
   fetchLocations()
+}
+
+// Open delete confirmation dialog
+function confirmDeleteLocation(location) {
+  locationToDelete.value = location
+  showDeleteDialog.value = true
+  deleteError.value = ''
+}
+
+// Cancel delete
+function cancelDelete() {
+  showDeleteDialog.value = false
+  locationToDelete.value = null
+  deleteError.value = ''
+}
+
+// Delete location
+async function deleteLocation() {
+  if (!locationToDelete.value) return
+
+  isDeleting.value = true
+  deleteError.value = ''
+
+  try {
+    const result = await locationsService.deleteLocation(locationToDelete.value.id)
+
+    if (result.success) {
+      // Refresh locations list
+      await fetchLocations()
+      // Close dialog
+      showDeleteDialog.value = false
+      locationToDelete.value = null
+    } else {
+      deleteError.value = result.error || 'Failed to delete location'
+    }
+  } catch (error) {
+    console.error('Error deleting location:', error)
+    deleteError.value = 'An unexpected error occurred'
+  } finally {
+    isDeleting.value = false
+  }
 }
 </script>
 
@@ -270,7 +317,12 @@ function handleLocationUpdated(locationData) {
                       Edit
                     </button>
                     <button class="text-green-400 hover:text-green-300">View</button>
-                    <button class="text-red-400 hover:text-red-300">Delete</button>
+                    <button 
+                      @click="confirmDeleteLocation(location)"
+                      class="text-red-400 hover:text-red-300"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -279,6 +331,60 @@ function handleLocationUpdated(locationData) {
         </div>
       </div>
     </template>
+
+    <!-- Delete Confirmation Dialog -->
+    <div
+      v-if="showDeleteDialog"
+      class="fixed inset-0 z-50 overflow-y-auto"
+      @click.self="cancelDelete"
+    >
+      <!-- Backdrop -->
+      <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity"></div>
+      
+      <!-- Dialog Container -->
+      <div class="flex min-h-full items-center justify-center p-4">
+        <div
+          class="relative bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-full max-w-md"
+          @click.stop
+        >
+          <!-- Header -->
+          <div class="px-6 py-4 border-b border-gray-700">
+            <h3 class="text-xl font-bold text-white">Delete Location</h3>
+            <p class="text-gray-400 text-sm mt-1">This action cannot be undone.</p>
+          </div>
+          
+          <!-- Content -->
+          <div class="px-6 py-4">
+            <p class="text-gray-300">
+              Are you sure you want to delete <strong class="text-white">{{ locationToDelete?.name }}</strong>?
+            </p>
+            
+            <div v-if="deleteError" class="mt-4 p-3 bg-red-900 border border-red-700 rounded-lg">
+              <p class="text-red-200 text-sm">{{ deleteError }}</p>
+            </div>
+          </div>
+          
+          <!-- Actions -->
+          <div class="px-6 py-4 border-t border-gray-700 flex justify-end space-x-3">
+            <button
+              @click="cancelDelete"
+              :disabled="isDeleting"
+              class="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+            <button
+              @click="deleteLocation"
+              :disabled="isDeleting"
+              class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+            >
+              <span v-if="isDeleting">Deleting...</span>
+              <span v-else>Delete</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
