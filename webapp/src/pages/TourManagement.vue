@@ -131,7 +131,6 @@ function handleLocationCreated(locationData) {
               <thead class="bg-gray-700">
                 <tr>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Tour Name</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">School</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Stops</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Created</th>
@@ -142,9 +141,6 @@ function handleLocationCreated(locationData) {
                 <tr v-for="tour in tours" :key="tour.id" class="hover:bg-gray-700">
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="text-sm font-medium text-white">{{ tour.name }}</div>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm text-gray-400">{{ tour.school }}</div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="text-sm text-white">{{ tour.stops }} stops</div>

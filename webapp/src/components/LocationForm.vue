@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { locationsService } from '../services/locationsService.js'
 import { schoolService } from '../services/schoolService.js'
 import LocationMapPicker from './LocationMapPicker.vue'
+import LocationsOverviewMap from './LocationsOverviewMap.vue'
 
 const props = defineProps({
   modelValue: {
@@ -39,6 +40,10 @@ const formData = ref({
 
 // Map coordinates (for v-model binding)
 const mapCoordinates = ref(null)
+
+// Existing locations for overview map
+const existingLocations = ref([])
+const isLoadingLocations = ref(false)
 
 // Predefined interests list
 const availableInterests = [
@@ -91,11 +96,14 @@ const isFormValid = computed(() => {
   )
 })
 
-// Fetch school coordinates when form opens or when component mounts
+// Fetch school coordinates and existing locations when form opens or when component mounts
 watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
     resetForm()
-    await fetchSchoolCoordinates()
+    await Promise.all([
+      fetchSchoolCoordinates(),
+      fetchExistingLocations()
+    ])
   }
 }, { immediate: true })
 
@@ -103,7 +111,10 @@ watch(() => props.modelValue, async (isOpen) => {
 onMounted(async () => {
   if (props.modelValue) {
     resetForm()
-    await fetchSchoolCoordinates()
+    await Promise.all([
+      fetchSchoolCoordinates(),
+      fetchExistingLocations()
+    ])
   }
 })
 
@@ -139,6 +150,20 @@ async function fetchSchoolCoordinates() {
   } catch (error) {
     console.error('Error fetching school coordinates:', error)
     // Keep default coordinates
+  }
+}
+
+// Fetch existing locations for overview map
+async function fetchExistingLocations() {
+  isLoadingLocations.value = true
+  try {
+    const locations = await locationsService.getLocationsBySchool(props.schoolId)
+    existingLocations.value = locations || []
+  } catch (error) {
+    console.error('Error fetching existing locations:', error)
+    existingLocations.value = []
+  } finally {
+    isLoadingLocations.value = false
   }
 }
 
@@ -292,7 +317,7 @@ async function handleSubmit() {
           </div>
           
           <form @submit.prevent="handleSubmit" class="space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <!-- Name (Required) -->
               <div class="md:col-span-2">
                 <label class="block text-sm font-medium text-gray-300 mb-2">
@@ -319,7 +344,7 @@ async function handleSubmit() {
                   :initial-lng="schoolCoordinates.longitude"
                 />
                 <div v-if="formData.latitude && formData.longitude" class="mt-2 text-lg text-gray-400">
-                  Selected: <strong>{{ parseFloat(formData.latitude).toFixed(6) }}</strong>, <strong>{{ parseFloat(formData.longitude).toFixed(6) }}</strong>
+                  Selected: <strong class="text-blue-400">{{ parseFloat(formData.latitude).toFixed(6) }}</strong>, <strong class="text-blue-400">{{ parseFloat(formData.longitude).toFixed(6) }}</strong>
                 </div>
                 <div v-else class="mt-2 text-sm text-yellow-400">
                   Please click on the map to select a location
@@ -485,19 +510,39 @@ async function handleSubmit() {
                 <p class="text-xs text-gray-400 mt-1">Include this location in default tours</p>
               </div>
               
-              <!-- Order Index -->
+            </div>
+            
+            <!-- Order Index Section (Full Width) -->
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-gray-300 mb-2">
+                Order Index
+              </label>
+              <p class="text-xs text-gray-400 mb-3">View existing locations below to determine the appropriate order index. Lower numbers appear first in tours.</p>
+              
+              <!-- Locations Overview Map -->
+              <div class="mb-4">
+                <LocationsOverviewMap
+                  :locations="existingLocations"
+                  :center-lat="schoolCoordinates.latitude"
+                  :center-lng="schoolCoordinates.longitude"
+                  :new-location-coords="mapCoordinates"
+                />
+                <p class="text-xs text-gray-400 mt-2">Each marker shows the location's order index number. The red "NEW" marker shows your selected location. Click markers to see location names.</p>
+              </div>
+              
+              <!-- Order Index Input -->
               <div>
                 <label class="block text-sm font-medium text-gray-300 mb-2">
-                  Order Index
+                  Set Order Index for New Location
                 </label>
                 <input
                   v-model="formData.order_index"
                   type="number"
                   min="0"
-                  placeholder="Optional: for tour ordering"
+                  placeholder="Enter order index (e.g., 0, 1, 2...)"
                   class="w-full border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                <p class="text-xs text-gray-400 mt-1">Lower numbers appear first in tours</p>
+                <p class="text-xs text-gray-400 mt-1">Leave empty to add at the end, or enter a number to insert at a specific position</p>
               </div>
             </div>
             
