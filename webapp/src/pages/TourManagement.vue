@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import LocationForm from '../components/LocationForm.vue'
+import LocationPreview from '../components/LocationPreview.vue'
 import { locationsService } from '../services/locationsService.js'
 import { useAuth } from '../composables/useAuth.js'
 
@@ -16,6 +17,7 @@ const locations = ref([])
 const activeTab = ref('tours')
 const showLocationForm = ref(false)
 const editingLocation = ref(null)
+const selectedLocation = ref(null)
 const currentSchoolId = ref(null)
 const isLoadingSchoolId = ref(false)
 const isLoadingLocations = ref(false)
@@ -95,14 +97,31 @@ function openLocationForm() {
   showLocationForm.value = true
 }
 
-// Open location form for editing
+// Select location to preview
+function selectLocation(location) {
+  selectedLocation.value = location
+}
+
+// Close preview
+function closePreview() {
+  selectedLocation.value = null
+}
+
+// Open location form for editing (from preview)
 function openEditLocationForm(location) {
   if (!currentSchoolId.value) {
     console.error('School ID not available')
     return
   }
   editingLocation.value = location
+  selectedLocation.value = null // Close preview
   showLocationForm.value = true
+}
+
+// Handle delete from preview
+function handleDeleteFromPreview(location) {
+  selectedLocation.value = null // Close preview
+  confirmDeleteLocation(location)
 }
 
 // Handle location created event
@@ -163,7 +182,7 @@ async function deleteLocation() {
 
 <template>
   <div class="space-y-6">
-    <!-- Show Location Form when active, otherwise show tabs -->
+    <!-- Show Location Form when active -->
     <LocationForm
       v-if="showLocationForm"
       v-model="showLocationForm"
@@ -171,6 +190,15 @@ async function deleteLocation() {
       :edit-location="editingLocation"
       @location-created="handleLocationCreated"
       @location-updated="handleLocationUpdated"
+    />
+    
+    <!-- Show Location Preview when a location is selected -->
+    <LocationPreview
+      v-else-if="selectedLocation"
+      :location="selectedLocation"
+      @edit="openEditLocationForm"
+      @delete="handleDeleteFromPreview"
+      @close="closePreview"
     />
     
     <!-- Default Tour Management View -->
@@ -269,7 +297,7 @@ async function deleteLocation() {
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Interests</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Used in Tours</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
+                  <!-- <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th> -->
                 </tr>
               </thead>
               <tbody class="bg-gray-800 divide-y divide-gray-700">
@@ -283,7 +311,13 @@ async function deleteLocation() {
                     No locations found. Click "Add Location" to create one.
                   </td>
                 </tr>
-                <tr v-else v-for="location in locations" :key="location.id" class="hover:bg-gray-700">
+                <tr 
+                  v-else 
+                  v-for="location in locations" 
+                  :key="location.id" 
+                  @click="selectLocation(location)"
+                  class="hover:bg-gray-700 cursor-pointer transition-colors"
+                >
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="text-sm font-medium text-white">{{ location.name }}</div>
                   </td>
@@ -309,21 +343,9 @@ async function deleteLocation() {
                       {{ location.default_stop ? 'Default Stop' : 'Optional' }}
                     </span>
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                    <button 
-                      @click="openEditLocationForm(location)"
-                      class="text-blue-400 hover:text-blue-300"
-                    >
-                      Edit
-                    </button>
-                    <button class="text-green-400 hover:text-green-300">View</button>
-                    <button 
-                      @click="confirmDeleteLocation(location)"
-                      class="text-red-400 hover:text-red-300"
-                    >
-                      Delete
-                    </button>
-                  </td>
+                  <!-- <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                    Click to view details
+                  </td> -->
                 </tr>
               </tbody>
             </table>
