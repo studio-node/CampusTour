@@ -4,6 +4,7 @@ import AnalyticsData from '../pages/AnalyticsData.vue'
 import UserManagement from '../pages/UserManagement.vue'
 import ProfileSettings from '../pages/ProfileSettings.vue'
 import TourManagement from '../pages/TourManagement.vue'
+import LocationManagement from '../pages/LocationManagement.vue'
 import AmbassadorTours from '../pages/AmbassadorTours.vue'
 
 // Layouts
@@ -121,6 +122,15 @@ const routes = [
     meta: { 
       layout: 'admin',
       title: 'Tour Management' 
+    }
+  },
+  {
+    path: '/admin/locations',
+    name: 'LocationManagement',
+    component: LocationManagement,
+    meta: { 
+      layout: 'admin',
+      title: 'Location Management' 
     }
   },
   {
