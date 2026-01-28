@@ -186,10 +186,87 @@ export async function deleteLocation(locationId) {
   }
 }
 
+/**
+ * Get a single location by id (for builder edit page)
+ * @param {string} locationId
+ * @returns {Promise<Object|null>}
+ */
+export async function getLocationById(locationId) {
+  try {
+    const { data, error } = await supabase
+      .from('locations')
+      .select('id, school_id, name, description, interests, careers, talking_points, features')
+      .eq('id', locationId)
+      .single()
+
+    if (error) {
+      console.error('Error fetching location by id:', error)
+      return null
+    }
+
+    return data || null
+  } catch (error) {
+    console.error('Error in getLocationById:', error)
+    return null
+  }
+}
+
+/**
+ * Reset a location's builder passcode (admin only).
+ * Returns plaintext passcode once so admin can share it.
+ * @param {string} locationId
+ * @returns {Promise<{success: boolean, data?: {location_id: string, passcode: string}, error?: string}>}
+ */
+export async function resetLocationBuilderPasscode(locationId) {
+  try {
+    const { data, error } = await supabase.functions.invoke('reset_location_builder_passcode', {
+      body: { location_id: locationId }
+    })
+
+    if (error) {
+      console.error('Error resetting builder passcode:', error)
+      return { success: false, error: error.message || 'Failed to reset passcode' }
+    }
+
+    return { success: true, data }
+  } catch (error) {
+    console.error('Error in resetLocationBuilderPasscode:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+/**
+ * Update location content as an unauthenticated builder (passcode-gated).
+ * @param {string} locationId
+ * @param {string} passcode
+ * @param {Object} patch - Only content fields are allowed server-side
+ * @returns {Promise<{success: boolean, data?: any, error?: string}>}
+ */
+export async function updateLocationAsBuilder(locationId, passcode, patch) {
+  try {
+    const { data, error } = await supabase.functions.invoke('update_location_as_builder', {
+      body: { location_id: locationId, passcode, patch }
+    })
+
+    if (error) {
+      console.error('Error updating location as builder:', error)
+      return { success: false, error: error.message || 'Failed to update location' }
+    }
+
+    return { success: true, data: data?.data ?? data }
+  } catch (error) {
+    console.error('Error in updateLocationAsBuilder:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
 export const locationsService = {
   createLocation,
   updateLocation,
   deleteLocation,
   getUserSchoolId,
-  getLocationsBySchool
+  getLocationsBySchool,
+  getLocationById,
+  resetLocationBuilderPasscode,
+  updateLocationAsBuilder
 }

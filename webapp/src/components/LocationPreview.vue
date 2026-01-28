@@ -2,6 +2,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { locationsService } from '../services/locationsService.js'
 
 // Fix Leaflet default icon issue
 import icon from 'leaflet/dist/images/marker-icon.png'
@@ -30,6 +31,20 @@ const emit = defineEmits(['edit', 'delete', 'close'])
 const mapContainer = ref(null)
 let map = null
 let marker = null
+
+// Builder link / passcode UI
+const showBuilderDialog = ref(false)
+const builderLink = computed(() => {
+  try {
+    return `${window.location.origin}/builder/location/${props.location?.id}`
+  } catch {
+    return `/builder/location/${props.location?.id}`
+  }
+})
+const builderPasscode = ref('')
+const builderIsLoading = ref(false)
+const builderError = ref('')
+const builderSuccess = ref('')
 
 // Predefined interests list (same as LocationForm)
 const availableInterests = [
@@ -103,6 +118,34 @@ onUnmounted(() => {
     map.remove()
   }
 })
+
+async function resetBuilderPasscode() {
+  builderIsLoading.value = true
+  builderError.value = ''
+  builderSuccess.value = ''
+  builderPasscode.value = ''
+  try {
+    const result = await locationsService.resetLocationBuilderPasscode(props.location.id)
+    if (!result.success) {
+      builderError.value = result.error || 'Failed to reset passcode'
+      return
+    }
+    builderPasscode.value = result.data?.passcode || ''
+    builderSuccess.value = 'New passcode generated. Copy it and share it with the builder.'
+  } finally {
+    builderIsLoading.value = false
+  }
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text)
+    builderSuccess.value = 'Copied to clipboard.'
+    builderError.value = ''
+  } catch (e) {
+    builderError.value = 'Failed to copy. Please copy manually.'
+  }
+}
 </script>
 
 <template>
@@ -115,6 +158,12 @@ onUnmounted(() => {
           <p class="text-gray-400 mt-1">Location Details</p>
         </div>
         <div class="flex items-center space-x-3">
+          <button
+            @click="showBuilderDialog = true"
+            class="bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+          >
+            Builder Link
+          </button>
           <button
             @click="emit('edit', location)"
             class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -231,6 +280,108 @@ onUnmounted(() => {
           >
             {{ feature }}
           </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Builder Link / Passcode Dialog -->
+    <div
+      v-if="showBuilderDialog"
+      class="fixed inset-0 z-50 overflow-y-auto"
+      @click.self="showBuilderDialog = false"
+    >
+      <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity"></div>
+      <div class="flex min-h-full items-center justify-center p-4">
+        <div
+          class="relative bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-full max-w-lg"
+          @click.stop
+        >
+          <div class="px-6 py-4 border-b border-gray-700 flex justify-between items-center">
+            <div>
+              <h3 class="text-xl font-bold text-white">Builder Edit Access</h3>
+              <p class="text-gray-400 text-sm mt-1">Share the link + passcode with the faculty member.</p>
+            </div>
+            <button
+              @click="showBuilderDialog = false"
+              class="text-gray-400 hover:text-white transition-colors"
+            >
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="px-6 py-4 space-y-4">
+            <div v-if="builderSuccess" class="p-3 bg-green-900 border border-green-700 rounded-lg">
+              <p class="text-green-200 text-sm">{{ builderSuccess }}</p>
+            </div>
+            <div v-if="builderError" class="p-3 bg-red-900 border border-red-700 rounded-lg">
+              <p class="text-red-200 text-sm">{{ builderError }}</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-300 mb-2">Builder link</label>
+              <div class="flex gap-2">
+                <input
+                  :value="builderLink"
+                  readonly
+                  class="flex-1 border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 font-mono text-xs"
+                />
+                <button
+                  type="button"
+                  class="px-3 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                  @click="copyText(builderLink)"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-300">Builder passcode</p>
+                <p class="text-xs text-gray-400">Generate/reset to rotate access any time.</p>
+              </div>
+              <button
+                type="button"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+                :disabled="builderIsLoading"
+                @click="resetBuilderPasscode"
+              >
+                <span v-if="builderIsLoading">Generating…</span>
+                <span v-else>Generate / Reset</span>
+              </button>
+            </div>
+
+            <div v-if="builderPasscode" class="space-y-2">
+              <div class="flex gap-2 items-center">
+                <input
+                  :value="builderPasscode"
+                  readonly
+                  class="flex-1 border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 font-mono text-lg tracking-widest"
+                />
+                <button
+                  type="button"
+                  class="px-3 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                  @click="copyText(builderPasscode)"
+                >
+                  Copy
+                </button>
+              </div>
+              <p class="text-xs text-yellow-300">
+                This is shown once. Copy it now.
+              </p>
+            </div>
+          </div>
+
+          <div class="px-6 py-4 border-t border-gray-700 flex justify-end">
+            <button
+              @click="showBuilderDialog = false"
+              class="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -5,7 +5,7 @@ import TestConnection from '../components/TestConnection.vue'
 
 // Toggle between different views
 const useTest = false // Tour length calculation implemented!
-const useDemo = true
+const useDemo = false
 </script>
 
 <template>

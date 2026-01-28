@@ -9,10 +9,10 @@ const stats = ref([
 ])
 
 const quickActions = ref([
-  { name: 'View Analytics', route: '/analytics', icon: '📈', description: 'Detailed analytics and charts' },
-  { name: 'Manage Users', route: '/users', icon: '👥', description: 'User accounts and permissions' },
-  { name: 'Tour Management', route: '/tours', icon: '🗺️', description: 'Configure tours and locations' },
-  { name: 'Settings', route: '/profile', icon: '⚙️', description: 'Profile and system settings' }
+  { name: 'Tour Management', route: '/admin/locations', icon: '🗺️', description: 'Configure campus locations' },
+  { name: 'View Analytics', route: '/admin/analytics', icon: '📈', description: 'Detailed analytics and charts' },
+  { name: 'Manage Users', route: '/admin/users', icon: '👥', description: 'User accounts and permissions' },
+  { name: 'Settings', route: '/admin/profile', icon: '⚙️', description: 'Profile and system settings' }
 ])
 </script>
 
@@ -62,7 +62,7 @@ const quickActions = ref([
 
     <!-- Recent Activity (Placeholder) -->
     <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
-      <h2 class="text-lg font-medium text-white mb-4">Recent Activity</h2>
+      <h2 class="text-lg font-medium text-white mb-4">Recent Activity (Fake Data)</h2>
       <div class="space-y-3">
         <div class="flex items-center space-x-3 text-sm">
           <div class="w-2 h-2 bg-green-400 rounded-full"></div>

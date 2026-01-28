@@ -6,6 +6,7 @@ import ProfileSettings from '../pages/ProfileSettings.vue'
 import TourManagement from '../pages/TourManagement.vue'
 import LocationManagement from '../pages/LocationManagement.vue'
 import AmbassadorTours from '../pages/AmbassadorTours.vue'
+import BuilderLocationEdit from '../pages/BuilderLocationEdit.vue'
 
 // Layouts
 import PublicLayout from '../components/PublicLayout.vue'
@@ -75,6 +76,17 @@ const routes = [
     meta: { 
       layout: 'public',
       title: 'Tour Confirmation' 
+    }
+  },
+
+  // Builder (no-auth) location edit page
+  {
+    path: '/builder/location/:locationId',
+    name: 'BuilderLocationEdit',
+    component: BuilderLocationEdit,
+    meta: {
+      layout: 'public',
+      title: 'Update Location'
     }
   },
   

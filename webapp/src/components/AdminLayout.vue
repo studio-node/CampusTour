@@ -10,7 +10,7 @@ const sidebarOpen = ref(true)
 const { user, loading, isAuthenticated, userDisplayName, userRole, signOut } = useAuth()
 
 const navigation = [
-  { name: 'Dashboard', href: '/admin', icon: '📊' },
+  { name: 'Dashboard', href: '/admin', icon: '🏠' },
   { name: 'Analytics & Data', href: '/admin/analytics', icon: '📈' },
   { name: 'User Management', href: '/admin/users', icon: '👥' },
   { name: 'Tour Management', href: '/admin/tours', icon: '🗺️' },
