@@ -3,6 +3,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { locationsService } from '../services/locationsService.js'
+import { locationMediaService } from '../services/locationMediaService.js'
 
 // Fix Leaflet default icon issue
 import icon from 'leaflet/dist/images/marker-icon.png'
@@ -74,6 +75,31 @@ function getInterestName(interestId) {
   return interest ? interest.name : interestId
 }
 
+// Location media (read-only display)
+const locationMedia = ref([])
+const mediaLoading = ref(false)
+const primaryImage = computed(() => locationMedia.value.find(m => m.media_type === 'primaryImage'))
+const additionalMedia = computed(() => locationMedia.value.filter(m => m.media_type === 'additional'))
+
+// Detect video by URL extension (for display)
+function isVideoUrl(url) {
+  if (!url || typeof url !== 'string') return false
+  const lower = url.toLowerCase()
+  return /\.(mp4|webm|mov|ogg|m4v|avi)(\?|$)/.test(lower)
+}
+
+async function fetchLocationMedia() {
+  if (!props.location?.id) return
+  mediaLoading.value = true
+  try {
+    locationMedia.value = await locationMediaService.getMediaByLocation(props.location.id)
+  } catch (e) {
+    locationMedia.value = []
+  } finally {
+    mediaLoading.value = false
+  }
+}
+
 // Map coordinates for display
 const mapCoordinates = computed(() => {
   if (props.location?.latitude && props.location?.longitude) {
@@ -85,8 +111,9 @@ const mapCoordinates = computed(() => {
   return null
 })
 
-// Initialize map for preview (read-only)
+// Initialize map and fetch media for preview
 onMounted(() => {
+  fetchLocationMedia()
   if (!mapContainer.value || !mapCoordinates.value) return
 
   // Create map
@@ -281,6 +308,45 @@ async function copyText(text) {
             {{ feature }}
           </span>
         </div>
+      </div>
+
+      <!-- Location Media -->
+      <div>
+        <h2 class="text-lg font-semibold text-white mb-4">Location Media</h2>
+        <div v-if="mediaLoading" class="text-gray-400 text-sm">Loading media…</div>
+        <div v-else-if="!primaryImage && (!additionalMedia || additionalMedia.length === 0)" class="text-gray-500 text-sm">
+          No media for this location.
+        </div>
+        <template v-else>
+          <div v-if="primaryImage" class="mb-4">
+            <label class="block text-sm font-medium text-gray-400 mb-2">Primary Image</label>
+            <img
+              :src="primaryImage.url"
+              :alt="'Primary image'"
+              class="max-w-full max-h-80 object-contain rounded-lg border border-gray-600"
+            />
+          </div>
+          <div v-if="additionalMedia.length > 0">
+            <label class="block text-sm font-medium text-gray-400 mb-2">Additional Media</label>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              <template v-for="item in additionalMedia" :key="item.id">
+                <video
+                  v-if="isVideoUrl(item.url)"
+                  :src="item.url"
+                  controls
+                  class="w-full aspect-square object-cover rounded-lg border border-gray-600"
+                  preload="metadata"
+                />
+                <img
+                  v-else
+                  :src="item.url"
+                  :alt="'Media'"
+                  class="w-full aspect-square object-cover rounded-lg border border-gray-600"
+                />
+              </template>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
 

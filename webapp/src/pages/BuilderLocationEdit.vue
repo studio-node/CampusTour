@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { locationsService } from '../services/locationsService.js'
+import LocationMediaForm from '../components/LocationMediaForm.vue'
 
 const route = useRoute()
 
@@ -333,6 +334,16 @@ onMounted(fetchLocation)
                 </span>
               </div>
             </div>
+
+              <!-- Location Media (same as admin form) -->
+            <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
+              <LocationMediaForm
+                :location-id="locationId"
+                :is-builder="true"
+                :builder-passcode="passcode"
+                :disabled="!unlocked"
+              />
+            </div>
           </fieldset>
 
           <div class="flex justify-end pt-4 border-t border-gray-700">
@@ -347,6 +358,8 @@ onMounted(fetchLocation)
           </div>
         </form>
       </div>
+
+
     </template>
   </div>
 </template>

@@ -4,6 +4,7 @@ import { locationsService } from '../services/locationsService.js'
 import { schoolService } from '../services/schoolService.js'
 import LocationMapPicker from './LocationMapPicker.vue'
 import LocationsOverviewMap from './LocationsOverviewMap.vue'
+import LocationMediaForm from './LocationMediaForm.vue'
 
 const props = defineProps({
   modelValue: {
@@ -577,9 +578,8 @@ async function handleSubmit() {
                 </label>
                 <p class="text-xs text-gray-400 mt-1">Include this location in default tours</p>
               </div>
-              
             </div>
-            
+
             <!-- Order Index Section (Full Width) -->
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-gray-300 mb-2">
@@ -612,6 +612,17 @@ async function handleSubmit() {
                 >
                 <p class="text-xs text-gray-400 mt-1">Leave empty to add at the end, or enter a number to insert at a specific position</p>
               </div>
+            </div>
+
+            <!-- Location Media (only when editing existing location) -->
+            <div v-if="editLocation?.id" class="md:col-span-2 pt-6 border-t border-gray-700">
+              <LocationMediaForm
+                :location-id="editLocation.id"
+                :is-builder="false"
+              />
+            </div>
+            <div v-else class="md:col-span-2 pt-6 border-t border-gray-700">
+              <p class="text-sm text-gray-400">Save the location first to add primary image and additional media.</p>
             </div>
             
             <!-- Form Actions -->
