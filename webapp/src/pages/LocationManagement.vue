@@ -3,6 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import LocationForm from '../components/LocationForm.vue'
 import LocationPreview from '../components/LocationPreview.vue'
 import { locationsService } from '../services/locationsService.js'
+import { locationMediaService } from '../services/locationMediaService.js'
 import { useAuth } from '../composables/useAuth.js'
 
 const { user } = useAuth()
@@ -51,9 +52,10 @@ watch(user, () => {
 }, { immediate: true })
 
 // Watch for school_id to fetch locations
-watch(currentSchoolId, (schoolId) => {
+watch(currentSchoolId, async (schoolId) => {
   if (schoolId) {
-    fetchLocations()
+    await fetchLocations()
+    getMediaBySchool(schoolId)
   }
 })
 
@@ -72,11 +74,30 @@ async function fetchLocations() {
   try {
     const locationsData = await locationsService.getLocationsBySchool(currentSchoolId.value)
     locations.value = locationsData || []
+    // console.log('Fetching media by school:', locations.value)
+
   } catch (error) {
     console.error('Error fetching locations:', error)
     locations.value = []
   } finally {
     isLoadingLocations.value = false
+  }
+}
+
+async function getMediaBySchool() {
+  try {
+    var locationids = []
+    locations.value.forEach(location => {
+      locationids.push(location.id)
+    })
+    const coverPhotos = await locationMediaService.getCoverPhotosByLocationIds(locationids)
+    console.log('Cover Photos:', coverPhotos)
+    locations.value.forEach(location => {
+      const coverPhoto = coverPhotos.find(m => m.location_id === location.id)
+      location.cover_image = coverPhoto.url
+    })
+  } catch (error) {
+    console.error('Error fetching location media:', error)
   }
 }
 
@@ -222,10 +243,10 @@ async function deleteLocation() {
             <table class="min-w-full divide-y divide-gray-700">
               <thead class="bg-gray-700">
                 <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Cover Image</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Location Name</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Interests</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Order Index</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                  <!-- <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th> -->
                 </tr>
               </thead>
               <tbody class="bg-gray-800 divide-y divide-gray-700">
@@ -246,7 +267,13 @@ async function deleteLocation() {
                   @click="selectLocation(location)"
                   class="hover:bg-gray-700 cursor-pointer transition-colors"
                 >
-                  <td class="px-6 py-4 whitespace-nowrap">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <!-- <div class="text-sm text-white">
+                    {{ location.order_index !== null && location.order_index !== undefined ? location.order_index : 'Not set' }}
+                  </div> -->
+                  <img :src="location.cover_image" alt="Cover Image" class="w-30 h-20 object-cover rounded-lg border border-gray-600">
+                </td>
+                  <td class="px-6 py-4">
                     <div class="text-sm font-medium text-white">{{ location.name }}</div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
@@ -260,17 +287,13 @@ async function deleteLocation() {
                       </span>
                     </div>
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm text-white">
-                      {{ location.order_index !== null && location.order_index !== undefined ? location.order_index : 'Not set' }}
-                    </div>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
+                  
+                  <!-- <td class="px-6 py-4 whitespace-nowrap">
                     <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
                           :class="location.default_stop ? 'bg-green-900 text-green-200' : 'bg-gray-700 text-gray-300'">
                       {{ location.default_stop ? 'Default Stop' : 'Optional' }}
                     </span>
-                  </td>
+                  </td> -->
                 </tr>
               </tbody>
             </table>

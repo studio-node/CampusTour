@@ -24,6 +24,28 @@ export async function getMediaByLocation(locationId) {
 }
 
 /**
+ * Get all cover photos for a school's locations
+ * @param {string[]} locationIds
+ * @returns {Promise<Array>}
+ */
+export async function getCoverPhotosByLocationIds(locationIds) {
+  try {
+    const { data, error } = await supabase
+      .from('location_media')
+      .select('id, location_id, stored_in_supabase, media_type, url, created_at')
+      .in('location_id', locationIds)
+      .eq('media_type', 'primaryImage')
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error('Error fetching location media by location IDs:', error)
+    return []
+  }
+}
+
+/**
  * Add media via URL (admin or builder)
  * @param {string} locationId
  * @param {Object} options
@@ -252,5 +274,6 @@ export const locationMediaService = {
   setPrimaryImage,
   addMediaByUrlAsBuilder,
   uploadMediaAsBuilder,
-  deleteMediaAsBuilder
+  deleteMediaAsBuilder,
+  getCoverPhotosByLocationIds
 }
