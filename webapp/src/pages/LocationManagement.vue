@@ -5,7 +5,7 @@ import LocationPreview from '../components/LocationPreview.vue'
 import { locationsService } from '../services/locationsService.js'
 import { locationMediaService } from '../services/locationMediaService.js'
 import { useAuth } from '../composables/useAuth.js'
-
+import { availableInterests } from '../services/interestsMap.js'
 const { user } = useAuth()
 
 const locations = ref([])
@@ -100,6 +100,7 @@ async function getMediaBySchool() {
     console.error('Error fetching location media:', error)
   }
 }
+
 
 // Open location form for adding
 function openLocationForm() {
@@ -280,7 +281,7 @@ async function deleteLocation() {
                     <div class="flex flex-wrap gap-1">
                       <span v-for="interest in (location.interests || [])" :key="interest" 
                             class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-900 text-blue-200">
-                        {{ interest }}
+                        {{ availableInterests.find(i => i.id === interest)?.name }}
                       </span>
                       <span v-if="!location.interests || location.interests.length === 0" class="text-xs text-gray-500">
                         No interests
