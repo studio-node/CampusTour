@@ -393,14 +393,14 @@ export default function AmbassadorToursScreen() {
       </View>
       
       {/* Resume Tour Modal */}
-      <ResumeTourModal
+      {/* <ResumeTourModal
         visible={showResumeModal}
         tourProgress={tourProgress}
         onResume={handleResume}
         onStartFresh={handleStartFresh}
         primaryColor="#4CAF50"
         tourType={tourType}
-      />
+      /> */}
     </View>
   );
 }

@@ -55,6 +55,8 @@ class AppStateManager {
   private appStateSubscription: any = null;
   private isInitialized = false;
   private currentState: PersistedAppState | null = null;
+  /** In-memory only; not persisted. Used to pass selected locations from add-tour-locations screen back to Tour tab. */
+  private pendingLocationsToAdd: Location[] | null = null;
 
   /**
    * Initialize the app state manager
@@ -325,6 +327,24 @@ class AppStateManager {
    */
   getTourAppointmentId(): string | null {
     return this.currentState?.sessionData?.tourAppointmentId || null;
+  }
+
+  /**
+   * Set pending locations to add to the tour (from add-tour-locations screen).
+   * In-memory only; not persisted.
+   */
+  setPendingLocationsToAdd(locations: Location[]): void {
+    this.pendingLocationsToAdd = locations.length > 0 ? locations : null;
+  }
+
+  /**
+   * Get and clear pending locations to add. Returns null if none.
+   * Called by Tour tab when it regains focus.
+   */
+  getAndClearPendingLocationsToAdd(): Location[] | null {
+    const pending = this.pendingLocationsToAdd;
+    this.pendingLocationsToAdd = null;
+    return pending;
   }
 
   /**

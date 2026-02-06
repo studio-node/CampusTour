@@ -5,7 +5,8 @@ import { appStateManager, PersistedAppState } from '@/services/appStateManager';
 import { Image } from 'expo-image';
 import * as ExpoLocation from 'expo-location';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useEffect, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HamburgerMenu from '@/components/HamburgerMenu';
@@ -473,6 +474,17 @@ export default function TourScreen() {
     };
   }, [isAmbassador]);
 
+  // When returning from add-tour-locations, apply any pending locations to the tour.
+  // DB update and broadcast to group members happen when the ambassador taps "Save Changes".
+  useFocusEffect(
+    useCallback(() => {
+      const pending = appStateManager.getAndClearPendingLocationsToAdd();
+      if (pending && pending.length > 0) {
+        setTourStops((prev) => [...prev, ...pending]);
+      }
+    }, [])
+  );
+
   // Load saved state from app state manager
   const loadSavedState = async () => {
     try {
@@ -743,6 +755,17 @@ export default function TourScreen() {
     setIsEditingTour(false);
     // Reset tour stops to what they were before editing
     setTourStops(currentTourStops);
+  };
+
+  const handleAddLocationPress = () => {
+    if (!schoolId) return;
+    router.push({
+      pathname: '/add-tour-locations',
+      params: {
+        schoolId,
+        currentTourStopIds: JSON.stringify(tourStops.map(s => s.id)),
+      },
+    });
   };
 
   const handleRaiseHand = async () => {
@@ -1109,7 +1132,8 @@ export default function TourScreen() {
     <SafeAreaView style={styles.container}>
       <View style={[styles.header, dynamicStyles.headerBorder]}>
         <HamburgerMenu primaryColor={primaryColor} />
-        <Text style={styles.headerText}>Campus Tour</Text>
+        {!isEditingTour && <Text style={styles.headerText}>Campus Tour</Text>}
+        {/* <Text style={styles.headerText}>Campus Tour</Text> */}
         <View style={styles.headerRightContainer}>
           {isAmbassadorLedMember && (
             <TouchableOpacity 
@@ -1124,10 +1148,18 @@ export default function TourScreen() {
             <View style={styles.headerButtons}>
               {isEditingTour && (
                 <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={cancelEditing}
+                style={styles.cancelButton}
+                onPress={cancelEditing}
                 >
                   <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              )}
+              {isAmbassador && isEditingTour && (
+                <TouchableOpacity
+                  style={[styles.addLocationButton, { backgroundColor: primaryColor }]}
+                  onPress={handleAddLocationPress}
+                >
+                  <Text style={styles.addLocationButtonText}>Add location</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
@@ -1522,6 +1554,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'white',
     marginLeft: 4,
+  },
+  addLocationButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+  },
+  addLocationButtonText: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   cancelButton: {
     backgroundColor: '#666666',
