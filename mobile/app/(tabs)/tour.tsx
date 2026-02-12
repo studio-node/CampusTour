@@ -1154,7 +1154,7 @@ export default function TourScreen() {
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
               )}
-              {isAmbassador && isEditingTour && (
+              {canEditTour && isEditingTour && (
                 <TouchableOpacity
                   style={[styles.addLocationButton, { backgroundColor: primaryColor }]}
                   onPress={handleAddLocationPress}
