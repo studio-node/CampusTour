@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { userTypeService, UserType, schoolService, authService } from '@/services/supabase';
+import { appStateManager } from '@/services/appStateManager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BASE_WIDTH = 375;
@@ -76,6 +77,7 @@ export default function TourTypeSelectionScreen() {
 
   const clearAsyncStorage = async () => {
     await AsyncStorage.clear();
+    await appStateManager.clearAllState(); // Also clear in-memory cached state
     console.log('Async Storage cleared');
   };
 

@@ -1,12 +1,13 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { analyticsService, Location, locationService, schoolService, userTypeService, UserType, tourGroupSelectionService, authService } from '@/services/supabase';
+import { orderTourStopsByNearestFirst } from '@/services/tourOrderUtils';
 import { wsManager } from '@/services/ws';
 import { appStateManager, PersistedAppState } from '@/services/appStateManager';
 import { Image } from 'expo-image';
 import * as ExpoLocation from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HamburgerMenu from '@/components/HamburgerMenu';
@@ -253,7 +254,11 @@ export default function TourScreen() {
   // Tour editing mode state
   const [isEditingTour, setIsEditingTour] = useState<boolean>(false);
 
-
+  // Ref to read latest tourStops inside useFocusEffect (when applying pending added locations)
+  const tourStopsRef = useRef<TourStop[]>([]);
+  useEffect(() => {
+    tourStopsRef.current = tourStops;
+  }, [tourStops]);
 
   // Get the selected school ID and details
   useEffect(() => {
@@ -341,6 +346,25 @@ export default function TourScreen() {
     syncStateToServer();
   }, [isAmbassador, currentLocationId, visitedLocations]);
 
+  // Fetch user coords for tour ordering (request permission + get position if not already available)
+  const getCoordsForOrdering = useCallback(async (): Promise<{ latitude: number; longitude: number } | null> => {
+    if (userLocation) return userLocation;
+    try {
+      let { status } = await ExpoLocation.getForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        const result = await ExpoLocation.requestForegroundPermissionsAsync();
+        status = result.status;
+      }
+      if (status === 'granted') {
+        const loc = await ExpoLocation.getCurrentPositionAsync({});
+        return { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      }
+    } catch (e) {
+      console.warn('Could not get location for tour ordering:', e);
+    }
+    return null;
+  }, [userLocation]);
+
   // Listen for tour list changes from ambassador (for ambassador-led members)
   useEffect(() => {
     if (!isAmbassadorLedMember) return;
@@ -359,12 +383,13 @@ export default function TourScreen() {
           // Fetch location details for the received location IDs
           if (schoolId) {
             const allLocations = await locationService.getTourStops(schoolId);
-            // Map the IDs to full location objects, preserving order
-            const orderedLocations: Location[] = locationIds
+            let orderedLocations: Location[] = locationIds
               .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
               .filter((loc: Location | undefined): loc is Location => Boolean(loc));
-            
-            // Update the local tour stops with the fetched locations
+
+            const coords = await getCoordsForOrdering();
+            orderedLocations = orderTourStopsByNearestFirst(orderedLocations, coords);
+
             setTourStops(orderedLocations);
           }
         } catch (error) {
@@ -422,12 +447,13 @@ export default function TourScreen() {
             // Fetch location details for the received location IDs
             if (schoolId) {
               const allLocations = await locationService.getTourStops(schoolId);
-              // Map the IDs to full location objects, preserving order
-              const orderedLocations: Location[] = locationIds
+              let orderedLocations: Location[] = locationIds
                 .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
                 .filter((loc: Location | undefined): loc is Location => Boolean(loc));
-              
-              // Update the local tour stops with the fetched locations
+
+              const coords = await getCoordsForOrdering();
+              orderedLocations = orderTourStopsByNearestFirst(orderedLocations, coords);
+
               setTourStops(orderedLocations);
             }
           } catch (error) {
@@ -450,7 +476,7 @@ export default function TourScreen() {
       wsManager.off('tour_state_updated', handleTourStateUpdated);
       wsManager.off('tour_structure_updated', handleTourStructureUpdated);
     };
-  }, [isAmbassadorLedMember, schoolId]);
+  }, [isAmbassadorLedMember, schoolId, getCoordsForOrdering]);
 
   // Listen for WebSocket events (for ambassadors to confirm their changes)
   useEffect(() => {
@@ -475,14 +501,22 @@ export default function TourScreen() {
   }, [isAmbassador]);
 
   // When returning from add-tour-locations, apply any pending locations to the tour.
+  // Insert them in the correct order_index position (reorder full list with orderTourStopsByNearestFirst).
   // DB update and broadcast to group members happen when the ambassador taps "Save Changes".
   useFocusEffect(
     useCallback(() => {
       const pending = appStateManager.getAndClearPendingLocationsToAdd();
-      if (pending && pending.length > 0) {
-        setTourStops((prev) => [...prev, ...pending]);
-      }
-    }, [])
+      if (!pending || pending.length === 0) return;
+
+      const applyPending = async () => {
+        const currentStops = tourStopsRef.current;
+        const combined = [...currentStops, ...pending];
+        const coords = await getCoordsForOrdering();
+        const reordered = orderTourStopsByNearestFirst(combined, coords);
+        setTourStops(reordered);
+      };
+      applyPending();
+    }, [getCoordsForOrdering])
   );
 
   // Load saved state from app state manager
@@ -612,7 +646,8 @@ export default function TourScreen() {
 
         // Fall back to local filtering if no school or no interests
         const filteredTourStops = await getTourStops(true);
-        setTourStops(filteredTourStops);
+        const coords = await getCoordsForOrdering();
+        setTourStops(orderTourStopsByNearestFirst(filteredTourStops, coords));
         setShowInterestSelection(false);
         setIsGeneratingTour(false);
         return;
@@ -658,11 +693,13 @@ export default function TourScreen() {
       const allLocations = await locationService.getTourStops(schoolId);
       
       // Filter locations to only include those returned by the server, in the order returned
-      const orderedTourStops = tourLocationIds
+      let orderedTourStops = tourLocationIds
         .map((locationId: string) => allLocations.find((location: Location) => location.id === locationId))
         .filter((location: Location | undefined): location is Location => location !== undefined); // Remove any undefined results
 
-      
+      const coords = await getCoordsForOrdering();
+      orderedTourStops = orderTourStopsByNearestFirst(orderedTourStops, coords);
+
       setTourStops(orderedTourStops);
       setShowInterestSelection(false);
       setIsGeneratingTour(false);
@@ -681,7 +718,8 @@ export default function TourScreen() {
       console.log('🔄 Falling back to local tour generation');
       try {
         const filteredTourStops = await getTourStops(true);
-        setTourStops(filteredTourStops);
+        const coords = await getCoordsForOrdering();
+        setTourStops(orderTourStopsByNearestFirst(filteredTourStops, coords));
         setShowInterestSelection(false);
         setIsGeneratingTour(false);
         console.log('✅ Local tour generation completed as fallback');
@@ -690,7 +728,8 @@ export default function TourScreen() {
         // If everything fails, show default tour
         console.log('🔄 Falling back to default tour');
         const defaultTourStops = await getTourStops(false);
-        setTourStops(defaultTourStops);
+        const coords = await getCoordsForOrdering();
+        setTourStops(orderTourStopsByNearestFirst(defaultTourStops, coords));
         setShowInterestSelection(false);
         setIsGeneratingTour(false);
       }
@@ -701,7 +740,8 @@ export default function TourScreen() {
   const showDefaultTour = async () => {
     if (!canEditTour) return;
     const defaultTourStops = await getTourStops(false);
-    setTourStops(defaultTourStops);
+    const coords = await getCoordsForOrdering();
+    setTourStops(orderTourStopsByNearestFirst(defaultTourStops, coords));
     setShowInterestSelection(false);
   };
 

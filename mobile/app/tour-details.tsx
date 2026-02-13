@@ -28,6 +28,8 @@ import { wsManager } from '@/services/ws';
 import { appStateManager } from '@/services/appStateManager';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Image } from 'expo-image';
+import * as ExpoLocation from 'expo-location';
+import { orderTourStopsByNearestFirst } from '@/services/tourOrderUtils';
 
 export default function TourDetailsScreen() {
   const router = useRouter();
@@ -252,9 +254,25 @@ export default function TourDetailsScreen() {
           
           if (schoolId && Array.isArray(message?.payload?.generated_tour_order)) {
             const allLocations = await locationService.getTourStops(schoolId);
-            const ordered: Location[] = message.payload.generated_tour_order
+            let ordered: Location[] = message.payload.generated_tour_order
               .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
               .filter((loc: Location | undefined): loc is Location => Boolean(loc));
+            // Reorder to start at nearest location to ambassador
+            let coords: { latitude: number; longitude: number } | null = null;
+            try {
+              let { status } = await ExpoLocation.getForegroundPermissionsAsync();
+              if (status !== 'granted') {
+                const result = await ExpoLocation.requestForegroundPermissionsAsync();
+                status = result.status;
+              }
+              if (status === 'granted') {
+                const loc = await ExpoLocation.getCurrentPositionAsync({});
+                coords = loc.coords;
+              }
+            } catch (e) {
+              console.warn('Could not get location for tour ordering:', e);
+            }
+            ordered = orderTourStopsByNearestFirst(ordered, coords);
             // Update app state with the generated tour and save tour ID
             appStateManager.updateState({
               userType: currentUserType,
