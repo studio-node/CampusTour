@@ -19,13 +19,14 @@ export async function getUserSchoolId(userId) {
       .single()
 
     if (error) {
-      console.error('Error fetching user profile:', error)
+      // PGRST116 = no rows returned (e.g. no profile row or RLS blocking)
+      console.error('Error fetching user profile:', error.code, error.message)
       return null
     }
 
-    return data?.school_id || null
-  } catch (error) {
-    console.error('Error in getUserSchoolId:', error)
+    return data?.school_id ?? null
+  } catch (err) {
+    console.error('Error in getUserSchoolId:', err)
     return null
   }
 }

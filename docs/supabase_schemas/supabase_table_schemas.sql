@@ -76,6 +76,9 @@ CREATE TABLE public.locations (
   careers ARRAY,
   talking_points ARRAY,
   features ARRAY,
+  builder_passcode_salt text,
+  builder_passcode_hash text,
+  builder_passcode_updated_at timestamp with time zone,
   CONSTRAINT locations_pkey PRIMARY KEY (id),
   CONSTRAINT locations_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );
@@ -87,6 +90,8 @@ CREATE TABLE public.profiles (
   is_active boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  creation_token text UNIQUE,
+  email text,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
