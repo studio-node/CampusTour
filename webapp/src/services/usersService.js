@@ -80,3 +80,52 @@ export async function updateProfile(userId, updates) {
 export async function deactivateUser(userId) {
   return updateProfile(userId, { is_active: false })
 }
+
+/**
+ * Generate a random 6-digit PIN for user creation.
+ * @returns {string} 6-digit PIN
+ */
+export function generatePin() {
+  return Math.floor(100000 + Math.random() * 900000).toString()
+}
+
+/**
+ * Create a partial user (auth.users + profiles) with a creation_token PIN.
+ * Uses Edge Function with Admin API to create user properly.
+ * Admin must be in the same school. Email uniqueness enforced.
+ * @param {{ email: string, full_name: string, role: string, creation_token: string }}
+ * @returns {Promise<{success: boolean, error?: string, data?: { user_id: string }}>}
+ */
+export async function createPartialUser({ email, full_name, role, creation_token }) {
+  try {
+    if (!email || !full_name || !role || !creation_token) {
+      return { success: false, error: 'All fields are required.' }
+    }
+
+    const { data, error } = await supabase.functions.invoke('create_partial_user', {
+      body: {
+        email: email.trim(),
+        full_name: full_name.trim(),
+        role: role,
+        creation_token: creation_token
+      }
+    })
+
+    if (error) {
+      console.error('Error creating partial user:', error)
+      return { success: false, error: error.message }
+    }
+
+    const result = data
+    if (result && typeof result === 'object' && result.ok === false && result.error) {
+      return { success: false, error: result.error }
+    }
+    if (result && typeof result === 'object' && result.ok === true) {
+      return { success: true, data: { user_id: result.user_id } }
+    }
+    return { success: false, error: 'User creation failed.' }
+  } catch (err) {
+    console.error('Error in createPartialUser:', err)
+    return { success: false, error: err?.message || 'Failed to create user' }
+  }
+}

@@ -1,9 +1,9 @@
 <script setup>
-import { ref, onMounted, computed, watchEffect } from 'vue'
+import { ref, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
-import { signIn, signUp } from '../services/authHandler'
-import { schoolService } from '../services/schoolService.js'
+import { signIn } from '../services/authHandler'
 import { useAuth } from '../composables/useAuth.js'
+import { supabase } from '../supabase.js'
 
 const router = useRouter()
 const { isAuthenticated, loading: authLoading } = useAuth()
@@ -13,33 +13,14 @@ const isSignUp = ref(false)
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
-const name = ref('')
-const selectedRole = ref('')
-const selectedSchool = ref('')
-const selectedSchoolData = ref(null)
-const schools = ref([])
-const schoolsLoading = ref(false)
-const schoolSearchQuery = ref('')
 const loading = ref(false)
 const error = ref('')
 
-// Load schools on mount
-onMounted(async () => {
-  await loadSchools()
-})
-
-// Load schools from API
-const loadSchools = async () => {
-  schoolsLoading.value = true
-  try {
-    const schoolsData = await schoolService.getSchools()
-    schools.value = schoolsData
-  } catch (err) {
-    console.error('Error loading schools:', err)
-  } finally {
-    schoolsLoading.value = false
-  }
-}
+// PIN-based sign-up state
+const pin = ref('')
+const pinValidated = ref(false)
+const validatingPin = ref(false)
+const userInfo = ref(null) // Stores email, full_name, role from profile when PIN is validated
 
 // Toggle between sign in and sign up
 const toggleMode = () => {
@@ -49,43 +30,57 @@ const toggleMode = () => {
   email.value = ''
   password.value = ''
   confirmPassword.value = ''
-  name.value = ''
-  selectedRole.value = ''
-  selectedSchool.value = ''
-  selectedSchoolData.value = null
-  schoolSearchQuery.value = ''
+  pin.value = ''
+  pinValidated.value = false
+  userInfo.value = null
 }
 
-// Handle role selection
-const selectRole = (role) => {
-  selectedRole.value = role
-}
-
-// Handle school selection
-const selectSchool = (school) => {
-  selectedSchool.value = school.id
-  selectedSchoolData.value = school
-}
-
-// Computed property for filtered schools
-const filteredSchools = computed(() => {
-  if (schoolSearchQuery.value.trim() === '') {
-    // Show top 5 schools when no search query
-    return schools.value.slice(0, 5)
-  } else {
-    // Filter schools based on search query
-    const query = schoolSearchQuery.value.toLowerCase().trim()
-    return schools.value.filter(school => 
-      school.name.toLowerCase().includes(query) ||
-      school.city.toLowerCase().includes(query) ||
-      school.state.toLowerCase().includes(query)
-    ).slice(0, 8) // Limit to 8 results
+// Validate PIN and unlock password fields
+const validatePin = async () => {
+  if (!pin.value || pin.value.length !== 6) {
+    error.value = 'Please enter a 6-digit PIN.'
+    return
   }
-})
+  validatingPin.value = true
+  error.value = ''
+  try {
+    // Use RPC to validate PIN (bypasses RLS for anonymous users)
+    const { data, error: rpcError } = await supabase.rpc('validate_pin', {
+      p_creation_token: pin.value
+    })
+
+    if (rpcError || !data || (typeof data === 'object' && data.ok === false)) {
+      error.value = rpcError?.message || data?.error || 'Invalid PIN. Please check and try again.'
+      return
+    }
+
+    // PIN is valid - unlock password fields
+    userInfo.value = {
+      email: data.email,
+      full_name: data.full_name,
+      role: data.role
+    }
+    email.value = data.email || ''
+    pinValidated.value = true
+    error.value = ''
+  } catch (err) {
+    error.value = 'Failed to validate PIN. Please try again.'
+    console.error('PIN validation error:', err)
+  } finally {
+    validatingPin.value = false
+  }
+}
+
 
 // Handle form submission
 const handleSubmit = async () => {
   error.value = ''
+  
+  // PIN-based sign-up flow
+  if (isSignUp.value && !pinValidated.value) {
+    await validatePin()
+    return
+  }
   
   // Basic validation
   if (!email.value || !password.value) {
@@ -98,46 +93,35 @@ const handleSubmit = async () => {
     return
   }
   
-  if (isSignUp.value && !name.value) {
-    error.value = 'Name is required for sign up'
-    return
-  }
-  
-  if (isSignUp.value && !selectedRole.value) {
-    error.value = 'Please select a role (Admin, Builder, or Ambassador)'
-    return
-  }
-  
-  if (isSignUp.value && !selectedSchool.value) {
-    error.value = 'Please select a school'
-    return
-  }
-  
   loading.value = true
   
   try {
-    // TODO: Implement actual authentication logic
-    console.log(isSignUp.value ? 'Signing up...' : 'Signing in...', {
-      email: email.value,
-      password: password.value,
-      name: name.value,
-      role: selectedRole.value,
-      school: selectedSchool.value
-    })
-    
-         let data;
-     if (isSignUp.value) {
-       data = await signUp(email.value, password.value, name.value, selectedRole.value, selectedSchool.value)
-     } else {
-       data = await signIn(email.value, password.value) 
-     }
+    let data
+    if (isSignUp.value && pinValidated.value) {
+      // PIN-based sign-up: use RPC to set password
+      const { data: rpcData, error: rpcError } = await supabase.rpc('signup_with_pin', {
+        p_creation_token: pin.value,
+        p_password: password.value
+      })
+
+      if (rpcError || !rpcData || (typeof rpcData === 'object' && rpcData.ok === false)) {
+        error.value = rpcError?.message || rpcData?.error || 'Sign-up failed. Please try again.'
+        return
+      }
+
+      // Sign in with the new credentials
+      data = await signIn(email.value, password.value)
+    } else {
+      // Sign in
+      data = await signIn(email.value, password.value)
+    }
      
-     if (data) { 
-       // Redirect to admin dashboard - auth state will be handled by useAuth composable
-       router.push('/admin')
-     } else {
-       error.value = 'Authentication failed. Please try again.'
-     }
+    if (data) { 
+      // Redirect to admin dashboard - auth state will be handled by useAuth composable
+      router.push('/admin')
+    } else {
+      error.value = 'Authentication failed. Please try again.'
+    }
     
   } catch (err) {
     error.value = 'Authentication failed. Please try again.'
@@ -193,10 +177,10 @@ watchEffect(() => {
               </svg>
             </div>
             <h2 class="text-2xl font-bold text-white mb-2">
-              {{ isSignUp ? 'Create Admin Account' : 'Admin Sign In' }}
+              {{ isSignUp ? 'Create Account' : 'Admin Sign In' }}
             </h2>
             <p class="text-gray-400">
-              {{ isSignUp ? 'Set up your administrative account' : 'Access your administrative dashboard' }}
+              {{ isSignUp ? 'Enter your PIN to complete account setup' : 'Access your administrative dashboard' }}
             </p>
           </div>
 
@@ -207,168 +191,43 @@ watchEffect(() => {
 
           <!-- Form -->
           <form @submit.prevent="handleSubmit" class="space-y-6">
-                         <!-- Name field (only for sign up) -->
-            <div v-if="isSignUp">
-              <label for="name" class="block text-sm font-medium text-gray-300 mb-2">
-                Full Name
+            <!-- PIN field (only for PIN-based sign up) -->
+            <div v-if="isSignUp && !pinValidated">
+              <label for="pin" class="block text-sm font-medium text-gray-300 mb-2">
+                Enter Your PIN *
               </label>
-              <input
-                id="name"
-                v-model="name"
-                type="text"
-                required
-                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="Enter your full name"
-              />
-            </div>
-
-            <!-- Role Selection (only for sign up) -->
-            <div v-if="isSignUp">
-              <label class="block text-sm font-medium text-gray-300 mb-3">
-                Select Your Role *
-              </label>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div class="flex gap-2">
+                <input
+                  id="pin"
+                  v-model="pin"
+                  type="text"
+                  maxlength="6"
+                  pattern="[0-9]{6}"
+                  required
+                  class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center text-2xl font-mono tracking-widest"
+                  placeholder="000000"
+                />
                 <button
                   type="button"
-                  @click="selectRole('admin')"
-                  :class="[
-                    'p-4 rounded-lg border-2 transition-all duration-200 text-center',
-                    selectedRole === 'admin'
-                      ? 'bg-green-600 border-green-500 text-white'
-                      : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-gray-500 hover:bg-gray-600'
-                  ]"
+                  @click="validatePin"
+                  :disabled="validatingPin || pin.length !== 6"
+                  class="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div class="flex flex-col items-center">
-                    <svg class="w-6 h-6 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    <span class="font-semibold">Admin</span>
-                    <span class="text-xs mt-1 opacity-75">Full system access</span>
-                  </div>
-                </button>
-                
-                <button
-                  type="button"
-                  @click="selectRole('builder')"
-                  :class="[
-                    'p-4 rounded-lg border-2 transition-all duration-200 text-center',
-                    selectedRole === 'builder'
-                      ? 'bg-green-600 border-green-500 text-white'
-                      : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-gray-500 hover:bg-gray-600'
-                  ]"
-                >
-                  <div class="flex flex-col items-center">
-                    <svg class="w-6 h-6 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                    </svg>
-                    <span class="font-semibold">Builder</span>
-                    <span class="text-xs mt-1 opacity-75">Content management</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  @click="selectRole('ambassador')"
-                  :class="[
-                    'p-4 rounded-lg border-2 transition-all duration-200 text-center',
-                    selectedRole === 'ambassador'
-                      ? 'bg-green-600 border-green-500 text-white'
-                      : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-gray-500 hover:bg-gray-600'
-                  ]"
-                >
-                  <div class="flex flex-col items-center">
-                    <svg class="w-6 h-6 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-                    </svg>
-                    <span class="font-semibold">Ambassador</span>
-                    <span class="text-xs mt-1 opacity-75">Tour leadership</span>
-                  </div>
+                  {{ validatingPin ? 'Validating...' : 'Validate' }}
                 </button>
               </div>
+              <p class="text-xs text-gray-400 mt-2">Enter the 6-digit PIN provided by your administrator</p>
             </div>
 
-            <!-- School Selection (only for sign up) -->
-            <div v-if="isSignUp">
-              <label class="block text-sm font-medium text-gray-300 mb-3">
-                Select Your School *
-              </label>
-              
-              <!-- Selected School Display -->
-              <div v-if="selectedSchoolData" class="mb-3 p-3 bg-green-600 rounded-lg border border-green-500">
-                <div class="flex items-center">
-                  <div v-if="selectedSchoolData.logo_url" class="mr-3">
-                    <img 
-                      :src="selectedSchoolData.logo_url" 
-                      :alt="selectedSchoolData.name"
-                      class="w-8 h-8 object-contain rounded"
-                    />
-                  </div>
-                  <div class="flex-1">
-                    <p class="font-semibold text-white text-sm">{{ selectedSchoolData.name }}</p>
-                    <p class="text-green-200 text-xs">{{ selectedSchoolData.city }}, {{ selectedSchoolData.state }}</p>
-                  </div>
-                  <button 
-                    type="button"
-                    @click="selectedSchool = ''; selectedSchoolData = null"
-                    class="text-green-200 hover:text-white"
-                  >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              <!-- School Search and Selection -->
-              <div v-if="!selectedSchoolData">
-                <!-- Search Input -->
-                <div class="mb-3">
-                  <input
-                    v-model="schoolSearchQuery"
-                    type="text"
-                    placeholder="Search schools by name, city, or state..."
-                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                  />
-                </div>
-
-                <!-- Schools List -->
-                <div class="max-h-40 overflow-y-auto border border-gray-600 rounded-lg bg-gray-700">
-                  <div v-if="schoolsLoading" class="p-4 text-center text-gray-400 text-sm">
-                    Loading schools...
-                  </div>
-                  
-                  <div v-else-if="filteredSchools.length === 0" class="p-4 text-center text-gray-400 text-sm">
-                    No schools found. Try a different search term.
-                  </div>
-                  
-                  <button
-                    v-else
-                    v-for="school in filteredSchools"
-                    :key="school.id"
-                    type="button"
-                    @click="selectSchool(school)"
-                    class="w-full p-3 text-left hover:bg-gray-600 transition-colors duration-200 border-b border-gray-600 last:border-b-0"
-                  >
-                    <div class="flex items-center">
-                      <div v-if="school.logo_url" class="mr-3 flex-shrink-0">
-                        <img 
-                          :src="school.logo_url" 
-                          :alt="school.name"
-                          class="w-6 h-6 object-contain rounded"
-                        />
-                      </div>
-                      <div class="min-w-0 flex-1">
-                        <p class="font-medium text-white text-sm truncate">{{ school.name }}</p>
-                        <p class="text-gray-400 text-xs">{{ school.city }}, {{ school.state }}</p>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              </div>
+            <!-- User info display (after PIN validated) -->
+            <div v-if="isSignUp && pinValidated && userInfo" class="bg-green-900/30 border border-green-700 rounded-lg p-4 mb-4">
+              <p class="text-green-200 text-sm mb-1"><strong>Email:</strong> {{ userInfo.email }}</p>
+              <p class="text-green-200 text-sm mb-1"><strong>Name:</strong> {{ userInfo.full_name }}</p>
+              <p class="text-green-200 text-sm"><strong>Role:</strong> {{ userInfo.role }}</p>
             </div>
 
-            <!-- Email field -->
-            <div>
+            <!-- Email field (only shown for sign-in, hidden when PIN validated since it's in user info) -->
+            <div v-if="!isSignUp || !pinValidated">
               <label for="email" class="block text-sm font-medium text-gray-300 mb-2">
                 Email Address
               </label>
@@ -382,8 +241,8 @@ watchEffect(() => {
               />
             </div>
 
-            <!-- Password field -->
-            <div>
+            <!-- Password field (only shown if PIN validated or sign-in) -->
+            <div v-if="!isSignUp || pinValidated">
               <label for="password" class="block text-sm font-medium text-gray-300 mb-2">
                 Password
               </label>
@@ -393,12 +252,12 @@ watchEffect(() => {
                 type="password"
                 required
                 class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="Enter your password"
+                :placeholder="isSignUp ? 'Create your password' : 'Enter your password'"
               />
             </div>
 
-            <!-- Confirm Password field (only for sign up) -->
-            <div v-if="isSignUp">
+            <!-- Confirm Password field (only for sign up after PIN validated) -->
+            <div v-if="isSignUp && pinValidated">
               <label for="confirmPassword" class="block text-sm font-medium text-gray-300 mb-2">
                 Confirm Password
               </label>
@@ -415,7 +274,7 @@ watchEffect(() => {
             <!-- Submit Button -->
             <button
               type="submit"
-              :disabled="loading"
+              :disabled="loading || validatingPin || (isSignUp && !pinValidated && pin.length !== 6)"
               class="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span v-if="loading" class="flex items-center justify-center">
@@ -423,10 +282,10 @@ watchEffect(() => {
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                {{ isSignUp ? 'Creating Account...' : 'Signing In...' }}
+                {{ isSignUp && pinValidated ? 'Creating Account...' : isSignUp ? 'Validating PIN...' : 'Signing In...' }}
               </span>
               <span v-else>
-                {{ isSignUp ? 'Create Account' : 'Sign In' }}
+                {{ isSignUp && pinValidated ? 'Create Account' : isSignUp ? 'Validate PIN' : 'Sign In' }}
               </span>
             </button>
           </form>

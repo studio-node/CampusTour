@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useAuth } from '../composables/useAuth.js'
 import { getUserSchoolId } from '../services/locationsService.js'
-import { getSchoolUsers, updateProfile, deactivateUser } from '../services/usersService.js'
+import { getSchoolUsers, updateProfile, deactivateUser, createPartialUser, generatePin } from '../services/usersService.js'
 
 const ROLES = ['admin', 'ambassador', 'builder', 'super-admin']
 
@@ -38,6 +38,12 @@ const editSaving = ref(false)
 const deactivatingId = ref(null)
 
 const showEditModal = computed(() => editUser.value !== null)
+
+// Add User modal state
+const showAddModal = ref(false)
+const addForm = ref({ email: '', full_name: '', role: '' })
+const generatedPin = ref('')
+const creating = ref(false)
 
 async function loadUsers() {
   loading.value = true
@@ -140,6 +146,57 @@ async function handleDeactivate(u) {
   }
 }
 
+function openAddModal() {
+  showAddModal.value = true
+  addForm.value = { email: '', full_name: '', role: '' }
+  generatedPin.value = ''
+  errorMessage.value = ''
+  successMessage.value = ''
+}
+
+function closeAddModal() {
+  showAddModal.value = false
+  addForm.value = { email: '', full_name: '', role: '' }
+  generatedPin.value = ''
+}
+
+function handleGeneratePin() {
+  generatedPin.value = generatePin()
+}
+
+async function handleCreateUser() {
+  if (!addForm.value.email || !addForm.value.full_name || !addForm.value.role) {
+    errorMessage.value = 'Please fill in all fields.'
+    return
+  }
+  if (!generatedPin.value) {
+    errorMessage.value = 'Please generate a PIN first.'
+    return
+  }
+  creating.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+  try {
+    const result = await createPartialUser({
+      email: addForm.value.email,
+      full_name: addForm.value.full_name,
+      role: addForm.value.role,
+      creation_token: generatedPin.value
+    })
+    if (!result.success) {
+      errorMessage.value = result.error || 'Failed to create user.'
+      return
+    }
+    successMessage.value = `User created! PIN: ${generatedPin.value} (share this with the user)`
+    closeAddModal()
+    await loadUsers()
+  } catch (err) {
+    errorMessage.value = 'Failed to create user.'
+  } finally {
+    creating.value = false
+  }
+}
+
 onMounted(loadUsers)
 </script>
 
@@ -152,7 +209,7 @@ onMounted(loadUsers)
           <h1 class="text-2xl font-bold text-white">User Management</h1>
           <p class="text-gray-400 mt-1">Manage ambassadors, admins, and user accounts</p>
         </div>
-        <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+        <button @click="openAddModal" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
           Add New User
         </button>
       </div>
@@ -296,6 +353,84 @@ onMounted(loadUsers)
                 :disabled="editSaving"
               >
                 {{ editSaving ? 'Saving…' : 'Save' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div v-if="showAddModal" class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true" role="dialog">
+      <div class="flex min-h-full items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/60" @click="closeAddModal"></div>
+        <div class="relative bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+          <h3 class="text-lg font-semibold text-white">Add New User</h3>
+          <form @submit.prevent="handleCreateUser" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-300 mb-1">Email</label>
+              <input
+                v-model="addForm.email"
+                type="email"
+                required
+                class="w-full rounded-lg bg-gray-700 border border-gray-600 text-white px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                placeholder="user@example.com"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-300 mb-1">Full name</label>
+              <input
+                v-model="addForm.full_name"
+                type="text"
+                required
+                class="w-full rounded-lg bg-gray-700 border border-gray-600 text-white px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                placeholder="Full name"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-300 mb-1">Role</label>
+              <select
+                v-model="addForm.role"
+                required
+                class="w-full rounded-lg bg-gray-700 border border-gray-600 text-white px-3 py-2 focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— Select —</option>
+                <option v-for="r in ROLES" :key="r" :value="r">{{ displayRole(r) }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-300 mb-1">PIN (6-digit)</label>
+              <div class="flex gap-2">
+                <input
+                  :value="generatedPin"
+                  readonly
+                  class="flex-1 rounded-lg bg-gray-700 border border-gray-600 text-white px-3 py-2 font-mono text-lg text-center"
+                  placeholder="Click Generate"
+                />
+                <button
+                  type="button"
+                  @click="handleGeneratePin"
+                  class="px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-500"
+                >
+                  Generate
+                </button>
+              </div>
+              <p class="text-xs text-gray-400 mt-1">Share this PIN with the user for sign-up</p>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700"
+                @click="closeAddModal"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                :disabled="creating || !generatedPin"
+              >
+                {{ creating ? 'Creating…' : 'Create User' }}
               </button>
             </div>
           </form>
