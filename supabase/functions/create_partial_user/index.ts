@@ -171,13 +171,13 @@ export default Deno.serve(async (req) => {
   // Then update it with creation_token, email, and is_active
   await new Promise((resolve) => setTimeout(resolve, 500));
 
-  // Update profile: set creation_token, email, is_active=false
+  // Update profile: set creation_token, email, is_active=true
   const { error: updateError } = await serviceClient
     .from("profiles")
     .update({
       creation_token: creation_token,
       email: email.trim(),
-      is_active: false,
+      is_active: true,
       updated_at: new Date().toISOString(),
     })
     .eq("id", userId);

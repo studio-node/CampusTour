@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useAuth } from '../composables/useAuth.js'
 import { getUserSchoolId } from '../services/locationsService.js'
-import { getSchoolUsers, updateProfile, deactivateUser, createPartialUser, generatePin } from '../services/usersService.js'
+import { getSchoolUsers, updateProfile, deactivateUser, reactivateUser, createPartialUser, generatePin } from '../services/usersService.js'
 
 const ROLES = ['admin', 'ambassador', 'builder', 'super-admin']
 
@@ -36,6 +36,7 @@ const editUser = ref(null)
 const editForm = ref({ full_name: '', email: '', role: '', is_active: true })
 const editSaving = ref(false)
 const deactivatingId = ref(null)
+const reactivatingId = ref(null)
 
 const showEditModal = computed(() => editUser.value !== null)
 
@@ -72,6 +73,7 @@ async function loadUsers() {
       role: p.role || '',
       is_active: p.is_active !== false,
       last_sign_in_at: p.last_sign_in_at,
+      creation_token: p.creation_token ?? '',
       name: p.full_name || '—',
       emailDisplay: p.email ?? '—',
       roleDisplay: displayRole(p.role),
@@ -143,6 +145,25 @@ async function handleDeactivate(u) {
     errorMessage.value = 'Failed to deactivate user.'
   } finally {
     deactivatingId.value = null
+  }
+}
+
+async function handleReactivate(u) {
+  reactivatingId.value = u.id
+  errorMessage.value = ''
+  successMessage.value = ''
+  try {
+    const result = await reactivateUser(u.id)
+    if (!result.success) {
+      errorMessage.value = result.error || 'Failed to reactivate user.'
+      return
+    }
+    successMessage.value = 'User reactivated.'
+    await loadUsers()
+  } catch (err) {
+    errorMessage.value = 'Failed to reactivate user.'
+  } finally {
+    reactivatingId.value = null
   }
 }
 
@@ -245,16 +266,36 @@ onMounted(loadUsers)
         <table class="min-w-full divide-y divide-gray-700">
           <thead class="bg-gray-700">
             <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Name</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Email</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Role</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Activation Code</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Last Login</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody class="bg-gray-800 divide-y divide-gray-700">
             <tr v-for="u in users" :key="u.id" class="hover:bg-gray-700">
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                <button class="text-blue-400 hover:text-blue-300" @click="openEdit(u)">Edit</button>
+                <button
+                  v-if="u.status === 'Active'"
+                  class="text-amber-400 hover:text-amber-300"
+                  :disabled="deactivatingId === u.id"
+                  @click="handleDeactivate(u)"
+                >
+                  {{ deactivatingId === u.id ? 'Deactivating…' : 'Deactivate' }}
+                </button>
+                <button
+                  v-else
+                  class="text-green-400 hover:text-green-300"
+                  :disabled="reactivatingId === u.id"
+                  @click="handleReactivate(u)"
+                >
+                  {{ reactivatingId === u.id ? 'Reactivating…' : 'Reactivate' }}
+                </button>
+              </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-white">{{ u.name }}</div>
               </td>
@@ -268,6 +309,9 @@ onMounted(loadUsers)
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-400 font-mono">{{ u.creation_token || '—' }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
                       :class="u.status === 'Active' ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200'">
                   {{ u.status }}
@@ -275,18 +319,6 @@ onMounted(loadUsers)
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                 {{ u.lastLogin }}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                <button class="text-blue-400 hover:text-blue-300" @click="openEdit(u)">Edit</button>
-                <button
-                  v-if="u.status === 'Active'"
-                  class="text-amber-400 hover:text-amber-300"
-                  :disabled="deactivatingId === u.id"
-                  @click="handleDeactivate(u)"
-                >
-                  {{ deactivatingId === u.id ? 'Deactivating…' : 'Deactivate' }}
-                </button>
-                <span v-else class="text-gray-500">Inactive</span>
               </td>
             </tr>
           </tbody>

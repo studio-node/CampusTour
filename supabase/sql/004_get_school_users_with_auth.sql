@@ -13,7 +13,8 @@ returns table (
   is_active boolean,
   created_at timestamptz,
   updated_at timestamptz,
-  last_sign_in_at timestamptz
+  last_sign_in_at timestamptz,
+  creation_token text
 )
 language sql
 security definer
@@ -27,7 +28,8 @@ as $$
     p.is_active,
     p.created_at,
     p.updated_at,
-    u.last_sign_in_at
+    u.last_sign_in_at,
+    p.creation_token
   from public.profiles p
   join auth.users u on u.id = p.id
   where p.school_id = p_school_id

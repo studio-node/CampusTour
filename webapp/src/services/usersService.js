@@ -82,6 +82,15 @@ export async function deactivateUser(userId) {
 }
 
 /**
+ * Reactivate a user (set is_active to true).
+ * @param {string} userId - Profile id
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function reactivateUser(userId) {
+  return updateProfile(userId, { is_active: true })
+}
+
+/**
  * Generate a random 6-digit PIN for user creation.
  * @returns {string} 6-digit PIN
  */
