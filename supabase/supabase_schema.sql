@@ -480,7 +480,7 @@ $$;
 ALTER FUNCTION "public"."current_user_can_admin_school"("p_school_id" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_school_users_with_auth"("p_school_id" "uuid") RETURNS TABLE("id" "uuid", "full_name" "text", "email" "text", "role" "text", "is_active" boolean, "created_at" timestamp with time zone, "updated_at" timestamp with time zone, "last_sign_in_at" timestamp with time zone)
+CREATE OR REPLACE FUNCTION "public"."get_school_users_with_auth"("p_school_id" "uuid") RETURNS TABLE("id" "uuid", "full_name" "text", "email" "text", "role" "text", "is_active" boolean, "created_at" timestamp with time zone, "updated_at" timestamp with time zone, "last_sign_in_at" timestamp with time zone, "creation_token" "text")
     LANGUAGE "sql" SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $$
@@ -492,7 +492,8 @@ CREATE OR REPLACE FUNCTION "public"."get_school_users_with_auth"("p_school_id" "
     p.is_active,
     p.created_at,
     p.updated_at,
-    u.last_sign_in_at
+    u.last_sign_in_at,
+    p.creation_token
   from public.profiles p
   join auth.users u on u.id = p.id
   where p.school_id = p_school_id
@@ -809,6 +810,49 @@ ALTER FUNCTION "public"."update_school_user_profile"("p_target_id" "uuid", "p_fu
 
 
 COMMENT ON FUNCTION "public"."update_school_user_profile"("p_target_id" "uuid", "p_full_name" "text", "p_email" "text", "p_role" "text", "p_is_active" boolean) IS 'Updates a profile; caller must be an admin in the same school.';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."validate_pin"("p_creation_token" "text") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+declare
+  v_profile record;
+begin
+  -- Find profile with this creation_token
+  select id, email, full_name, role, is_active
+  into v_profile
+  from public.profiles
+  where creation_token = p_creation_token;
+
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'Invalid PIN.');
+  end if;
+
+  -- Check if already activated
+  if v_profile.is_active then
+    return jsonb_build_object('ok', false, 'error', 'This account is already activated. Please sign in instead.');
+  end if;
+
+  -- Return user info (without sensitive data)
+  return jsonb_build_object(
+    'ok', true,
+    'email', v_profile.email,
+    'full_name', v_profile.full_name,
+    'role', v_profile.role
+  );
+exception
+  when others then
+    return jsonb_build_object('ok', false, 'error', 'Failed to validate PIN.');
+end;
+$$;
+
+
+ALTER FUNCTION "public"."validate_pin"("p_creation_token" "text") OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."validate_pin"("p_creation_token" "text") IS 'Validates a creation_token PIN and returns user info if valid. Allows anonymous access.';
 
 
 
@@ -3648,6 +3692,12 @@ GRANT ALL ON FUNCTION "public"."sync_profiles_email_to_auth_users"() TO "service
 GRANT ALL ON FUNCTION "public"."update_school_user_profile"("p_target_id" "uuid", "p_full_name" "text", "p_email" "text", "p_role" "text", "p_is_active" boolean) TO "anon";
 GRANT ALL ON FUNCTION "public"."update_school_user_profile"("p_target_id" "uuid", "p_full_name" "text", "p_email" "text", "p_role" "text", "p_is_active" boolean) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."update_school_user_profile"("p_target_id" "uuid", "p_full_name" "text", "p_email" "text", "p_role" "text", "p_is_active" boolean) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."validate_pin"("p_creation_token" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."validate_pin"("p_creation_token" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."validate_pin"("p_creation_token" "text") TO "service_role";
 
 
 
