@@ -6,12 +6,13 @@ import * as ExpoLocation from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Callout, Marker, Overlay, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Callout, Marker, Overlay, Polyline, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
 import { useRaiseHand } from '@/contexts/RaiseHandContext';
+import { fetchWalkingRoute } from '@/services/directionsService';
 
 // Define the location type based on our supabase service
 type LocationItem = Location;
@@ -47,6 +48,17 @@ export default function MapScreen() {
   const [showTourModal, setShowTourModal] = useState(false);
   const [hasTour, setHasTour] = useState<boolean | null>(null); // null = checking, true = has tour, false = no tour
   const [hasShownModalThisSession, setHasShownModalThisSession] = useState(false); // Track if modal was shown this session
+  
+  // Tour state for self-guided: next stop (first unvisited) and user type
+  const [nextStop, setNextStop] = useState<LocationItem | null>(null);
+  const [isSelfGuided, setIsSelfGuided] = useState(false);
+  
+  // Map vs Directions view (only relevant when self-guided with active tour and next stop)
+  const [mapViewMode, setMapViewMode] = useState<'map' | 'directions'>('map');
+  
+  // Walking route for Directions view
+  const [routeCoordinates, setRouteCoordinates] = useState<Array<{ latitude: number; longitude: number }> | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
   
   // Raise hand notification state from shared context
   const { showModal: showRaiseHandModal, memberName: raiseHandMemberName, dismissModal: dismissRaiseHandModal } = useRaiseHand();
@@ -167,7 +179,51 @@ export default function MapScreen() {
     }
   }, [currentMapRegion, lastViewedLocationId, schoolId]);
 
-  // Check for existing tour whenever the map screen is focused
+  // When switching to map view, clear the route so we don't show it
+  useEffect(() => {
+    if (mapViewMode === 'map') {
+      setRouteCoordinates(null);
+    }
+  }, [mapViewMode]);
+
+  // Fetch walking route when in Directions view with user location and next stop
+  useEffect(() => {
+    if (mapViewMode !== 'directions' || !userLocation || !nextStop) {
+      return;
+    }
+    let cancelled = false;
+    setRouteLoading(true);
+    setRouteCoordinates(null);
+    const origin = { latitude: userLocation.latitude, longitude: userLocation.longitude };
+    const destination = nextStop.coordinates;
+    fetchWalkingRoute(origin, destination).then((result) => {
+      if (cancelled) return;
+      setRouteLoading(false);
+      if (result?.coordinates?.length) {
+        setRouteCoordinates(result.coordinates);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mapViewMode, userLocation?.latitude, userLocation?.longitude, nextStop?.id]);
+
+  // Fit map to route when route is loaded in Directions view
+  useEffect(() => {
+    if (mapViewMode !== 'directions' || !routeCoordinates?.length || !mapRef.current || !mapReady) {
+      return;
+    }
+    const points = [...routeCoordinates];
+    if (userLocation) {
+      points.push({ latitude: userLocation.latitude, longitude: userLocation.longitude });
+    }
+    if (nextStop?.coordinates) {
+      points.push(nextStop.coordinates);
+    }
+    mapRef.current.fitToCoordinates(points, { edgePadding: { top: 60, right: 40, bottom: 60, left: 40 }, animated: true });
+  }, [mapViewMode, routeCoordinates, mapReady, nextStop?.id, userLocation?.latitude, userLocation?.longitude]);
+
+  // Check for existing tour whenever the map screen is focused; compute next stop for self-guided
   useFocusEffect(
     React.useCallback(() => {
       const checkForTour = async () => {
@@ -177,18 +233,25 @@ export default function MapScreen() {
           const isAmbassadorLed = userType === 'ambassador-led';
           const isAmbassador = userType === 'ambassador';
           const isAmbassadorTour = isAmbassadorLed || isAmbassador;
-          
+          setIsSelfGuided(userType === 'self-guided');
+
           // Check for active tour using appStateManager
           const currentState = appStateManager.getCurrentState();
           let hasActiveTour = false;
-          
+          let next: LocationItem | null = null;
+
           if (currentState?.tourState) {
-            const { stops, selectedInterests } = currentState.tourState;
-            // User has a tour if there are tour stops and interests are selected (not in selection mode)
+            const { stops, selectedInterests, visitedLocations } = currentState.tourState;
             hasActiveTour = stops.length > 0 && selectedInterests.length > 0;
+            // Next stop = first stop not in visitedLocations (for directions view)
+            if (hasActiveTour && userType === 'self-guided') {
+              const firstUnvisited = stops.find((stop) => !visitedLocations?.includes(stop.id));
+              next = firstUnvisited ?? null;
+            }
           }
-          
+
           setHasTour(hasActiveTour);
+          setNextStop(next);
           
           // Don't show modal for ambassador-led tours or ambassadors, as they follow a different flow
           // Show modal only for self-guided users with no tour and hasn't been shown this session
@@ -203,6 +266,8 @@ export default function MapScreen() {
           const isAmbassadorTour = isAmbassadorLed || isAmbassador;
           
           setHasTour(false);
+          setNextStop(null);
+          setIsSelfGuided(userType === 'self-guided');
           // Only show modal for self-guided users if hasn't been shown this session
           if (!isAmbassadorTour && !hasShownModalThisSession) {
             setShowTourModal(true);
@@ -306,7 +371,7 @@ export default function MapScreen() {
 
       appStateManager.updateState(updatedState);
       
-      console.log('Map state saved to app state manager');
+      // console.log('Map state saved to app state manager');
     } catch (error) {
       console.error('Error saving map state:', error);
     }
@@ -359,6 +424,9 @@ export default function MapScreen() {
     modalPrimaryButton: {
       backgroundColor: primaryColor,
     },
+    viewToggleButtonActive: {
+      backgroundColor: primaryColor,
+    },
   };
 
   return (
@@ -381,6 +449,32 @@ export default function MapScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Map / Directions toggle: only for self-guided with active tour and a next stop */}
+      {isSelfGuided && hasTour && nextStop !== null && (
+        <View style={styles.viewToggleContainer}>
+          <TouchableOpacity
+            style={[
+              styles.viewToggleButton,
+              mapViewMode === 'map' && [styles.viewToggleButtonActive, dynamicStyles.viewToggleButtonActive],
+            ]}
+            onPress={() => setMapViewMode('map')}
+          >
+            <IconSymbol name="map" size={16} color={mapViewMode === 'map' ? '#fff' : '#666'} />
+            <Text style={[styles.viewToggleLabel, mapViewMode === 'map' && styles.viewToggleLabelActive]}>Map</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.viewToggleButton,
+              mapViewMode === 'directions' && [styles.viewToggleButtonActive, dynamicStyles.viewToggleButtonActive],
+            ]}
+            onPress={() => setMapViewMode('directions')}
+          >
+            <IconSymbol name="figure.walk" size={16} color={mapViewMode === 'directions' ? '#fff' : '#666'} />
+            <Text style={[styles.viewToggleLabel, mapViewMode === 'directions' && styles.viewToggleLabelActive]}>Directions</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       
       <View style={styles.mapContainer}>
         {errorMsg ? (
@@ -415,6 +509,13 @@ export default function MapScreen() {
               // [ 37.097589, -113.572708 ]
               // new bottom left: 37.10815778141483, -113.55942540472526
             ]}  />
+            {mapViewMode === 'directions' && routeCoordinates && routeCoordinates.length > 0 && (
+              <Polyline
+                coordinates={routeCoordinates}
+                strokeColor={primaryColor}
+                strokeWidth={6}
+              />
+            )}
             {locations.map((location) => (
               <Marker
                 key={location.id}
@@ -441,6 +542,27 @@ export default function MapScreen() {
               </Marker>
             ))}
           </MapView>
+        )}
+
+        {/* Loading indicator for Directions view */}
+        {mapViewMode === 'directions' && routeLoading && (
+          <View style={styles.routeLoadingOverlay}>
+            <Text style={styles.routeLoadingText}>Loading route…</Text>
+          </View>
+        )}
+
+        {/* Directions view: no location — prompt to enable */}
+        {mapViewMode === 'directions' && nextStop && locationPermissionStatus !== 'granted' && !routeLoading && (
+          <View style={styles.routeMessageOverlay}>
+            <Text style={styles.routeMessageText}>Enable location to see route</Text>
+          </View>
+        )}
+
+        {/* Directions view: API failed or no key */}
+        {mapViewMode === 'directions' && nextStop && userLocation && !routeLoading && !routeCoordinates && (
+          <View style={styles.routeMessageOverlay}>
+            <Text style={styles.routeMessageText}>Directions unavailable</Text>
+          </View>
         )}
 
         {/* Recenter button */}
@@ -612,6 +734,65 @@ const styles = StyleSheet.create({
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  viewToggleContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    backgroundColor: '#282828',
+  },
+  viewToggleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#444',
+  },
+  viewToggleButtonActive: {
+    backgroundColor: '#990000',
+  },
+  viewToggleLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#999',
+  },
+  viewToggleLabelActive: {
+    color: '#fff',
+  },
+  routeLoadingOverlay: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  routeLoadingText: {
+    color: '#fff',
+    fontSize: 14,
+  },
+  routeMessageOverlay: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  routeMessageText: {
+    color: '#fff',
+    fontSize: 14,
   },
   buttonTextSmall: {
     color: 'white',
