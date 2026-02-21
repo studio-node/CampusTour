@@ -1,3 +1,4 @@
+import type { Polygon } from './deadzones';
 import { routePassesThroughDeadzone } from './deadzones';
 import { decodePolyline } from './polylineUtils';
 
@@ -9,16 +10,24 @@ export interface WalkingRouteResult {
   coordinates: Array<{ latitude: number; longitude: number }>;
 }
 
+export interface FetchWalkingRouteOptions {
+  /** School deadzone polygons; routes passing through any are avoided when alternatives exist. */
+  deadzonePolygons?: Polygon[];
+}
+
 /**
  * Fetches a walking route between origin and destination using Google Routes API.
  * Requests alternative routes and returns the first route that does not pass through any deadzone.
+ * Pass deadzonePolygons from the school (e.g. parseDeadzonesFromSchool(school.deadzones)).
  * Requires EXPO_PUBLIC_GOOGLE_ROUTES_API_KEY to be set (Routes API must be enabled for the project).
  * Returns decoded polyline coordinates or null on missing key / API error / no valid route.
  */
 export async function fetchWalkingRoute(
   origin: { latitude: number; longitude: number },
-  destination: { latitude: number; longitude: number }
+  destination: { latitude: number; longitude: number },
+  options: FetchWalkingRouteOptions = {}
 ): Promise<WalkingRouteResult | null> {
+  const { deadzonePolygons = [] } = options;
   const apiKey =
     typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_GOOGLE_ROUTES_API_KEY?.trim();
   if (!apiKey) {
@@ -29,16 +38,16 @@ export async function fetchWalkingRoute(
     origin: {
       location: {
         latLng: {
-          latitude: origin.latitude,
-          longitude: origin.longitude,
+          // latitude: origin.latitude,
+          // longitude: origin.longitude,
 
           // About 100ft easy of the clocktower
           // latitude: 37.103069331849845, 
           // longitude: -113.56483742834496,
 
           // Center of the circle in front of the Holland
-          // latitude: 37.10314021556226,
-          // longitude: -113.56592069506931,
+          latitude: 37.10314021556226,
+          longitude: -113.56592069506931,
         },
       },
     },
@@ -75,11 +84,11 @@ export async function fetchWalkingRoute(
 
     const routes = data.routes;
     if (!Array.isArray(routes) || routes.length === 0) {
-      console.log('routes in top null', routes);
       return null;
     }
 
     // Return the first route that does not pass through any deadzone
+    // console.log('\n\n\nroutes length', routes.length);
     for (const route of routes) {
       const encoded = route?.polyline?.encodedPolyline;
       if (!encoded || typeof encoded !== 'string') continue;
@@ -87,7 +96,7 @@ export async function fetchWalkingRoute(
       const coordinates = decodePolyline(encoded);
       if (coordinates.length === 0) continue;
 
-      if (!routePassesThroughDeadzone(coordinates)) {
+      if (!routePassesThroughDeadzone(coordinates, deadzonePolygons)) {
         return { coordinates };
       }
     }
@@ -104,3 +113,42 @@ export async function fetchWalkingRoute(
     return null;
   }
 }
+
+[
+  [
+    {
+      "latitude": 37.103741821648384,
+      "longitude": -113.56620993343819
+    },
+    {
+      "latitude": 37.10381022009893,
+      "longitude": -113.5664051140773
+    },
+    {
+      "latitude": 37.10340410491303,
+      "longitude": -113.56638116043668
+    },
+    {
+      "latitude": 37.103421084269,
+      "longitude": -113.5662103157271
+    }
+  ],
+  [
+    {
+      "latitude": 37.10252315843044, 
+      "longitude": -113.56467910947526
+    },
+    {
+      "latitude": 37.102851548092616, 
+      "longitude": -113.564672680498
+    },
+    {
+      "latitude": 37.10274412112869, 
+      "longitude": -113.56507306332509
+    },
+    {
+      "latitude": 37.102502944631254, 
+      "longitude": -113.56514809711588
+    }
+  ]
+]

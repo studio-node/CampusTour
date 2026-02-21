@@ -247,6 +247,8 @@ export interface School {
   primary_color?: string;
   coordinates?: Region;
   logo_url?: string;
+  /** JSONB: array of polygons (each polygon is array of { latitude, longitude }). Use parseDeadzonesFromSchool() for routing. */
+  deadzones?: unknown;
 }
 
 // School service

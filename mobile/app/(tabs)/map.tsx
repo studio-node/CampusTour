@@ -6,12 +6,13 @@ import * as ExpoLocation from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Callout, Marker, Overlay, Polyline, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Callout, Marker, Overlay, Polygon, Polyline, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
 import { useRaiseHand } from '@/contexts/RaiseHandContext';
+import { parseDeadzonesFromSchool } from '@/services/deadzones';
 import { fetchWalkingRoute } from '@/services/directionsService';
 
 // Define the location type based on our supabase service
@@ -60,6 +61,9 @@ export default function MapScreen() {
   const [routeCoordinates, setRouteCoordinates] = useState<Array<{ latitude: number; longitude: number }> | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   
+  // School deadzones for route filtering (from school.deadzones)
+  const [schoolDeadzones, setSchoolDeadzones] = useState<Array<Array<{ latitude: number; longitude: number }>>>([]);
+  
   // Raise hand notification state from shared context
   const { showModal: showRaiseHandModal, memberName: raiseHandMemberName, dismissModal: dismissRaiseHandModal } = useRaiseHand();
 
@@ -75,7 +79,7 @@ export default function MapScreen() {
       
       setSchoolId(selectedSchoolId);
       
-      // Get school details including coordinates and primary color
+      // Get school details including coordinates, primary color, and deadzones
       const schoolDetails = await schoolService.getSchoolById(selectedSchoolId);
       if (schoolDetails) {
         // Set primary color if available
@@ -87,6 +91,9 @@ export default function MapScreen() {
         if (schoolDetails.coordinates) {
           setDefaultRegion(schoolDetails.coordinates);
         }
+        
+        // Set deadzones for route filtering (areas to avoid when computing walking directions)
+        setSchoolDeadzones(parseDeadzonesFromSchool(schoolDetails.deadzones));
       }
     };
 
@@ -196,7 +203,7 @@ export default function MapScreen() {
     setRouteCoordinates(null);
     const origin = { latitude: userLocation.latitude, longitude: userLocation.longitude };
     const destination = nextStop.coordinates;
-    fetchWalkingRoute(origin, destination).then((result) => {
+    fetchWalkingRoute(origin, destination, { deadzonePolygons: schoolDeadzones }).then((result) => {
       if (cancelled) return;
       setRouteLoading(false);
       if (result?.coordinates?.length) {
@@ -206,7 +213,7 @@ export default function MapScreen() {
     return () => {
       cancelled = true;
     };
-  }, [mapViewMode, userLocation?.latitude, userLocation?.longitude, nextStop?.id]);
+  }, [mapViewMode, userLocation?.latitude, userLocation?.longitude, nextStop?.id, schoolDeadzones]);
 
   // Fit map to route when route is loaded in Directions view
   useEffect(() => {
@@ -516,6 +523,17 @@ export default function MapScreen() {
                 strokeWidth={6}
               />
             )}
+            {/* Debug: translucent red deadzones (only in Directions view) */}
+            {mapViewMode === 'directions' &&
+              schoolDeadzones.map((polygon, idx) => (
+                <Polygon
+                  key={`deadzone-${idx}`}
+                  coordinates={polygon}
+                  fillColor="rgba(255, 0, 0, 0.35)"
+                  strokeColor="rgba(200, 0, 0, 0.8)"
+                  strokeWidth={2}
+                />
+              ))}
             {locations.map((location) => (
               <Marker
                 key={location.id}

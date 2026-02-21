@@ -1,6 +1,6 @@
 /**
  * Deadzones: polygons that routes must not pass through.
- * Schools will configure these; for now we use a single hardcoded rectangle.
+ * Loaded from the school's deadzones column in Supabase.
  */
 
 export type LatLng = { latitude: number; longitude: number };
@@ -9,18 +9,25 @@ export type LatLng = { latitude: number; longitude: number };
 export type Polygon = LatLng[];
 
 /**
- * Deadzone polygons. Routes that pass through any of these are discarded in favor of alternatives.
- * TODO: Load from school config / Supabase when available.
+ * Parses the deadzones value from a school (Supabase JSONB) into Polygon[].
+ * Handles null, undefined, and invalid shapes; returns [] when no valid polygons.
  */
-export const DEADZONE_POLYGONS: Polygon[] = [
-  // Rectangle provided for initial testing (lat, lng order)
-  [
-    { latitude: 37.10381022009893, longitude: -113.5664051140773 },
-    { latitude: 37.103741821648384, longitude: -113.56620993343819 },
-    { latitude: 37.10340410491303, longitude: -113.56638116043668 },
-    { latitude: 37.103421084269, longitude: -113.5662103157271 },
-  ],
-];
+export function parseDeadzonesFromSchool(raw: unknown): Polygon[] {
+  if (raw == null) return [];
+  if (!Array.isArray(raw)) return [];
+  const out: Polygon[] = [];
+  for (const item of raw) {
+    if (!Array.isArray(item)) continue;
+    const polygon: LatLng[] = [];
+    for (const pt of item) {
+      if (pt && typeof pt === 'object' && typeof (pt as any).latitude === 'number' && typeof (pt as any).longitude === 'number') {
+        polygon.push({ latitude: (pt as any).latitude, longitude: (pt as any).longitude });
+      }
+    }
+    if (polygon.length >= 3) out.push(polygon);
+  }
+  return out;
+}
 
 /**
  * Ray-casting point-in-polygon test (horizontal ray to the right).
@@ -45,20 +52,22 @@ function pointInPolygon(point: LatLng, polygon: Polygon): boolean {
       yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi;
     if (intersect) inside = !inside;
   }
-
+  // console.log('inside', inside);
   return inside;
 }
 
 /**
  * Returns true if any point of the route lies inside any deadzone polygon.
+ * Pass the school's deadzones (from parseDeadzonesFromSchool); if empty, returns false.
  */
 export function routePassesThroughDeadzone(
   routePoints: LatLng[],
-  deadzonePolygons: Polygon[] = DEADZONE_POLYGONS
+  deadzonePolygons: Polygon[]
 ): boolean {
-  if (deadzonePolygons.length === 0) return false;
+  if (!deadzonePolygons?.length) return false;
 
   for (const point of routePoints) {
+    // console.log('deadzonePolygons length', deadzonePolygons.length);
     for (const polygon of deadzonePolygons) {
       if (pointInPolygon(point, polygon)) return true;
     }
