@@ -643,13 +643,15 @@ CREATE TABLE IF NOT EXISTS "public"."schools" (
     "primary_color" "text" DEFAULT '#990000'::"text",
     "logo_url" "text",
     "degrees_offered" "text"[],
-    "deadzones" "jsonb" DEFAULT '[]'::jsonb
+    "deadzones" "jsonb" DEFAULT '[]'::"jsonb"
 );
 
 
 ALTER TABLE "public"."schools" OWNER TO "postgres";
 
+
 COMMENT ON COLUMN "public"."schools"."deadzones" IS 'Polygons (array of {latitude, longitude}[]) that routes must not pass through. Used when computing walking directions.';
+
 
 
 CREATE OR REPLACE FUNCTION "public"."schools_ordered_by_distance"("user_lat" double precision, "user_lon" double precision) RETURNS SETOF "public"."schools"

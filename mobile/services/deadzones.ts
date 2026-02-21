@@ -52,13 +52,70 @@ function pointInPolygon(point: LatLng, polygon: Polygon): boolean {
       yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi;
     if (intersect) inside = !inside;
   }
-  // console.log('inside', inside);
   return inside;
 }
 
+/** Cross-product orientation: > 0 ccw, < 0 cw, 0 collinear (using lng as x, lat as y). */
+function orient(o: LatLng, a: LatLng, b: LatLng): number {
+  return (
+    (a.longitude - o.longitude) * (b.latitude - o.latitude) -
+    (a.latitude - o.latitude) * (b.longitude - o.longitude)
+  );
+}
+
+/** True if point c is on the closed segment [a, b] (assumes a, b, c are collinear). */
+function onSegment(a: LatLng, b: LatLng, c: LatLng): boolean {
+  const minLng = Math.min(a.longitude, b.longitude);
+  const maxLng = Math.max(a.longitude, b.longitude);
+  const minLat = Math.min(a.latitude, b.latitude);
+  const maxLat = Math.max(a.latitude, b.latitude);
+  return (
+    c.longitude >= minLng &&
+    c.longitude <= maxLng &&
+    c.latitude >= minLat &&
+    c.latitude <= maxLat
+  );
+}
+
 /**
- * Returns true if any point of the route lies inside any deadzone polygon.
- * Pass the school's deadzones (from parseDeadzonesFromSchool); if empty, returns false.
+ * Returns true if the two line segments (a1,a2) and (b1,b2) intersect,
+ * including when an endpoint lies on the other segment.
+ */
+function segmentIntersectsSegment(
+  a1: LatLng,
+  a2: LatLng,
+  b1: LatLng,
+  b2: LatLng
+): boolean {
+  const oa = orient(a1, a2, b1);
+  const ob = orient(a1, a2, b2);
+  const oc = orient(b1, b2, a1);
+  const od = orient(b1, b2, a2);
+
+  if (oa !== 0 && ob !== 0 && oc !== 0 && od !== 0) {
+    return (oa > 0) !== (ob > 0) && (oc > 0) !== (od > 0);
+  }
+  if (oa === 0 && onSegment(a1, a2, b1)) return true;
+  if (ob === 0 && onSegment(a1, a2, b2)) return true;
+  if (oc === 0 && onSegment(b1, b2, a1)) return true;
+  if (od === 0 && onSegment(b1, b2, a2)) return true;
+  return false;
+}
+
+/** True if the segment (p1, p2) intersects any edge of the polygon. */
+function segmentIntersectsPolygon(p1: LatLng, p2: LatLng, polygon: Polygon): boolean {
+  const n = polygon.length;
+  if (n < 3) return false;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    if (segmentIntersectsSegment(p1, p2, polygon[j], polygon[i])) return true;
+  }
+  return false;
+}
+
+/**
+ * Returns true if the route passes through any deadzone polygon: either a route vertex
+ * lies inside a polygon, or a route segment (line between two consecutive points) crosses
+ * a polygon edge. So straight-line segments that cut through a deadzone are detected.
  */
 export function routePassesThroughDeadzone(
   routePoints: LatLng[],
@@ -67,9 +124,16 @@ export function routePassesThroughDeadzone(
   if (!deadzonePolygons?.length) return false;
 
   for (const point of routePoints) {
-    // console.log('deadzonePolygons length', deadzonePolygons.length);
     for (const polygon of deadzonePolygons) {
       if (pointInPolygon(point, polygon)) return true;
+    }
+  }
+
+  for (let i = 0; i < routePoints.length - 1; i++) {
+    const p1 = routePoints[i];
+    const p2 = routePoints[i + 1];
+    for (const polygon of deadzonePolygons) {
+      if (segmentIntersectsPolygon(p1, p2, polygon)) return true;
     }
   }
   return false;
