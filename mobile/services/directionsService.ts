@@ -38,16 +38,16 @@ export async function fetchWalkingRoute(
     origin: {
       location: {
         latLng: {
-          // latitude: origin.latitude,
-          // longitude: origin.longitude,
+          latitude: origin.latitude,
+          longitude: origin.longitude,
 
           // About 100ft easy of the clocktower
           // latitude: 37.103069331849845, 
           // longitude: -113.56483742834496,
 
           // Center of the circle in front of the Holland
-          latitude: 37.10314021556226,
-          longitude: -113.56592069506931,
+          // latitude: 37.10314021556226,
+          // longitude: -113.56592069506931,
         },
       },
     },
