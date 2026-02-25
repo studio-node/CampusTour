@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
+import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
@@ -47,9 +48,9 @@ const tourInterests: Interest[] = [
 ];
 
 // Component for an individual tour stop item
-const TourStopItem = ({ 
-  item, 
-  onDetailsPress, 
+const TourStopItem = ({
+  item,
+  onDetailsPress,
   onLocationPress,
   visited,
   onToggleVisited,
@@ -60,9 +61,11 @@ const TourStopItem = ({
   canEdit,
   onDelete,
   onMoveUp,
-  onMoveDown
-}: { 
-  item: TourStop; 
+  onMoveDown,
+  drag,
+  isDragActive
+}: {
+  item: TourStop;
   onDetailsPress: (id: string) => void;
   onLocationPress: (id: string) => void;
   visited: boolean;
@@ -75,6 +78,8 @@ const TourStopItem = ({
   onDelete: (id: string) => void;
   onMoveUp: (id: string) => void;
   onMoveDown: (id: string) => void;
+  drag?: () => void;
+  isDragActive?: boolean;
 }) => {
   // Create dynamic styles with the primary color
   const dynamicStyles = {
@@ -90,11 +95,22 @@ const TourStopItem = ({
     }
   };
 
+  const showDragHandle = isEditing && canEdit && typeof drag === 'function';
+  const showArrowButtons = isEditing && canEdit && !showDragHandle;
+
   return (
     <View
-      style={styles.tourStopCard}
+      style={[styles.tourStopCard, isDragActive && styles.tourStopCardDragging]}
     >
-        
+        {showDragHandle && (
+          <TouchableOpacity
+            style={styles.dragHandle}
+            onLongPress={drag}
+            delayLongPress={200}
+          >
+            <IconSymbol name="line.3.horizontal" size={20} color="#999999" />
+          </TouchableOpacity>
+        )}
         {item.image ? (
           <Image 
             source={{ uri: item.image }} 
@@ -147,7 +163,7 @@ const TourStopItem = ({
               </TouchableOpacity>
             )}
             {isEditing && canEdit && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.deleteButton}
                 onPress={() => onDelete(item.id)}
               >
@@ -155,15 +171,15 @@ const TourStopItem = ({
                 <Text style={styles.buttonText}>Delete</Text>
               </TouchableOpacity>
             )}
-            {isEditing && canEdit && (
+            {showArrowButtons && (
               <View style={styles.reorderButtons}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.reorderButton}
                   onPress={() => onMoveUp(item.id)}
                 >
                   <IconSymbol name="chevron.up" size={12} color="white" />
                 </TouchableOpacity>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.reorderButton}
                   onPress={() => onMoveDown(item.id)}
                 >
@@ -253,6 +269,9 @@ export default function TourScreen() {
 
   // Tour editing mode state
   const [isEditingTour, setIsEditingTour] = useState<boolean>(false);
+
+  // Snapshot of tour stops when entering edit mode; restored when user cancels editing
+  const tourStopsBeforeEditRef = useRef<TourStop[]>([]);
 
   // Ref to read latest tourStops inside useFocusEffect (when applying pending added locations)
   const tourStopsRef = useRef<TourStop[]>([]);
@@ -784,17 +803,18 @@ export default function TourScreen() {
     if (isEditingTour) {
       // User is exiting edit mode - save changes
       saveTourChanges();
+    } else {
+      // Entering edit mode - snapshot current order so cancel can restore it
+      tourStopsBeforeEditRef.current = [...tourStops];
     }
-    
+
     setIsEditingTour(!isEditingTour);
   };
 
   const cancelEditing = () => {
-    // Get the current tour stops before editing started
-    const currentTourStops = [...tourStops];
+    // Restore tour order to what it was when we entered edit mode
+    setTourStops([...tourStopsBeforeEditRef.current]);
     setIsEditingTour(false);
-    // Reset tour stops to what they were before editing
-    setTourStops(currentTourStops);
   };
 
   const handleAddLocationPress = () => {
@@ -1258,12 +1278,59 @@ export default function TourScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+      ) : isEditingTour && canEditTour ? (
+        <DraggableFlatList
+          data={tourStops}
+          keyExtractor={(item) => item.id}
+          onDragEnd={({ data }) => setTourStops(data)}
+          containerStyle={styles.tourList}
+          style={styles.tourListInner}
+          contentContainerStyle={styles.tourListContent}
+          renderItem={({ item, drag, isActive }) => (
+            <ScaleDecorator>
+              <TourStopItem
+                item={item}
+                onDetailsPress={handleDetailsPress}
+                onLocationPress={handleLocationPress}
+                visited={visitedLocations.includes(item.id)}
+                onToggleVisited={toggleVisited}
+                primaryColor={primaryColor}
+                isEditing={isEditingTour}
+                isAmbassador={isAmbassador}
+                isAmbassadorLedMember={isAmbassadorLedMember}
+                canEdit={canEditTour}
+                onDelete={deleteTourStop}
+                onMoveUp={() => {}}
+                onMoveDown={() => {}}
+                drag={drag}
+                isDragActive={isActive}
+              />
+            </ScaleDecorator>
+          )}
+          ListHeaderComponent={
+            <View style={styles.tourHeaderContainer}>
+              <Text style={styles.tourHeaderText}>Your Tour</Text>
+              <Text style={styles.editingHintText}>Drag the handle to reorder</Text>
+            </View>
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyTourContainer}>
+              <Text style={styles.emptyTourText}>No buildings match your selected interests.</Text>
+              <TouchableOpacity
+                style={[styles.generateTourButton, dynamicStyles.generateTourButton]}
+                onPress={resetTour}
+              >
+                <Text style={styles.buttonText}>Select Different Interests</Text>
+              </TouchableOpacity>
+            </View>
+          }
+        />
       ) : (
         <FlatList
           data={tourStops}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <TourStopItem 
+            <TourStopItem
               item={item}
               onDetailsPress={handleDetailsPress}
               onLocationPress={handleLocationPress}
@@ -1284,13 +1351,12 @@ export default function TourScreen() {
           ListHeaderComponent={
             <View style={styles.tourHeaderContainer}>
               <Text style={styles.tourHeaderText}>Your Tour</Text>
-              {isEditingTour && <Text style={styles.editingHintText}>Use arrows to reorder</Text>}
             </View>
           }
           ListEmptyComponent={
             <View style={styles.emptyTourContainer}>
               <Text style={styles.emptyTourText}>No buildings match your selected interests.</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.generateTourButton, dynamicStyles.generateTourButton]}
                 onPress={resetTour}
               >
@@ -1408,6 +1474,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
   },
+  tourListInner: {
+    flex: 1,
+  },
   tourListContent: {
     paddingBottom: 50, // Adjust this value based on the height of the tab bar
   },
@@ -1451,6 +1520,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 1,
     overflow: 'hidden',
+  },
+  tourStopCardDragging: {
+    opacity: 0.9,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  dragHandle: {
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minWidth: 44,
   },
   tourStopImage: {
     width: 100,

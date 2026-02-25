@@ -3,6 +3,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -58,9 +59,10 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <RaiseHandProvider>
-        <Stack>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <RaiseHandProvider>
+          <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="ambassador-signin" options={{ headerShown: false }} />
         <Stack.Screen name="ambassador-tours" options={{ headerShown: false }} />
@@ -88,7 +90,8 @@ export default function RootLayout() {
       />
       
       <StatusBar style="auto" />
-      </RaiseHandProvider>
-    </ThemeProvider>
+        </RaiseHandProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
