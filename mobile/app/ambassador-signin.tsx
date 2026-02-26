@@ -39,21 +39,28 @@ export default function AmbassadorSignInScreen() {
       }
 
       if (response.user) {
-        // Check if user is an ambassador
-        const userType = response.user.user_metadata?.user_type;
-        if (userType !== 'ambassador') {
-          Alert.alert(
-            'Access Denied',
-            'This account is not registered as an ambassador. Please contact your administrator.'
-          );
-          await authService.signOutAndClear();
-          return;
+        // Check if user is an ambassador (metadata or profile)
+        const meta = response.user.user_metadata ?? {};
+        const fromMeta = meta.user_type === 'ambassador' || meta.role === 'ambassador';
+        let profileFields: { isAmbassador: boolean; schoolId: string | null } | null = null;
+        if (!fromMeta) {
+          profileFields = await authService.getAmbassadorProfileFields(response.user.id);
+          if (!profileFields?.isAmbassador) {
+            Alert.alert(
+              'Access Denied',
+              'This account is not registered as an ambassador. Please contact your administrator.'
+            );
+            await authService.signOutAndClear();
+            return;
+          }
         }
 
-        // Set user type and school if available
+        // Set user type and school if available (metadata or profile)
         await userTypeService.setUserType('ambassador');
-        
-        const schoolId = response.user.user_metadata?.school_id;
+        const schoolId =
+          response.user.user_metadata?.school_id ??
+          profileFields?.schoolId ??
+          null;
         if (schoolId) {
           await schoolService.setSelectedSchool(schoolId);
         }

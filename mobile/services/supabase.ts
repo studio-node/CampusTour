@@ -184,14 +184,40 @@ export const authService = {
     }
   },
 
-  // Check if stored user is an ambassador
+  // Check if stored user is an ambassador (user_metadata.user_type, user_metadata.role, or profile.role)
   async isStoredUserAmbassador(): Promise<boolean> {
     try {
       const user = await this.getStoredUser();
-      return user?.user_metadata?.user_type === 'ambassador';
+      if (!user) return false;
+      const meta = user.user_metadata ?? {};
+      if (meta.user_type === 'ambassador' || meta.role === 'ambassador') return true;
+      return await this.userIsAmbassadorByProfile(user.id);
     } catch (error) {
       console.error('Error checking if user is ambassador:', error);
       return false;
+    }
+  },
+
+  // Check profiles.role for current user (e.g. ambassadors created via webapp PIN have role in profile only)
+  async userIsAmbassadorByProfile(userId: string): Promise<boolean> {
+    const result = await this.getAmbassadorProfileFields(userId);
+    return result?.isAmbassador ?? false;
+  },
+
+  // Fetch profile role and school_id for ambassador checks and school selection
+  async getAmbassadorProfileFields(userId: string): Promise<{ isAmbassador: boolean; schoolId: string | null } | null> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role, school_id')
+        .eq('id', userId)
+        .maybeSingle();
+      if (error || !data) return null;
+      const isAmbassador = (data.role && String(data.role).toLowerCase()) === 'ambassador';
+      return { isAmbassador, schoolId: data.school_id ?? null };
+    } catch (error) {
+      console.error('Error fetching ambassador profile fields:', error);
+      return null;
     }
   },
 
