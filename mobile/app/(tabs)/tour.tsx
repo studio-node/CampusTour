@@ -559,9 +559,11 @@ export default function TourScreen() {
       setTourFinished(tourState.tourFinished);
       setIsEditingTour(tourState.isEditingTour);
       
-      // Restore location tracking state
-      if (persistedState.tourProgress) {
-        setCurrentLocationId(persistedState.tourProgress.currentStopIndex.toString());
+      // Restore location tracking state (use location id, not index - DB expects UUID)
+      if (persistedState.tourProgress != null && tourState.stops?.length) {
+        const idx = persistedState.tourProgress.currentStopIndex;
+        const stop = tourState.stops[idx];
+        setCurrentLocationId(stop?.id ?? null);
       }
       
       console.log('Tour state restored from app state manager');

@@ -420,13 +420,24 @@ async function handleTourStart(ws, supabase, tourSessions, tourId, session) {
   }
 }
 
+// Simple UUID v4 regex so we don't write non-UUIDs (e.g. "0") to uuid columns
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function isValidUuid(s) {
+  return typeof s === 'string' && UUID_REGEX.test(s);
+}
+
 async function handleTourStateUpdate(supabase, session, payload) {
   const { tourId, state } = payload;
   console.log(`Broadcasting and persisting state update for tour ${tourId}:`, state);
 
+  const current_location_id = isValidUuid(state.current_location_id) ? state.current_location_id : null;
+  const visited_locations = Array.isArray(state.visited_locations)
+    ? state.visited_locations.filter(isValidUuid)
+    : [];
+
   await updateLiveTourSession(supabase, tourId, {
-    current_location_id: state.current_location_id,
-    visited_locations: state.visited_locations,
+    current_location_id,
+    visited_locations,
   });
 
   broadcastToMembers(session, { type: 'tour_state_updated', state });
