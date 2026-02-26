@@ -23,10 +23,8 @@ begin
     return jsonb_build_object('ok', false, 'error', 'Invalid PIN.');
   end if;
 
-  -- Check if already activated
-  if v_profile.is_active then
-    return jsonb_build_object('ok', false, 'error', 'This account is already activated. Please sign in instead.');
-  end if;
+  -- If we found by creation_token, they have not completed sign-up yet (token is cleared on signup).
+  -- No need to check is_active; new users are created with is_active true.
 
   -- Return user info (without sensitive data)
   return jsonb_build_object(

@@ -29,17 +29,14 @@ begin
     return jsonb_build_object('ok', false, 'error', 'Invalid PIN.');
   end if;
 
-  -- Check if already activated
-  if v_profile.is_active then
-    return jsonb_build_object('ok', false, 'error', 'This account is already activated.');
-  end if;
+  -- Found by creation_token, so they have not completed sign-up (token is cleared below).
 
   v_user_id := v_profile.id;
 
   -- Update auth.users password
   update auth.users
   set
-    encrypted_password = crypt(p_password, gen_salt('bf')),
+    encrypted_password = extensions.crypt(p_password, extensions.gen_salt('bf')),
     email_confirmed_at = now(),
     updated_at = now()
   where id = v_user_id;
