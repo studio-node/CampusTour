@@ -64,8 +64,8 @@ export function orderTourStopsByNearestFirst(
     }
   }
 
-  console.warn('nearestIndex:', nearestIndex);
-  console.warn('nearestDist:', nearestDist);
+  // console.warn('nearestIndex:', nearestIndex);
+  // console.warn('nearestDist:', nearestDist);
 
   // Rotate: start at nearest, then wrap around the circle
   return [...sorted.slice(nearestIndex), ...sorted.slice(0, nearestIndex)];
