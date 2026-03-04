@@ -14,6 +14,45 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 const tourSessions = new Map();
 
+// IP-based rate limiting for /generate-tour (no account required)
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const RATE_LIMIT_MAX_REQUESTS = 20; // per window per IP
+const rateLimitStore = new Map(); // ip -> { count, windowStart }
+
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket?.remoteAddress || req.connection?.remoteAddress || 'unknown';
+}
+
+function ipRateLimit(req, res, next) {
+  const ip = getClientIp(req);
+  const now = Date.now();
+  let record = rateLimitStore.get(ip);
+
+  if (!record) {
+    record = { count: 0, windowStart: now };
+    rateLimitStore.set(ip, record);
+  }
+
+  if (now - record.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    record.count = 0;
+    record.windowStart = now;
+  }
+
+  record.count += 1;
+
+  if (record.count > RATE_LIMIT_MAX_REQUESTS) {
+    const retryAfter = Math.ceil((record.windowStart + RATE_LIMIT_WINDOW_MS - now) / 1000);
+    res.set('Retry-After', String(retryAfter));
+    return res.status(429).json({ error: 'Too many tour generation requests. Please try again later.' });
+  }
+
+  next();
+}
+
 function makeLocationsArrayTourGeneration(locations) {
   let locationObjects = [];
   for (let location of locations) {
@@ -35,7 +74,7 @@ app.get('/keep-alive', (req, res) => {
   res.send('ok');
 });
 
-app.post('/generate-tour', express.json(), async (req, res) => {
+app.post('/generate-tour', express.json(), ipRateLimit, async (req, res) => {
   if (!req.body) {
     return res.status(400).send("No body provided");
   }
@@ -68,5 +107,15 @@ setInterval(async () => {
 }, INACTIVE_SESSION_CHECK_INTERVAL_MS);
 
 console.log(`Session timeout checker initialized: checking every ${INACTIVE_SESSION_CHECK_INTERVAL_MS / 1000 / 60} minutes`);
+
+// Clean up expired rate limit entries every hour
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of rateLimitStore.entries()) {
+    if (now - record.windowStart >= RATE_LIMIT_WINDOW_MS) {
+      rateLimitStore.delete(ip);
+    }
+  }
+}, RATE_LIMIT_WINDOW_MS);
 
 
