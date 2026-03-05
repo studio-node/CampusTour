@@ -3,8 +3,7 @@ export async function getLocations(schoolId, supabase) {
     const { data, error } = await supabase
       .from('locations')
       .select('*')
-      .eq('school_id', schoolId)
-      .order('order_index', { ascending: true });
+      .eq('school_id', schoolId);
 
     if (error) {
       console.error('Error fetching locations:', error);
@@ -14,16 +13,10 @@ export async function getLocations(schoolId, supabase) {
     return data.map(item => ({
       id: item.id,
       name: item.name,
-      coordinates: {
-        latitude: item.latitude,
-        longitude: item.longitude
-      },
-      image: item.image_url,
       description: item.description,
       interests: item.interests || [],
-      isTourStop: item.is_tour_stop,
-      order_index: item.order_index,
-      type: item.type
+      careers: item.careers || [],
+      features: item.features || []
     }));
 
   } catch (error) {
