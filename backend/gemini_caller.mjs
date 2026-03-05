@@ -55,8 +55,14 @@ export default class GeminiCaller {
     Given the following interests selected by the user: 
     ${jsonInterests}
     
-    I need you generate an appropriate tour using the interests selected by the user. Return the
-    generated tour as an array of location_ids.
+    I need you to generate an appropriate campus tour based on the user's selected interests. Return the
+    generated tour as an array of \`location_id\`. All tours should at least include the library, 
+    student center, and recreation center/gym. If the number of locations that match the interest list is less than 8, 
+    you should fill out the rest of the tour with important locations like the dining hall, student union, 
+    bookstore, health center, residence halls, etc. Use your best judgment on which ones to add to create a diverse, 
+    interesting tour until you have at least 8 locations. If the number of locations that match the interest list is 
+    greater than 14, you should try to keep the list under 14 by removing some of the locations that are less important 
+    or are somewhat redundant with other locations.
     `;
   }
 }
