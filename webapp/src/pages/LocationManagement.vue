@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import LocationForm from '../components/LocationForm.vue'
 import LocationPreview from '../components/LocationPreview.vue'
 import { locationsService } from '../services/locationsService.js'
@@ -7,6 +8,7 @@ import { locationMediaService } from '../services/locationMediaService.js'
 import { useAuth } from '../composables/useAuth.js'
 import { availableInterests } from '../services/interestsMap.js'
 const { user } = useAuth()
+const router = useRouter()
 
 const locations = ref([])
 const showLocationForm = ref(false)
@@ -226,6 +228,13 @@ async function deleteLocation() {
             <p class="text-gray-400 mt-1">Manage locations for your school</p>
           </div>
           <div class="space-x-2">
+            <button
+              @click="router.push({ name: 'NoGoZones' })"
+              :disabled="!currentSchoolId || isLoadingSchoolId"
+              class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-500 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+            >
+              No-go Zones
+            </button>
             <button 
               @click="openLocationForm"
               :disabled="!currentSchoolId || isLoadingSchoolId"

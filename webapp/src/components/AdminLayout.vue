@@ -151,7 +151,7 @@ watchEffect(() => {
       "
     >
       <!-- Top bar -->
-      <header class="bg-gray-800 shadow-sm border-b border-gray-700">
+      <header class="bg-gray-800 shadow-sm border-b border-gray-700 h-16">
         <div class="flex items-center justify-between px-6 py-4">
           <h2 class="text-xl font-semibold text-white">{{ route.meta?.title || 'Dashboard' }}</h2>
           <!-- User info in header (mobile friendly) -->

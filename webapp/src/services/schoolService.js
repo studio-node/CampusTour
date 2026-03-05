@@ -55,6 +55,32 @@ export async function getSchoolById(schoolId) {
 }
 
 /**
+ * Update a school by ID (partial update, e.g. { deadzones }).
+ * @param {string} schoolId - The school UUID
+ * @param {Object} payload - Fields to update (e.g. { deadzones: [...] })
+ * @returns {Promise<Object>} - Updated school row
+ */
+export async function updateSchool(schoolId, payload) {
+  try {
+    const { data, error } = await supabase
+      .from('schools')
+      .update(payload)
+      .eq('id', schoolId)
+      .select()
+      .single()
+
+    if (error) {
+      throw error
+    }
+
+    return data
+  } catch (error) {
+    console.error('Error updating school:', error)
+    throw error
+  }
+}
+
+/**
  * Save selected school to localStorage
  */
 export function setSelectedSchool(schoolId) {
@@ -102,6 +128,7 @@ export function hasSelectedSchool() {
 export const schoolService = {
   getSchools,
   getSchoolById,
+  updateSchool,
   setSelectedSchool,
   getSelectedSchool,
   clearSelectedSchool,

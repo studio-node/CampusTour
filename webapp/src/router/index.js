@@ -146,6 +146,15 @@ const routes = [
     }
   },
   {
+    path: '/admin/locations/deadzones',
+    name: 'NoGoZones',
+    component: () => import('../pages/NoGoZones.vue'),
+    meta: { 
+      layout: 'admin',
+      title: 'No-go Zones' 
+    }
+  },
+  {
     path: '/admin/ambassador-tours',
     name: 'AmbassadorTours',
     component: AmbassadorTours,
