@@ -11,8 +11,7 @@ const props = defineProps({
   deadzones: {
     type: Array,
     default: () => []
-  },
-  selectedIndex: { type: Number, default: null }
+  }
 })
 
 const emit = defineEmits(['update:deadzones'])
@@ -36,7 +35,6 @@ function ourFormatToLatLngs(polygon) {
 }
 
 function emitLayerEdit(layer) {
-  console.log('emitLayerEdit')
   const idx = layer._deadzoneIndex
   if (idx === undefined) return
   const latlngs = layer.getLatLngs()
@@ -134,14 +132,15 @@ watch([() => props.centerLat, () => props.centerLng], ([lat, lng]) => {
   }
 })
 
-watch(() => props.selectedIndex, (idx) => {
-  if (!map || !polygonLayerGroup || idx == null || idx < 0) return
-  const layers = polygonLayerGroup.getLayers()
-  const layer = layers[idx]
-  if (layer && layer.getBounds) {
-    map.fitBounds(layer.getBounds(), { padding: [20, 20], maxZoom: 17 })
-  }
-})
+/** Call before save: exits edit/draw mode so any pending edits are committed and pm:edit fires. */
+function finishEdit() {
+  if (!map?.pm) return Promise.resolve()
+  map.pm.disableGlobalEditMode()
+  map.pm.disableDraw()
+  return new Promise(resolve => setTimeout(resolve, 0))
+}
+
+defineExpose({ finishEdit })
 
 onUnmounted(() => {
   if (map) {

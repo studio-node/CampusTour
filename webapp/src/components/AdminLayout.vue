@@ -73,7 +73,7 @@ watchEffect(() => {
     >
       <!-- Toggle at top of sidebar -->
       <div
-        class="flex items-center h-16 border-b border-gray-700 shrink-0 px-2"
+        class="flex items-center h-16 shrink-0 px-2"
         :class="sidebarExpanded ? '' : 'justify-center'"
       >
         <button
@@ -90,7 +90,7 @@ watchEffect(() => {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
           </svg>
         </button>
-        <h1 v-show="sidebarExpanded" class="text-lg font-bold text-white truncate mr-4">Campus Tour Admin</h1>
+        <h1 v-show="sidebarExpanded" class="ml-1 text-lg font-bold text-white truncate mr-4">Campus Tour Admin</h1>
       </div>
 
       <nav class="mt-4 flex-1 overflow-y-auto">
