@@ -3601,6 +3601,14 @@ CREATE POLICY "profiles_update_admin_same_school" ON "public"."profiles" FOR UPD
 ALTER TABLE "public"."schools" ENABLE ROW LEVEL SECURITY;
 
 
+CREATE POLICY "schools_update_admin_in_school" ON "public"."schools" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."profiles" "p"
+  WHERE (("p"."id" = "auth"."uid"()) AND ("p"."school_id" = "schools"."id") AND ("p"."role" = ANY (ARRAY['admin'::"text", 'super-admin'::"text", 'super_admin'::"text"])))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."profiles" "p"
+  WHERE (("p"."id" = "auth"."uid"()) AND ("p"."school_id" = "schools"."id") AND ("p"."role" = ANY (ARRAY['admin'::"text", 'super-admin'::"text", 'super_admin'::"text"]))))));
+
+
+
 CREATE POLICY "Allow authenticated delete media bucket" ON "storage"."objects" FOR DELETE TO "authenticated" USING (("bucket_id" = 'media'::"text"));
 
 
