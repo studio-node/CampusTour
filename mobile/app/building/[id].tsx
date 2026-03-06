@@ -1,4 +1,5 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { formatInterest } from '@/constants/labels';
 import { Location, locationService, schoolService, userTypeService } from '@/services/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -200,7 +201,7 @@ export default function BuildingInfoScreen() {
               <View style={styles.interestTags}>
                 {building.interests.map((interest, index) => (
                   <View key={index} style={styles.interestTag}>
-                    <Text style={styles.interestTagText}>{interest}</Text>
+                    <Text style={styles.interestTagText}>{formatInterest(interest)}</Text>
                   </View>
                 ))}
               </View>

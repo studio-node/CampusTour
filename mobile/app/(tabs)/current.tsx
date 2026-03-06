@@ -1,4 +1,5 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { formatInterest } from '@/constants/labels';
 import { analyticsService, Location, locationService, schoolService, userTypeService, tourGroupSelectionService, leadsService } from '@/services/supabase';
 import { wsManager } from '@/services/ws';
 import { appStateManager } from '@/services/appStateManager';
@@ -442,7 +443,7 @@ export default function CurrentLocationScreen() {
               <View style={styles.tagContainer}>
                 {building.interests.map((interest, index) => (
                   <View key={index} style={styles.interestTag}>
-                    <Text style={styles.interestTagText}>{interest}</Text>
+                    <Text style={styles.interestTagText}>{formatInterest(interest)}</Text>
                   </View>
                 ))}
               </View>
