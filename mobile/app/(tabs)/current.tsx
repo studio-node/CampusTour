@@ -421,6 +421,20 @@ export default function CurrentLocationScreen() {
         <View style={styles.buildingInfo}>
           <Text style={styles.buildingName}>{building.name}</Text>
           <Text style={styles.buildingDescription}>{building.description}</Text>
+
+          {isAmbassador && building.talking_points && building.talking_points.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Talking Points</Text>
+              <View style={styles.bulletPointsContainer}>
+                {building.talking_points.map((point, index) => (
+                  <View key={index} style={styles.bulletPoint}>
+                    <Text style={styles.bulletPointIcon}>•</Text>
+                    <Text style={styles.bulletPointText}>{point}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
           
           {building.interests && building.interests.length > 0 && (
             <View style={styles.section}>
@@ -442,20 +456,6 @@ export default function CurrentLocationScreen() {
                 {building.careers.map((career, index) => (
                   <View key={index} style={styles.careerTag}>
                     <Text style={styles.careerTagText}>{career}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {isAmbassador && building.talking_points && building.talking_points.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Key Highlights</Text>
-              <View style={styles.bulletPointsContainer}>
-                {building.talking_points.map((point, index) => (
-                  <View key={index} style={styles.bulletPoint}>
-                    <Text style={styles.bulletPointIcon}>•</Text>
-                    <Text style={styles.bulletPointText}>{point}</Text>
                   </View>
                 ))}
               </View>
