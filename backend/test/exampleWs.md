@@ -77,8 +77,36 @@
 }
 
 
+// ====================== Image =========================
+{
+  "type": "tour:media:add-to-detail",
+  "payload": {
+    "locationId": "5da9189d-b530-4167-99c5-68026f23a4aa",
+    "media": {
+      "id": "2e1cea60-61ca-49ea-b483-ff6ef90f6fbe",
+      "media_type": "additional",
+      "name": "undefined",
+      "url": "https://photos.smugmug.com/Campus-Photography/Smith/2324/i-s38TTGc/0/K35tCbGDXxwSvf5fX5364xfCLxndTF7qJfw68tSTR/XL/DJI_0151-XL.jpg"
+    },
+    "tourId": "cdb9d53f-89de-4a57-8735-a052bfeb3dbc"
+  }
+}
+{
+  "type": "tour:media:push-takeover",
+  "payload": {
+    "media": {
+      "id": "2e1cea60-61ca-49ea-b483-ff6ef90f6fbe",
+      "media_type": "additional",
+      "name": "undefined",
+      "url": "https://photos.smugmug.com/Campus-Photography/Smith/2324/i-s38TTGc/0/K35tCbGDXxwSvf5fX5364xfCLxndTF7qJfw68tSTR/XL/DJI_0151-XL.jpg"
+    },
+    "tourId": "cdb9d53f-89de-4a57-8735-a052bfeb3dbc"
+  }
+}
 
-// pushing add to detail smith picture
+
+
+// ====================== Video =========================
 {
   "type": "tour:media:add-to-detail",
   "payload": {
@@ -92,21 +120,20 @@
     "tourId": "cdb9d53f-89de-4a57-8735-a052bfeb3dbc"
   }
 }
-// https://xtntfkpwowsmzfgtjqxe.supabase.co/storage/v1/object/public/media/5da9189d-b530-4167-99c5-68026f23a4aa/ba226120-1acc-4213-8c80-a44b5243ecde.MP4
-
-// https://photos.smugmug.com/Campus-Photography/Smith/2324/i-s38TTGc/0/K35tCbGDXxwSvf5fX5364xfCLxndTF7qJfw68tSTR/XL/DJI_0151-XL.jpg
 {
   "type": "tour:media:push-takeover",
   "payload": {
     "media": {
       "id": "2e1cea60-61ca-49ea-b483-ff6ef90f6fbe",
-      "media_type": "additional",
+      "media_type": "video",
       "name": "undefined",
       "url": "https://xtntfkpwowsmzfgtjqxe.supabase.co/storage/v1/object/public/media/5da9189d-b530-4167-99c5-68026f23a4aa/ba226120-1acc-4213-8c80-a44b5243ecde.MP4"
     },
     "tourId": "cdb9d53f-89de-4a57-8735-a052bfeb3dbc"
   }
 }
+
+
 
 
 // "dea95d28-cc6c-488c-992a-6ab01f18d02a",

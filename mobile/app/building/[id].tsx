@@ -19,7 +19,7 @@ export default function BuildingInfoScreen() {
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [primaryColor, setPrimaryColor] = useState<string>('#990000'); // Utah Tech red as fallback
   const [isAmbassador, setIsAmbassador] = useState<boolean>(false);
-  const { getPushedMedia } = usePushedLocationMedia();
+  const { getPushedMedia, showTakeover } = usePushedLocationMedia();
 
   // Get the selected school ID and details
   useEffect(() => {
@@ -259,9 +259,14 @@ export default function BuildingInfoScreen() {
             if (pushed.length === 0) return null;
             return (
               <View style={styles.pushedSection}>
-                <Text style={styles.sectionTitle}>Pushed by ambassador</Text>
+                <Text style={styles.sectionTitle}>Media</Text>
                 {pushed.map((item) => (
-                  <View key={item.id} style={styles.pushedItem}>
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.pushedItem}
+                    onPress={() => showTakeover(item)}
+                    activeOpacity={0.7}
+                  >
                     {item.media_type?.toLowerCase().includes('video') ? (
                       <View style={styles.pushedVideoPlaceholder}>
                         <IconSymbol name="play.circle.fill" size={24} color="#FFFFFF" />
@@ -273,7 +278,7 @@ export default function BuildingInfoScreen() {
                         <Text style={styles.pushedItemName} numberOfLines={1}>{item.name || 'Image'}</Text>
                       </View>
                     )}
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             );

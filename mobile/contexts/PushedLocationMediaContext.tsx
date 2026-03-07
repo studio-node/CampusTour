@@ -17,6 +17,7 @@ interface PushedLocationMediaContextType {
   getPushedMedia: (locationId: string) => PushedMediaItem[];
   takeoverVisible: boolean;
   takeoverMedia: PushedMediaItem | null;
+  showTakeover: (media: PushedMediaItem) => void;
   closeTakeover: () => void;
 }
 
@@ -47,6 +48,11 @@ export function PushedLocationMediaProvider({ children }: { children: ReactNode 
     return pushedByLocation[locationId] ?? [];
   }, [pushedByLocation]);
 
+  const showTakeover = useCallback((media: PushedMediaItem) => {
+    setTakeoverMedia(media);
+    setTakeoverVisible(true);
+  }, []);
+
   const closeTakeover = useCallback(() => {
     setTakeoverVisible(false);
     setTakeoverMedia(null);
@@ -70,7 +76,7 @@ export function PushedLocationMediaProvider({ children }: { children: ReactNode 
   }, [isAmbassadorLedMember, addMediaToLocation]);
 
   return (
-    <PushedLocationMediaContext.Provider value={{ pushedByLocation, addMediaToLocation, getPushedMedia, takeoverVisible, takeoverMedia, closeTakeover }}>
+    <PushedLocationMediaContext.Provider value={{ pushedByLocation, addMediaToLocation, getPushedMedia, takeoverVisible, takeoverMedia, showTakeover, closeTakeover }}>
       {children}
     </PushedLocationMediaContext.Provider>
   );

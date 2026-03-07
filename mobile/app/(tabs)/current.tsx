@@ -35,7 +35,7 @@ export default function CurrentLocationScreen() {
   
   // Raise hand notification state from shared context
   const { showModal: showRaiseHandModal, memberName: raiseHandMemberName, dismissModal: dismissRaiseHandModal } = useRaiseHand();
-  const { getPushedMedia } = usePushedLocationMedia();
+  const { getPushedMedia, showTakeover } = usePushedLocationMedia();
 
   // Get the selected school ID and details
   useEffect(() => {
@@ -491,9 +491,14 @@ export default function CurrentLocationScreen() {
             if (pushed.length === 0) return null;
             return (
               <View style={styles.pushedSection}>
-                <Text style={styles.pushedSectionTitle}>Pushed by ambassador</Text>
+                <Text style={styles.pushedSectionTitle}>Media</Text>
                 {pushed.map((item) => (
-                  <View key={item.id} style={styles.pushedItem}>
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.pushedItem}
+                    onPress={() => showTakeover(item)}
+                    activeOpacity={0.7}
+                  >
                     {item.media_type?.toLowerCase().includes('video') ? (
                       <View style={styles.pushedVideoPlaceholder}>
                         <IconSymbol name="play.circle.fill" size={24} color="#FFFFFF" />
@@ -505,7 +510,7 @@ export default function CurrentLocationScreen() {
                         <Text style={styles.pushedItemName} numberOfLines={1}>{item.name || 'Image'}</Text>
                       </View>
                     )}
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             );
