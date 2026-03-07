@@ -17,6 +17,8 @@ export function sessionManager(ws, supabase, tourSessions) {
     'tour:state_update': (payload, session) => handleTourStateUpdate(supabase, session, payload),
     'tour:structure_update': (payload, session) => handleTourStructureUpdate(supabase, session, payload),
     'tour:tour-list-changed': (payload, session) => handleTourListChanged(supabase, session, payload),
+    'tour:media:add-to-detail': (payload, session) => handleTourMediaAddToDetail(session, payload),
+    'tour:media:push-takeover': (payload, session) => handleTourMediaPushTakeover(session, payload),
     'tour:end': (payload, session) => handleTourEnd(ws, supabase, tourSessions, payload.tourId, session),
     'ambassador:ping': async (payload, session) => handleAmbassadorPing(ws, supabase, session, payload),
   };
@@ -31,7 +33,7 @@ export function sessionManager(ws, supabase, tourSessions) {
       const handler = messageHandlers[data.type];
 
       if (handler) {
-        if (['tour:start', 'tour:state_update', 'tour:structure_update', 'tour:end'].includes(data.type)) {
+        if (['tour:start', 'tour:state_update', 'tour:structure_update', 'tour:end', 'tour:media:add-to-detail', 'tour:media:push-takeover'].includes(data.type)) {
           if (!session || !session.ambassador || session.ambassador.id !== ws.id) {
             return ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized action.' }));
           }
@@ -525,6 +527,24 @@ async function handleTourListChanged(supabase, session, payload) {
     // Note: We don't send error back to ambassador here as it's a broadcast operation
     // The ambassador should handle errors on their end
   }
+}
+
+function handleTourMediaAddToDetail(session, payload) {
+  const { locationId, media } = payload;
+  if (!session || !locationId || !media) {
+    return;
+  }
+  console.log(`Broadcasting media_added_to_detail for location ${locationId} to ${session.members.size} members`);
+  broadcastToMembers(session, { type: 'media_added_to_detail', locationId, media });
+}
+
+function handleTourMediaPushTakeover(session, payload) {
+  const { media } = payload;
+  if (!session || !media) {
+    return;
+  }
+  console.log(`Broadcasting media_takeover to ${session.members.size} members`);
+  broadcastToMembers(session, { type: 'media_takeover', media });
 }
 
 async function handleAmbassadorPing(ws, supabase, session, payload) {
