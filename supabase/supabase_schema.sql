@@ -2475,7 +2475,8 @@ CREATE TABLE IF NOT EXISTS "public"."location_media" (
     "location_id" "uuid" NOT NULL,
     "stored_in_supabase" boolean NOT NULL,
     "media_type" "text" NOT NULL,
-    "url" "text" NOT NULL
+    "url" "text" NOT NULL,
+    "name" "text"
 );
 
 
@@ -2483,6 +2484,10 @@ ALTER TABLE "public"."location_media" OWNER TO "postgres";
 
 
 COMMENT ON TABLE "public"."location_media" IS 'Each media is tied to a location and has a url. It can either be a public url or one in our s3 bucket.';
+
+
+
+COMMENT ON COLUMN "public"."location_media"."name" IS 'The name of the media so they''re easier for ambassadors to parse through while on tour';
 
 
 

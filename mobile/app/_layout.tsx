@@ -11,7 +11,20 @@ import { appStateManager } from '@/services/appStateManager';
 import { cleanupStaleData } from '@/services/stateCleanup';
 import ResumeTourModal from '@/components/ResumeTourModal';
 import { useResumeTour } from '@/hooks/useResumeTour';
+import MediaTakeoverModal from '@/components/MediaTakeoverModal';
 import { RaiseHandProvider } from '@/contexts/RaiseHandContext';
+import { PushedLocationMediaProvider, usePushedLocationMedia } from '@/contexts/PushedLocationMediaContext';
+
+function MediaTakeoverModalWrapper() {
+  const { takeoverVisible, takeoverMedia, closeTakeover } = usePushedLocationMedia();
+  return (
+    <MediaTakeoverModal
+      visible={takeoverVisible}
+      media={takeoverMedia}
+      onClose={closeTakeover}
+    />
+  );
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -62,6 +75,8 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <RaiseHandProvider>
+          <PushedLocationMediaProvider>
+          <MediaTakeoverModalWrapper />
           <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="ambassador-signin" options={{ headerShown: false }} />
@@ -90,6 +105,7 @@ export default function RootLayout() {
       />
       
       <StatusBar style="auto" />
+          </PushedLocationMediaProvider>
         </RaiseHandProvider>
       </ThemeProvider>
     </GestureHandlerRootView>

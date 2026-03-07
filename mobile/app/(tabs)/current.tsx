@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
 import { useRaiseHand } from '@/contexts/RaiseHandContext';
+import { usePushedLocationMedia } from '@/contexts/PushedLocationMediaContext';
 
 
 export default function CurrentLocationScreen() {
@@ -34,6 +35,7 @@ export default function CurrentLocationScreen() {
   
   // Raise hand notification state from shared context
   const { showModal: showRaiseHandModal, memberName: raiseHandMemberName, dismissModal: dismissRaiseHandModal } = useRaiseHand();
+  const { getPushedMedia } = usePushedLocationMedia();
 
   // Get the selected school ID and details
   useEffect(() => {
@@ -483,6 +485,31 @@ export default function CurrentLocationScreen() {
             <IconSymbol name="map.fill" size={16} color="white" style={styles.buttonIcon} />
             <Text style={styles.viewOnMapButtonText}>View on Map</Text>
           </TouchableOpacity>
+
+          {isAmbassadorLedMember && building && (() => {
+            const pushed = getPushedMedia(building.id);
+            if (pushed.length === 0) return null;
+            return (
+              <View style={styles.pushedSection}>
+                <Text style={styles.pushedSectionTitle}>Pushed by ambassador</Text>
+                {pushed.map((item) => (
+                  <View key={item.id} style={styles.pushedItem}>
+                    {item.media_type?.toLowerCase().includes('video') ? (
+                      <View style={styles.pushedVideoPlaceholder}>
+                        <IconSymbol name="play.circle.fill" size={24} color="#FFFFFF" />
+                        <Text style={styles.pushedItemName}>{item.name || 'Video'}</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.pushedItemContent}>
+                        <Image source={{ uri: item.url }} style={styles.pushedThumbnail} resizeMode="cover" />
+                        <Text style={styles.pushedItemName} numberOfLines={1}>{item.name || 'Image'}</Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </View>
+            );
+          })()}
         </View>
       </ScrollView>
 
@@ -719,5 +746,43 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
     fontSize: 16,
+  },
+  pushedSection: {
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#444',
+  },
+  pushedSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 12,
+  },
+  pushedItem: {
+    marginBottom: 12,
+  },
+  pushedItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  pushedThumbnail: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+  },
+  pushedItemName: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    flex: 1,
+  },
+  pushedVideoPlaceholder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#3A3A3A',
+    padding: 12,
+    borderRadius: 8,
   },
 }); 

@@ -372,6 +372,7 @@ export interface LocationMedia {
   stored_in_supabase: boolean;
   media_type: string;
   url: string;
+  name?: string;
   created_at: string;
 }
 
@@ -417,6 +418,7 @@ export const locationService = {
             stored_in_supabase,
             media_type,
             url,
+            name,
             created_at
           )
         `)
@@ -468,6 +470,7 @@ export const locationService = {
             stored_in_supabase,
             media_type,
             url,
+            name,
             created_at
           )
         `)
