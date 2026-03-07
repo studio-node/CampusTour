@@ -23,13 +23,27 @@ export function sessionManager(ws, supabase, tourSessions) {
     'ambassador:ping': async (payload, session) => handleAmbassadorPing(ws, supabase, session, payload),
   };
 
-  ws.on('message', message => {
+  ws.on('message', async (message) => {
     try {
       const data = JSON.parse(message);
       console.log('Received message:', data);
 
       const { tourId } = data.payload || {};
-      const session = tourId ? tourSessions.get(tourId) : undefined;
+      let session = tourId ? tourSessions.get(tourId) : undefined;
+
+      // If tour:start is sent before create_session (or server restarted), ensure session exists in DB and memory
+      if (data.type === 'tour:start' && tourId && !session) {
+        const created = await ensureSessionExists(ws, supabase, tourSessions, tourId, {
+          ambassador_id: (ws.user && ws.user.sub) || null,
+        });
+        if (created) {
+          session = tourSessions.get(tourId);
+          if (session && !session.ambassador) {
+            session.ambassador = ws;
+          }
+        }
+      }
+
       const handler = messageHandlers[data.type];
 
       if (handler) {
