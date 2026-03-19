@@ -7,7 +7,9 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test test/unit/**/*.test.js",
+    "test:unit": "node --test test/unit/**/*.test.js",
+    "test:coverage": "c8 --reporter=text --check-coverage --lines 40 --functions 40 --branches 55 node --test test/unit/**/*.test.js",
     "start": "node --env-file=.env index.js"
   },
   "keywords": [],
@@ -16,6 +18,8 @@
   "type": "module",
   "devDependencies": {
     "@types/express": "^5.0.3",
+    "c8": "^10.1.3",
+    "supertest": "^7.1.1",
     "typescript": "^5.8.3"
   },
   "dependencies": {

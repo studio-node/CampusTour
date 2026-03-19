@@ -16,6 +16,19 @@ Or not, it might not matter now.
   - `--tour-id <example-tour-id>`
   - `--ambassador-id <example-ambassador-id>`
 
+## Backend unit test suite
+
+This repo now has a fast, repeatable backend unit test suite focused on server endpoints, websocket session permissions/flows, and Supabase helper logic with mocked dependencies.
+
+- Install backend deps:
+  - `cd backend && npm install`
+- Run unit tests:
+  - `npm run test:unit`
+- Run coverage gate (CI threshold):
+  - `npm run test:coverage`
+
+The CI workflow runs on push/PR to `main` at [`.github/workflows/backend-tests.yml`](.github/workflows/backend-tests.yml).
+
 
 
 # Ideas of things to do
