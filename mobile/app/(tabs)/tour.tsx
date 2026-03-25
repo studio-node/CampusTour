@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
 import { useRaiseHand } from '@/contexts/RaiseHandContext';
+import { useTourPause } from '@/contexts/TourPauseContext';
 
 
 // Define the interface for a tour stop
@@ -234,6 +235,7 @@ const InterestTag = ({
 
 export default function TourScreen() {
   const router = useRouter();
+  const { tourPaused, setTourPaused, syncTourPausedFromStorage } = useTourPause();
   const [showInterestSelection, setShowInterestSelection] = useState(true);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [tourStops, setTourStops] = useState<TourStop[]>([]);
@@ -346,7 +348,7 @@ export default function TourScreen() {
     if (!isLoading) {
       saveTourState();
     }
-  }, [showInterestSelection, selectedInterests, tourStops, visitedLocations, tourStarted, tourFinished, processingTourStart, locationPermissionStatus, currentLocationId, locationEntryTimes, previouslyEnteredLocations, isEditingTour, isLoading]);
+  }, [showInterestSelection, selectedInterests, tourStops, visitedLocations, tourStarted, tourFinished, processingTourStart, locationPermissionStatus, currentLocationId, locationEntryTimes, previouslyEnteredLocations, isEditingTour, isLoading, tourPaused]);
 
   // When ambassador updates state, broadcast to members
   useEffect(() => {
@@ -567,6 +569,7 @@ export default function TourScreen() {
       }
       
       console.log('Tour state restored from app state manager');
+      syncTourPausedFromStorage();
     } catch (error) {
       console.error('Error loading saved tour state:', error);
     }
@@ -602,6 +605,7 @@ export default function TourScreen() {
           tourStarted,
           tourFinished,
           isEditingTour,
+          tourPaused,
         },
       };
 
@@ -769,6 +773,7 @@ export default function TourScreen() {
   // Reset tour function - also reset tour started status
   const resetTour = () => {
     if (!canEditTour) return;
+    void setTourPaused(false);
     setShowInterestSelection(true);
     setSelectedInterests([]);
     setTourStops([]);
@@ -1145,6 +1150,10 @@ export default function TourScreen() {
 
   // Effect to handle location tracking when tour is active
   useEffect(() => {
+    if (tourPaused) {
+      stopLocationTracking();
+      return;
+    }
     if (!showInterestSelection && tourStops.length > 0 && !tourStarted) {
       // Tour is active but not started yet - request location permission and start tracking
       if (locationPermissionStatus !== 'granted') {
@@ -1158,14 +1167,15 @@ export default function TourScreen() {
     return () => {
       stopLocationTracking();
     };
-  }, [showInterestSelection, tourStops, locationPermissionStatus]);
+  }, [tourPaused, showInterestSelection, tourStops, locationPermissionStatus, tourStarted]);
 
   // Effect to check geofences when user location changes
   useEffect(() => {
-    if (userLocation) {
-      checkGeofences();
+    if (tourPaused || !userLocation) {
+      return;
     }
-  }, [userLocation, tourStops, tourStarted, processingTourStart, currentLocationId, locationEntryTimes]);
+    checkGeofences();
+  }, [userLocation, tourStops, tourStarted, processingTourStart, currentLocationId, locationEntryTimes, tourPaused]);
 
   // Create dynamic styles with the primary color
   const dynamicStyles = {
@@ -1185,6 +1195,21 @@ export default function TourScreen() {
         </View>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading your tour...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (tourPaused) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={[styles.header, dynamicStyles.headerBorder]}>
+          <HamburgerMenu primaryColor={primaryColor} />
+          <Text style={styles.headerText}>Campus Tour</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.tourPausedContainer}>
+          <Text style={styles.tourPausedText}>Tour Paused</Text>
         </View>
       </SafeAreaView>
     );
@@ -1701,5 +1726,20 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  headerSpacer: {
+    width: 50,
+  },
+  tourPausedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  tourPausedText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
 });

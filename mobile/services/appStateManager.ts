@@ -44,6 +44,8 @@ export interface PersistedAppState {
     tourStarted: boolean;
     tourFinished: boolean;
     isEditingTour: boolean;
+    /** When true, Tour and Current Stop tabs show paused UI and pause local location logic. */
+    tourPaused?: boolean;
   };
   mapState: MapState;
   sessionData: SessionData;
@@ -395,6 +397,7 @@ class AppStateManager {
         tourStarted: false,
         tourFinished: false,
         isEditingTour: false,
+        tourPaused: false,
       },
       mapState: {
         region: {

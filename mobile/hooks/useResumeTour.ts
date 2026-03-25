@@ -122,6 +122,7 @@ export function useResumeTour(): UseResumeTourReturn {
           tourStarted: true,
           tourFinished: false,
           isEditingTour: false,
+          tourPaused: false,
         },
       });
       
@@ -211,6 +212,7 @@ export function useResumeTour(): UseResumeTourReturn {
           tourStarted: true,
           tourFinished: false,
           isEditingTour: false,
+          tourPaused: false,
         },
       });
       

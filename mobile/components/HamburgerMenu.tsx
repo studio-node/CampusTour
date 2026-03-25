@@ -1,14 +1,25 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Animated, Dimensions } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Animated, Dimensions, Alert } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { useTourPause } from '@/contexts/TourPauseContext';
+import { useRouter } from 'expo-router';
+import { appStateManager } from '@/services/appStateManager';
 
 interface HamburgerMenuProps {
   primaryColor: string;
 }
 
+function hasActiveTour(): boolean {
+  const state = appStateManager.getCurrentState();
+  const stops = state?.tourState?.stops;
+  return Array.isArray(stops) && stops.length > 0;
+}
+
 const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ primaryColor }) => {
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const slideAnimation = useRef(new Animated.Value(-Dimensions.get('window').width)).current;
+  const { tourPaused, setTourPaused } = useTourPause();
+  const router = useRouter();
 
   const openMenu = () => {
     setIsMenuVisible(true);
@@ -29,20 +40,56 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ primaryColor }) => {
     });
   };
 
-  const resetTour = () => {
-    console.log('resetting tour');
+  const endTour = () => {
+    Alert.alert(
+      'End Tour',
+      'Are you sure you want to end the tour?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End Tour',
+          style: 'destructive',
+          onPress: async () => {
+            await setTourPaused(false);
+            await appStateManager.clearAllState();
+            router.replace('/');
+          },
+        },
+      ]
+    );
   };
 
-  const handleMenuItemPress = (item: string) => {
+  const handleMenuItemPress = async (item: string) => {
     console.log(`${item} pressed`);
     switch (item) {
-      case 'New Tour':
-        resetTour();
+      case 'Pause Tour':
+        if (!hasActiveTour()) {
+          closeMenu();
+          Alert.alert(
+            'No active tour',
+            'You need a current tour before you can pause.'
+          );
+          return;
+        }
+        await setTourPaused(true);
+        break;
+      case 'Resume Tour':
+        await setTourPaused(false);
+        break;
+      case 'End Tour':
+        if (!hasActiveTour()) {
+          closeMenu();
+          Alert.alert(
+            'No active tour',
+            'You need a current tour before you can end the tour.'
+          );
+          return;
+        }
+        endTour();
         break;
       default:
-        break;  
+        break;
     }
-    // TODO: Implement rest of actual functionality
     closeMenu();
   };
 
@@ -95,37 +142,24 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ primaryColor }) => {
               <View style={styles.menuItems}>
                 <TouchableOpacity 
                   style={[styles.menuItem, dynamicStyles.menuItem]}
-                  onPress={() => handleMenuItemPress('Account')}
+                  onPress={() => handleMenuItemPress(tourPaused ? 'Resume Tour' : 'Pause Tour')}
                 >
-                  <IconSymbol name="person.circle" size={24} color="#333" style={styles.menuIcon} />
-                  <Text style={styles.menuItemText}>Account</Text>
-                  <IconSymbol name="chevron.right" size={16} color="#999" />
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={[styles.menuItem, dynamicStyles.menuItem]}
-                  onPress={() => handleMenuItemPress('Settings')}
-                >
-                  <IconSymbol name="gearshape" size={24} color="#333" style={styles.menuIcon} />
-                  <Text style={styles.menuItemText}>Settings</Text>
-                  <IconSymbol name="chevron.right" size={16} color="#999" />
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={[styles.menuItem, dynamicStyles.menuItem]}
-                  onPress={() => handleMenuItemPress('Pause Tour')}
-                >
-                  <IconSymbol name="pause.circle" size={24} color="#333" style={styles.menuIcon} />
-                  <Text style={styles.menuItemText}>Pause Tour</Text>
+                  <IconSymbol
+                    name={tourPaused ? 'play.circle' : 'pause.circle'}
+                    size={24}
+                    color="#333"
+                    style={styles.menuIcon}
+                  />
+                  <Text style={styles.menuItemText}>{tourPaused ? 'Resume Tour' : 'Pause Tour'}</Text>
                   <IconSymbol name="chevron.right" size={16} color="#999" />
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[styles.menuItem, dynamicStyles.menuItem]}
-                  onPress={() => handleMenuItemPress('New Tour')}
+                  onPress={() => handleMenuItemPress('End Tour')}
                 >
-                  <IconSymbol name="plus.circle" size={24} color="#333" style={styles.menuIcon} />
-                  <Text style={styles.menuItemText}>New Tour</Text>
+                  <IconSymbol name="xmark.circle" size={24} color="#333" style={styles.menuIcon} />
+                  <Text style={styles.menuItemText}>End Tour</Text>
                   <IconSymbol name="chevron.right" size={16} color="#999" />
                 </TouchableOpacity>
               </View>

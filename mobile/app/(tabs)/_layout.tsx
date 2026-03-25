@@ -6,10 +6,12 @@ import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
+import { TourPauseProvider, useTourPause } from '@/contexts/TourPauseContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
-export default function TabLayout() {
+function TabLayoutContent() {
   const colorScheme = useColorScheme();
+  const { tourPaused } = useTourPause();
 
   return (
     <Tabs
@@ -36,17 +38,25 @@ export default function TabLayout() {
       <Tabs.Screen
         name="current"
         options={{
-          title: 'Current Stop',
+          title: tourPaused ? 'Tour Paused' : 'Current Stop',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="location.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="tour"
         options={{
-          title: 'Tour',
+          title: tourPaused ? 'Tour Paused' : 'Tour',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="figure.walk" color={color} />,
         }}
       />
     </Tabs>
+  );
+}
+
+export default function TabLayout() {
+  return (
+    <TourPauseProvider>
+      <TabLayoutContent />
+    </TourPauseProvider>
   );
 }

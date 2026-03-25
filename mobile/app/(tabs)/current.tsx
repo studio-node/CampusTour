@@ -12,11 +12,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
 import { useRaiseHand } from '@/contexts/RaiseHandContext';
+import { useTourPause } from '@/contexts/TourPauseContext';
 import { usePushedLocationMedia } from '@/contexts/PushedLocationMediaContext';
 
 
 export default function CurrentLocationScreen() {
   const router = useRouter();
+  const { tourPaused, syncTourPausedFromStorage } = useTourPause();
   const [building, setBuilding] = useState<Location | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +77,7 @@ export default function CurrentLocationScreen() {
   useFocusEffect(
     React.useCallback(() => {
       const loadTourData = async () => {
+        syncTourPausedFromStorage();
         try {
           const currentState = appStateManager.getCurrentState();
           
@@ -106,7 +109,7 @@ export default function CurrentLocationScreen() {
       };
 
       loadTourData();
-    }, [])
+    }, [syncTourPausedFromStorage])
   );
 
   // Join live session and listen for state updates if member
@@ -203,6 +206,9 @@ export default function CurrentLocationScreen() {
 
   // Check geofences and update current location
   useEffect(() => {
+    if (tourPaused) {
+      return;
+    }
     const checkGeofences = () => {
       if (!userLocation || !schoolId || tourStops.length === 0) {
         return;
@@ -229,7 +235,7 @@ export default function CurrentLocationScreen() {
     };
 
     checkGeofences();
-  }, [userLocation, tourStops, schoolId]);
+  }, [userLocation, tourStops, schoolId, tourPaused]);
 
   // Determine which location to display
   useEffect(() => {
@@ -328,6 +334,37 @@ export default function CurrentLocationScreen() {
       backgroundColor: primaryColor,
     }
   };
+
+  if (tourPaused) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={[styles.header, dynamicStyles.headerBorder]}>
+          <HamburgerMenu primaryColor={primaryColor} />
+          <Text style={styles.headerText}>Current Location</Text>
+          {isAmbassadorLedMember ? (
+            <TouchableOpacity 
+              style={[styles.headerRaiseHandButton, dynamicStyles.raiseHandButton]}
+              onPress={handleRaiseHand}
+            >
+              <IconSymbol name="hand.raised.fill" size={18} color="white"/>
+              <Text style={styles.raiseHandText}>Raise Hand</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
+        </View>
+        <View style={styles.tourPausedContainer}>
+          <Text style={styles.tourPausedText}>Tour Paused</Text>
+        </View>
+        <RaiseHandNotificationModal
+          visible={showRaiseHandModal}
+          memberName={raiseHandMemberName}
+          primaryColor={primaryColor}
+          onClose={dismissRaiseHandModal}
+        />
+      </SafeAreaView>
+    );
+  }
 
   // If loading, show loading indicator
   if (isLoading) {
@@ -789,5 +826,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#3A3A3A',
     padding: 12,
     borderRadius: 8,
+  },
+  tourPausedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  tourPausedText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
 }); 

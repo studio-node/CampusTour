@@ -131,6 +131,7 @@ export default function TourDetailsScreen() {
                   tourStarted: true,
                   tourFinished: false,
                   isEditingTour: false,
+                  tourPaused: false,
                 },
               });
               
@@ -290,6 +291,7 @@ export default function TourDetailsScreen() {
                 tourStarted: true,
                 tourFinished: false,
                 isEditingTour: false,
+                tourPaused: false,
               },
             });
             
