@@ -33,10 +33,10 @@ const navigation = [
   { name: 'Dashboard', href: '/admin', icon: '🏠' },
   { name: 'Analytics & Data', href: '/admin/analytics', icon: '📈' },
   { name: 'User Management', href: '/admin/users', icon: '👥' },
-  { name: 'Tour Management', href: '/admin/tours', icon: '🗺️' },
+  // { name: 'Tour Management', href: '/admin/tours', icon: '🗺️' },
   { name: 'Location Management', href: '/admin/locations', icon: '📍' },
-  { name: 'Ambassador Tours', href: '/admin/ambassador-tours', icon: '🎓' },
-  { name: 'Profile & Settings', href: '/admin/profile', icon: '⚙️' }
+  // { name: 'Ambassador Tours', href: '/admin/ambassador-tours', icon: '🎓' },
+  // { name: 'Profile & Settings', href: '/admin/profile', icon: '⚙️' }
 ]
 
 // Handle sign out
