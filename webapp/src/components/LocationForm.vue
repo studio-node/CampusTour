@@ -336,7 +336,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div v-if="isOpen" class="space-y-6">
+  <div v-if="isOpen" class="space-y-6" data-testid="location-form">
         <!-- Header -->
     <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
       <div class="flex justify-between items-center">
@@ -610,6 +610,7 @@ async function handleSubmit() {
             <div class="flex justify-end space-x-3 pt-4 border-t border-gray-700">
               <button
                 type="button"
+                data-testid="location-form-cancel"
                 @click="closeForm"
                 :disabled="isSubmitting"
                 class="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

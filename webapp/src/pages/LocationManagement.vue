@@ -224,7 +224,7 @@ async function deleteLocation() {
       <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
         <div class="flex justify-between items-center">
           <div>
-            <h1 class="text-2xl font-bold text-white">Location Management</h1>
+            <h1 class="text-2xl font-bold text-white" data-testid="location-mgmt-heading">Location Management</h1>
             <p class="text-gray-400 mt-1">Manage locations for your school</p>
           </div>
           <div class="space-x-2">
@@ -235,7 +235,9 @@ async function deleteLocation() {
             >
               No-go Zones
             </button>
-            <button 
+            <button
+              type="button"
+              data-testid="location-mgmt-add-btn"
               @click="openLocationForm"
               :disabled="!currentSchoolId || isLoadingSchoolId"
               class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"

@@ -227,10 +227,15 @@ onMounted(loadUsers)
     <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
       <div class="flex justify-between items-center">
         <div>
-          <h1 class="text-2xl font-bold text-white">User Management</h1>
+          <h1 class="text-2xl font-bold text-white" data-testid="user-mgmt-heading">User Management</h1>
           <p class="text-gray-400 mt-1">Manage ambassadors, admins, and user accounts</p>
         </div>
-        <button @click="openAddModal" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+        <button
+          type="button"
+          data-testid="user-mgmt-add-btn"
+          @click="openAddModal"
+          class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+        >
           Add New User
         </button>
       </div>
@@ -255,7 +260,7 @@ onMounted(loadUsers)
     <!-- Users Table (only when not loading) -->
     <div v-else class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 overflow-hidden">
       <div class="px-6 py-4 border-b border-gray-700">
-        <h2 class="text-lg font-medium text-white">All Users</h2>
+        <h2 class="text-lg font-medium text-white" data-testid="user-mgmt-all-users">All Users</h2>
       </div>
       
       <div v-if="users.length === 0" class="px-6 py-8 text-center text-gray-400">
@@ -396,7 +401,10 @@ onMounted(loadUsers)
     <div v-if="showAddModal" class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true" role="dialog">
       <div class="flex min-h-full items-center justify-center p-4">
         <div class="fixed inset-0 bg-black/60" @click="closeAddModal"></div>
-        <div class="relative bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+        <div
+          class="relative bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-md w-full p-6 space-y-4"
+          data-testid="user-mgmt-add-modal"
+        >
           <h3 class="text-lg font-semibold text-white">Add New User</h3>
           <form @submit.prevent="handleCreateUser" class="space-y-4">
             <div>
@@ -452,6 +460,7 @@ onMounted(loadUsers)
             <div class="flex justify-end gap-2 pt-2">
               <button
                 type="button"
+                data-testid="user-mgmt-add-cancel"
                 class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700"
                 @click="closeAddModal"
               >
