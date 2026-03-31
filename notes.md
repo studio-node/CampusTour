@@ -1,0 +1,5 @@
+- Unpause button on tour screen when paused
+- No back swipe from main app
+- When pressing location button on location detail, made pin selected
+- Allow directions to any location by selecting a button on that loc or something idk
+- Change heading on tour page to be 'your tour' and add little blurb where your tour is to say tour is ordered
