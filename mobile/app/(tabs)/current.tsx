@@ -92,11 +92,12 @@ export default function CurrentLocationScreen() {
             console.log('Current Location Tab: No tour state found in app state manager');
           }
           
-          // Get current location from tour progress
+          // Get current location from tour progress (use `stops` from loaded state, not stale `tourStops`)
           if (currentState?.tourProgress) {
             const currentStopIndex = currentState.tourProgress.currentStopIndex;
-            if (currentStopIndex >= 0 && currentStopIndex < tourStops.length) {
-              setCurrentLocationId(tourStops[currentStopIndex]?.id || null);
+            const loadedStops = currentState.tourState?.stops ?? [];
+            if (currentStopIndex >= 0 && currentStopIndex < loadedStops.length) {
+              setCurrentLocationId(loadedStops[currentStopIndex]?.id || null);
             } else {
               setCurrentLocationId(null);
             }
@@ -112,13 +113,19 @@ export default function CurrentLocationScreen() {
     }, [syncTourPausedFromStorage])
   );
 
-  // Join live session and listen for state updates if member
+  // Join live session and listen for state updates if member (requires leadId — server rejects otherwise)
   useEffect(() => {
+    let cleanup: (() => void) | undefined;
     const attachLiveUpdates = async () => {
       const isAmbassadorUser = await userTypeService.isAmbassador();
       if (isAmbassadorUser) return;
       const tourId = await tourGroupSelectionService.getSelectedTourGroup();
       if (!tourId) return;
+      const leadId = await leadsService.getStoredLeadId();
+      if (!leadId) {
+        console.warn('Current tab: join_session skipped — no leadId for this tour member');
+        return;
+      }
       wsManager.connect();
       const onMessage = (msg: any) => {
         if (msg?.type === 'tour_state_updated' && msg?.state) {
@@ -128,14 +135,14 @@ export default function CurrentLocationScreen() {
         }
       };
       wsManager.on('message', onMessage);
-      wsManager.send('join_session', { tourId });
-      return () => {
+      wsManager.send('join_session', { tourId, leadId });
+      cleanup = () => {
         wsManager.off('message', onMessage);
       };
     };
-    const cleanupPromise = attachLiveUpdates();
+    attachLiveUpdates();
     return () => {
-      // cleanup handled by returned function if any
+      cleanup?.();
     };
   }, []);
 
@@ -204,9 +211,12 @@ export default function CurrentLocationScreen() {
     }
   };
 
-  // Check geofences and update current location
+  // Check geofences and update current location (self-guided / local only — ambassador-led follows leader WS state)
   useEffect(() => {
     if (tourPaused) {
+      return;
+    }
+    if (isAmbassadorLedMember) {
       return;
     }
     const checkGeofences = () => {
@@ -235,7 +245,7 @@ export default function CurrentLocationScreen() {
     };
 
     checkGeofences();
-  }, [userLocation, tourStops, schoolId, tourPaused]);
+  }, [userLocation, tourStops, schoolId, tourPaused, isAmbassadorLedMember]);
 
   // Determine which location to display
   useEffect(() => {

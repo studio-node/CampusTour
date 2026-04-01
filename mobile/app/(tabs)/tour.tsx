@@ -325,14 +325,13 @@ export default function TourScreen() {
       try {
         setIsLoading(true);
         
-        // Fetch locations from Supabase
-        const locationsData = await locationService.getLocations(schoolId);
-        
-        // Use static tour interests
-        setAvailableInterests(tourInterests);
-        
-        // Now load saved state
+        // Restore from app state before any awaited network work. If we load after
+        // `getLocations`, ambassador-led members can receive WebSocket tour updates
+        // first and then get overwritten by this effect's stale restore.
         await loadSavedState();
+        
+        await locationService.getLocations(schoolId);
+        setAvailableInterests(tourInterests);
       } catch (error) {
         console.error('Error initializing tour data:', error);
       } finally {
@@ -404,12 +403,10 @@ export default function TourScreen() {
           // Fetch location details for the received location IDs
           if (schoolId) {
             const allLocations = await locationService.getTourStops(schoolId);
-            let orderedLocations: Location[] = locationIds
+            // Preserve ambassador order; do not re-sort by member GPS (breaks sync with leader).
+            const orderedLocations: Location[] = locationIds
               .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
               .filter((loc: Location | undefined): loc is Location => Boolean(loc));
-
-            const coords = await getCoordsForOrdering();
-            orderedLocations = orderTourStopsByNearestFirst(orderedLocations, coords);
 
             setTourStops(orderedLocations);
           }
@@ -468,12 +465,9 @@ export default function TourScreen() {
             // Fetch location details for the received location IDs
             if (schoolId) {
               const allLocations = await locationService.getTourStops(schoolId);
-              let orderedLocations: Location[] = locationIds
+              const orderedLocations: Location[] = locationIds
                 .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
                 .filter((loc: Location | undefined): loc is Location => Boolean(loc));
-
-              const coords = await getCoordsForOrdering();
-              orderedLocations = orderTourStopsByNearestFirst(orderedLocations, coords);
 
               setTourStops(orderedLocations);
             }
@@ -497,7 +491,7 @@ export default function TourScreen() {
       wsManager.off('tour_state_updated', handleTourStateUpdated);
       wsManager.off('tour_structure_updated', handleTourStructureUpdated);
     };
-  }, [isAmbassadorLedMember, schoolId, getCoordsForOrdering]);
+  }, [isAmbassadorLedMember, schoolId]);
 
   // Listen for WebSocket events (for ambassadors to confirm their changes)
   useEffect(() => {
