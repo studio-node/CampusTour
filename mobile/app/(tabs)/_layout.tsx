@@ -11,7 +11,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 
 function TabLayoutContent() {
   const colorScheme = useColorScheme();
-  const { tourPaused } = useTourPause();
+  const { tourPaused, tourFinished } = useTourPause();
 
   return (
     <Tabs
@@ -38,14 +38,14 @@ function TabLayoutContent() {
       <Tabs.Screen
         name="current"
         options={{
-          title: tourPaused ? 'Tour Paused' : 'Current Stop',
+          title: tourPaused && !tourFinished ? 'Tour Paused' : 'Current Stop',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="location.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="tour"
         options={{
-          title: tourPaused ? 'Tour Paused' : 'Tour',
+          title: tourFinished ? 'Tour Ended' : tourPaused ? 'Tour Paused' : 'Tour',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="figure.walk" color={color} />,
         }}
       />

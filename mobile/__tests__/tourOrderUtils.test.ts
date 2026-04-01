@@ -1,5 +1,5 @@
 import type { Location } from '@/services/supabase';
-import { orderTourStopsByNearestFirst } from '@/services/tourOrderUtils';
+import { findNearestLocation, orderTourStopsByNearestFirst } from '@/services/tourOrderUtils';
 
 function loc(
   id: string,
@@ -18,6 +18,21 @@ function loc(
     order_index: orderIndex,
   };
 }
+
+describe('findNearestLocation', () => {
+  it('returns null for empty list or null coords', () => {
+    expect(findNearestLocation([], { latitude: 0, longitude: 0 })).toBeNull();
+    const a = loc('a', 1, 1, 0);
+    expect(findNearestLocation([a], null)).toBeNull();
+  });
+
+  it('returns the closest location to the user', () => {
+    const far = loc('far', 10, 10, 0);
+    const near = loc('near', 0.0001, 0.0001, 1);
+    const user = { latitude: 0, longitude: 0 };
+    expect(findNearestLocation([far, near], user)?.id).toBe('near');
+  });
+});
 
 describe('orderTourStopsByNearestFirst', () => {
   it('returns empty array unchanged', () => {

@@ -89,7 +89,14 @@ export default function RootLayout() {
         <Stack.Screen name="tour-confirmation" options={{ headerShown: false }} />
         <Stack.Screen name="add-tour-locations" options={{ headerShown: false }} />
 
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="(tabs)"
+          options={{
+            headerShown: false,
+            gestureEnabled: false,
+            fullScreenGestureEnabled: false,
+          }}
+        />
         <Stack.Screen name="building" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>

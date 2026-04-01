@@ -10,18 +10,23 @@ import { appStateManager } from '@/services/appStateManager';
 
 type TourPauseContextValue = {
   tourPaused: boolean;
+  tourFinished: boolean;
   setTourPaused: (paused: boolean) => Promise<void>;
+  /** Sync paused + finished flags from persisted app state (call after load/reset). */
   syncTourPausedFromStorage: () => void;
+  markTourFinished: (finished: boolean) => Promise<void>;
 };
 
 const TourPauseContext = createContext<TourPauseContextValue | null>(null);
 
 export function TourPauseProvider({ children }: { children: React.ReactNode }) {
   const [tourPaused, setTourPausedState] = useState(false);
+  const [tourFinished, setTourFinishedState] = useState(false);
 
   const syncTourPausedFromStorage = useCallback(() => {
     const s = appStateManager.getCurrentState();
     setTourPausedState(!!s?.tourState?.tourPaused);
+    setTourFinishedState(!!s?.tourState?.tourFinished);
   }, []);
 
   useEffect(() => {
@@ -44,9 +49,31 @@ export function TourPauseProvider({ children }: { children: React.ReactNode }) {
     setTourPausedState(paused);
   }, []);
 
+  const markTourFinished = useCallback(async (finished: boolean) => {
+    const s = appStateManager.getCurrentState();
+    if (!s) {
+      setTourFinishedState(finished);
+      return;
+    }
+    appStateManager.updateState({
+      tourState: {
+        ...s.tourState,
+        tourFinished: finished,
+      },
+    });
+    await appStateManager.saveCurrentState();
+    setTourFinishedState(finished);
+  }, []);
+
   const value = useMemo(
-    () => ({ tourPaused, setTourPaused, syncTourPausedFromStorage }),
-    [tourPaused, setTourPaused, syncTourPausedFromStorage]
+    () => ({
+      tourPaused,
+      tourFinished,
+      setTourPaused,
+      syncTourPausedFromStorage,
+      markTourFinished,
+    }),
+    [tourPaused, tourFinished, setTourPaused, syncTourPausedFromStorage, markTourFinished]
   );
 
   return (

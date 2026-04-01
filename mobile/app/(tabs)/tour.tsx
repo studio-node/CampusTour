@@ -235,7 +235,7 @@ const InterestTag = ({
 
 export default function TourScreen() {
   const router = useRouter();
-  const { tourPaused, setTourPaused, syncTourPausedFromStorage } = useTourPause();
+  const { tourPaused, tourFinished, setTourPaused, markTourFinished, syncTourPausedFromStorage } = useTourPause();
   const [showInterestSelection, setShowInterestSelection] = useState(true);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [tourStops, setTourStops] = useState<TourStop[]>([]);
@@ -262,8 +262,6 @@ export default function TourScreen() {
   const [tourStarted, setTourStarted] = useState<boolean>(false);
   const [locationWatcher, setLocationWatcher] = useState<any>(null);
   const [processingTourStart, setProcessingTourStart] = useState<boolean>(false);
-  const [tourFinished, setTourFinished] = useState<boolean>(false);
-  
   // Duration tracking state
   const [currentLocationId, setCurrentLocationId] = useState<string | null>(null);
   const [locationEntryTimes, setLocationEntryTimes] = useState<{[locationId: string]: number}>({});
@@ -552,7 +550,6 @@ export default function TourScreen() {
       setTourStops(tourState.stops);
       setVisitedLocations(tourState.visitedLocations);
       setTourStarted(tourState.tourStarted);
-      setTourFinished(tourState.tourFinished);
       setIsEditingTour(tourState.isEditingTour);
       
       // Restore location tracking state (use location id, not index - DB expects UUID)
@@ -765,15 +762,15 @@ export default function TourScreen() {
   };
 
   // Reset tour function - also reset tour started status
-  const resetTour = () => {
+  const resetTour = async () => {
     if (!canEditTour) return;
-    void setTourPaused(false);
+    await markTourFinished(false);
+    await setTourPaused(false);
     setShowInterestSelection(true);
     setSelectedInterests([]);
     setTourStops([]);
     setVisitedLocations([]);
     setTourStarted(false);
-    setTourFinished(false);
     setProcessingTourStart(false);
     setCurrentLocationId(null);
     setLocationEntryTimes({});
@@ -922,7 +919,7 @@ export default function TourScreen() {
             
             // If no more tour stops, finish the tour
             if (newTourStops.length === 0) {
-              setTourFinished(true);
+              void markTourFinished(true);
             }
           }
         }
@@ -971,7 +968,7 @@ export default function TourScreen() {
       try {
         const stopNames = tourStops.map(stop => stop.name);
         await analyticsService.exportTourFinish(schoolId, tourStops.length, stopNames);
-        setTourFinished(true);
+        await markTourFinished(true);
         console.log('Tour finished event exported successfully');
       } catch (error) {
         console.error('Error exporting tour-finish event:', error);
@@ -1053,7 +1050,7 @@ export default function TourScreen() {
 
   // Check if user is within geofence of any tour stop and handle entry/exit
   const checkGeofences = async () => {
-    if (!userLocation || !schoolId || tourStops.length === 0) {
+    if (tourFinished || !userLocation || !schoolId || tourStops.length === 0) {
       return;
     }
 
@@ -1144,7 +1141,7 @@ export default function TourScreen() {
 
   // Effect to handle location tracking when tour is active
   useEffect(() => {
-    if (tourPaused) {
+    if (tourPaused || tourFinished) {
       stopLocationTracking();
       return;
     }
@@ -1161,15 +1158,15 @@ export default function TourScreen() {
     return () => {
       stopLocationTracking();
     };
-  }, [tourPaused, showInterestSelection, tourStops, locationPermissionStatus, tourStarted]);
+  }, [tourPaused, tourFinished, showInterestSelection, tourStops, locationPermissionStatus, tourStarted]);
 
   // Effect to check geofences when user location changes
   useEffect(() => {
-    if (tourPaused || !userLocation) {
+    if (tourPaused || tourFinished || !userLocation) {
       return;
     }
     checkGeofences();
-  }, [userLocation, tourStops, tourStarted, processingTourStart, currentLocationId, locationEntryTimes, tourPaused]);
+  }, [userLocation, tourStops, tourStarted, processingTourStart, currentLocationId, locationEntryTimes, tourPaused, tourFinished]);
 
   // Create dynamic styles with the primary color
   const dynamicStyles = {
@@ -1194,6 +1191,39 @@ export default function TourScreen() {
     );
   }
 
+  const handleBackToStartFromEndedTour = async () => {
+    await appStateManager.clearAllState();
+    syncTourPausedFromStorage();
+    // Pop-style transition toward the app entry (vs replace, which felt like the wrong horizontal direction).
+    router.dismissTo('/');
+  };
+
+  if (tourFinished) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={[styles.header, dynamicStyles.headerBorder]}>
+          <HamburgerMenu primaryColor={primaryColor} />
+          <Text style={styles.headerText}>Campus Tour</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.tourPausedContainer}>
+          <Text style={styles.tourPausedText}>Tour Ended</Text>
+          <Text style={styles.tourEndedSubtext}>
+            Thanks for visiting. You can keep exploring the map and current location, or start fresh when you are ready.
+          </Text>
+          <TouchableOpacity
+            style={[styles.unpauseButton, { backgroundColor: primaryColor }]}
+            onPress={() => void handleBackToStartFromEndedTour()}
+            activeOpacity={0.85}
+          >
+            <IconSymbol name="arrow.backward.circle.fill" size={20} color="white" style={styles.unpauseButtonIcon} />
+            <Text style={styles.unpauseButtonText}>Back to start</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (tourPaused) {
     return (
       <SafeAreaView style={styles.container}>
@@ -1204,6 +1234,14 @@ export default function TourScreen() {
         </View>
         <View style={styles.tourPausedContainer}>
           <Text style={styles.tourPausedText}>Tour Paused</Text>
+          <TouchableOpacity
+            style={[styles.unpauseButton, { backgroundColor: primaryColor }]}
+            onPress={() => void setTourPaused(false)}
+            activeOpacity={0.85}
+          >
+            <IconSymbol name="play.circle.fill" size={20} color="white" style={styles.unpauseButtonIcon} />
+            <Text style={styles.unpauseButtonText}>Resume tour</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -1339,7 +1377,7 @@ export default function TourScreen() {
               <Text style={styles.emptyTourText}>No buildings match your selected interests.</Text>
               <TouchableOpacity
                 style={[styles.generateTourButton, dynamicStyles.generateTourButton]}
-                onPress={resetTour}
+                onPress={() => void resetTour()}
               >
                 <Text style={styles.buttonText}>Select Different Interests</Text>
               </TouchableOpacity>
@@ -1379,7 +1417,7 @@ export default function TourScreen() {
               <Text style={styles.emptyTourText}>No buildings match your selected interests.</Text>
               <TouchableOpacity
                 style={[styles.generateTourButton, dynamicStyles.generateTourButton]}
-                onPress={resetTour}
+                onPress={() => void resetTour()}
               >
                 <Text style={styles.buttonText}>Select Different Interests</Text>
               </TouchableOpacity>
@@ -1735,5 +1773,30 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     textAlign: 'center',
+  },
+  tourEndedSubtext: {
+    fontSize: 15,
+    color: '#CCCCCC',
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 28,
+    paddingHorizontal: 24,
+    lineHeight: 22,
+  },
+  unpauseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 12,
+  },
+  unpauseButtonIcon: {
+    marginRight: 10,
+  },
+  unpauseButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '600',
   },
 });

@@ -232,6 +232,11 @@ class AppStateManager {
         console.log('No persisted state found');
         return false;
       }
+
+      if (state.tourState?.tourFinished) {
+        console.log('Tour marked finished, not offering resume');
+        return false;
+      }
       
       // Check for self-guided tours
       if (state.userType === 'self-guided') {

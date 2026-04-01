@@ -2,25 +2,27 @@ import React, { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Animated, Dimensions, Alert } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useTourPause } from '@/contexts/TourPauseContext';
-import { useRouter } from 'expo-router';
 import { appStateManager } from '@/services/appStateManager';
 
 interface HamburgerMenuProps {
   primaryColor: string;
 }
 
-function hasActiveTour(): boolean {
+function getTourMenuState(): { hasActiveTour: boolean; tourFinished: boolean } {
   const state = appStateManager.getCurrentState();
   const stops = state?.tourState?.stops;
-  return Array.isArray(stops) && stops.length > 0;
+  const tourFinished = !!state?.tourState?.tourFinished;
+  const hasStops = Array.isArray(stops) && stops.length > 0;
+  return {
+    hasActiveTour: hasStops && !tourFinished,
+    tourFinished,
+  };
 }
 
 const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ primaryColor }) => {
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const slideAnimation = useRef(new Animated.Value(-Dimensions.get('window').width)).current;
-  const { tourPaused, setTourPaused } = useTourPause();
-  const router = useRouter();
-
+  const { tourPaused, tourFinished, setTourPaused, markTourFinished } = useTourPause();
   const openMenu = () => {
     setIsMenuVisible(true);
     Animated.timing(slideAnimation, {
@@ -43,7 +45,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ primaryColor }) => {
   const endTour = () => {
     Alert.alert(
       'End Tour',
-      'Are you sure you want to end the tour?',
+      'Are you sure you want to end the tour? You can start over from the Tour tab when you are ready.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -51,8 +53,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ primaryColor }) => {
           style: 'destructive',
           onPress: async () => {
             await setTourPaused(false);
-            await appStateManager.clearAllState();
-            router.replace('/');
+            await markTourFinished(true);
           },
         },
       ]
@@ -63,7 +64,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ primaryColor }) => {
     console.log(`${item} pressed`);
     switch (item) {
       case 'Pause Tour':
-        if (!hasActiveTour()) {
+        if (!getTourMenuState().hasActiveTour) {
           closeMenu();
           Alert.alert(
             'No active tour',
@@ -77,7 +78,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ primaryColor }) => {
         await setTourPaused(false);
         break;
       case 'End Tour':
-        if (!hasActiveTour()) {
+        if (!getTourMenuState().hasActiveTour) {
           closeMenu();
           Alert.alert(
             'No active tour',
@@ -140,28 +141,38 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ primaryColor }) => {
 
               {/* Menu Items */}
               <View style={styles.menuItems}>
-                <TouchableOpacity 
-                  style={[styles.menuItem, dynamicStyles.menuItem]}
-                  onPress={() => handleMenuItemPress(tourPaused ? 'Resume Tour' : 'Pause Tour')}
-                >
-                  <IconSymbol
-                    name={tourPaused ? 'play.circle' : 'pause.circle'}
-                    size={24}
-                    color="#333"
-                    style={styles.menuIcon}
-                  />
-                  <Text style={styles.menuItemText}>{tourPaused ? 'Resume Tour' : 'Pause Tour'}</Text>
-                  <IconSymbol name="chevron.right" size={16} color="#999" />
-                </TouchableOpacity>
+                {!tourFinished ? (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.menuItem, dynamicStyles.menuItem]}
+                      onPress={() => handleMenuItemPress(tourPaused ? 'Resume Tour' : 'Pause Tour')}
+                    >
+                      <IconSymbol
+                        name={tourPaused ? 'play.circle' : 'pause.circle'}
+                        size={24}
+                        color="#333"
+                        style={styles.menuIcon}
+                      />
+                      <Text style={styles.menuItemText}>{tourPaused ? 'Resume Tour' : 'Pause Tour'}</Text>
+                      <IconSymbol name="chevron.right" size={16} color="#999" />
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.menuItem, dynamicStyles.menuItem]}
-                  onPress={() => handleMenuItemPress('End Tour')}
-                >
-                  <IconSymbol name="xmark.circle" size={24} color="#333" style={styles.menuIcon} />
-                  <Text style={styles.menuItemText}>End Tour</Text>
-                  <IconSymbol name="chevron.right" size={16} color="#999" />
-                </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.menuItem, dynamicStyles.menuItem]}
+                      onPress={() => handleMenuItemPress('End Tour')}
+                    >
+                      <IconSymbol name="xmark.circle" size={24} color="#333" style={styles.menuIcon} />
+                      <Text style={styles.menuItemText}>End Tour</Text>
+                      <IconSymbol name="chevron.right" size={16} color="#999" />
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <View style={styles.menuEndedHint}>
+                    <Text style={styles.menuEndedHintText}>
+                      This tour has ended. Open the Tour tab to return to the start.
+                    </Text>
+                  </View>
+                )}
               </View>
             </TouchableOpacity>
           </Animated.View>
@@ -238,6 +249,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '500',
     color: '#333333',
+  },
+  menuEndedHint: {
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+  },
+  menuEndedHintText: {
+    fontSize: 16,
+    color: '#666666',
+    lineHeight: 22,
   },
 });
 

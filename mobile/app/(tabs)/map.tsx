@@ -246,10 +246,13 @@ export default function MapScreen() {
           const currentState = appStateManager.getCurrentState();
           let hasActiveTour = false;
           let next: LocationItem | null = null;
+          const tourFinished = !!currentState?.tourState?.tourFinished;
 
           if (currentState?.tourState) {
-            const { stops, selectedInterests, visitedLocations } = currentState.tourState;
-            hasActiveTour = stops.length > 0 && selectedInterests.length > 0;
+            const { stops, visitedLocations } = currentState.tourState;
+            // Any saved stop list counts as an active tour (resume paths often have empty selectedInterests;
+            // self-guided "skip to default" can too). Only exclude explicitly finished tours.
+            hasActiveTour = stops.length > 0 && !tourFinished;
             // Next stop = first stop not in visitedLocations (for directions view)
             if (hasActiveTour && userType === 'self-guided') {
               const firstUnvisited = stops.find((stop) => !visitedLocations?.includes(stop.id));
@@ -262,7 +265,7 @@ export default function MapScreen() {
           
           // Don't show modal for ambassador-led tours or ambassadors, as they follow a different flow
           // Show modal only for self-guided users with no tour and hasn't been shown this session
-          if (!isAmbassadorTour && !hasActiveTour && !hasShownModalThisSession) {
+          if (!isAmbassadorTour && !hasActiveTour && !tourFinished && !hasShownModalThisSession) {
             setShowTourModal(true);
           }
         } catch (error) {
@@ -271,12 +274,21 @@ export default function MapScreen() {
           const isAmbassadorLed = userType === 'ambassador-led';
           const isAmbassador = userType === 'ambassador';
           const isAmbassadorTour = isAmbassadorLed || isAmbassador;
-          
+
+          const fallbackState = appStateManager.getCurrentState();
+          const fallbackFinished = !!fallbackState?.tourState?.tourFinished;
+          const fallbackHasStops =
+            (fallbackState?.tourState?.stops?.length ?? 0) > 0;
+
           setHasTour(false);
           setNextStop(null);
           setIsSelfGuided(userType === 'self-guided');
-          // Only show modal for self-guided users if hasn't been shown this session
-          if (!isAmbassadorTour && !hasShownModalThisSession) {
+          if (
+            !isAmbassadorTour &&
+            !hasShownModalThisSession &&
+            !fallbackFinished &&
+            !fallbackHasStops
+          ) {
             setShowTourModal(true);
           }
         }

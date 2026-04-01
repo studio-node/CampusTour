@@ -1,6 +1,7 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { formatInterest } from '@/constants/labels';
 import { analyticsService, Location, locationService, schoolService, userTypeService, tourGroupSelectionService, leadsService } from '@/services/supabase';
+import { findNearestLocation } from '@/services/tourOrderUtils';
 import { wsManager } from '@/services/ws';
 import { appStateManager } from '@/services/appStateManager';
 import * as ExpoLocation from 'expo-location';
@@ -18,7 +19,7 @@ import { usePushedLocationMedia } from '@/contexts/PushedLocationMediaContext';
 
 export default function CurrentLocationScreen() {
   const router = useRouter();
-  const { tourPaused, syncTourPausedFromStorage } = useTourPause();
+  const { tourPaused, tourFinished, syncTourPausedFromStorage } = useTourPause();
   const [building, setBuilding] = useState<Location | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +39,10 @@ export default function CurrentLocationScreen() {
   // Raise hand notification state from shared context
   const { showModal: showRaiseHandModal, memberName: raiseHandMemberName, dismissModal: dismissRaiseHandModal } = useRaiseHand();
   const { getPushedMedia, showTakeover } = usePushedLocationMedia();
+
+  /** All campus locations when the tour is paused or ended (nearest-location UX). */
+  const [nearestCampusLocations, setNearestCampusLocations] = useState<Location[]>([]);
+  const [nearestCampusLoading, setNearestCampusLoading] = useState(false);
 
   // Get the selected school ID and details
   useEffect(() => {
@@ -72,6 +77,33 @@ export default function CurrentLocationScreen() {
 
     checkUserType();
   }, []);
+
+  const nearestCampusMode = tourFinished || tourPaused;
+
+  useEffect(() => {
+    if (!schoolId || !nearestCampusMode) {
+      setNearestCampusLocations([]);
+      setNearestCampusLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setNearestCampusLoading(true);
+    locationService
+      .getLocations(schoolId)
+      .then((all) => {
+        if (!cancelled) setNearestCampusLocations(all);
+      })
+      .catch((e) => {
+        console.error('Error loading campus locations for nearest stop:', e);
+        if (!cancelled) setNearestCampusLocations([]);
+      })
+      .finally(() => {
+        if (!cancelled) setNearestCampusLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [schoolId, nearestCampusMode]);
 
   // Load tour data from AsyncStorage whenever the tab is focused
   useFocusEffect(
@@ -213,7 +245,7 @@ export default function CurrentLocationScreen() {
 
   // Check geofences and update current location (self-guided / local only — ambassador-led follows leader WS state)
   useEffect(() => {
-    if (tourPaused) {
+    if (tourPaused || tourFinished) {
       return;
     }
     if (isAmbassadorLedMember) {
@@ -245,18 +277,36 @@ export default function CurrentLocationScreen() {
     };
 
     checkGeofences();
-  }, [userLocation, tourStops, schoolId, tourPaused, isAmbassadorLedMember]);
+  }, [userLocation, tourStops, schoolId, tourPaused, tourFinished, isAmbassadorLedMember]);
 
   // Determine which location to display
   useEffect(() => {
     const determineLocationToShow = () => {
+      if (nearestCampusMode && nearestCampusLoading) {
+        setBuilding(null);
+        setError(null);
+        setIsLoading(true);
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
 
       try {
         let locationToShow: Location | null = null;
 
-        if (currentLocationId) {
+        if (nearestCampusMode) {
+          if (nearestCampusLocations.length > 0) {
+            const nearest = userLocation
+              ? findNearestLocation(nearestCampusLocations, userLocation)
+              : null;
+            locationToShow = nearest ?? nearestCampusLocations[0];
+            setError(null);
+          } else {
+            setBuilding(null);
+            setError('No campus locations available.');
+          }
+        } else if (currentLocationId) {
           // User is at a tour stop - show that location
           locationToShow = tourStops.find(stop => stop.id === currentLocationId) || null;
         } else if (tourStops.length > 0) {
@@ -282,7 +332,15 @@ export default function CurrentLocationScreen() {
     };
 
     determineLocationToShow();
-  }, [currentLocationId, tourStops, visitedLocations]);
+  }, [
+    currentLocationId,
+    tourStops,
+    visitedLocations,
+    nearestCampusMode,
+    nearestCampusLocations,
+    nearestCampusLoading,
+    userLocation,
+  ]);
 
   // Handle "View on Map" button press
   const handleViewOnMapPress = () => {
@@ -345,37 +403,6 @@ export default function CurrentLocationScreen() {
     }
   };
 
-  if (tourPaused) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={[styles.header, dynamicStyles.headerBorder]}>
-          <HamburgerMenu primaryColor={primaryColor} />
-          <Text style={styles.headerText}>Current Location</Text>
-          {isAmbassadorLedMember ? (
-            <TouchableOpacity 
-              style={[styles.headerRaiseHandButton, dynamicStyles.raiseHandButton]}
-              onPress={handleRaiseHand}
-            >
-              <IconSymbol name="hand.raised.fill" size={18} color="white"/>
-              <Text style={styles.raiseHandText}>Raise Hand</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.headerSpacer} />
-          )}
-        </View>
-        <View style={styles.tourPausedContainer}>
-          <Text style={styles.tourPausedText}>Tour Paused</Text>
-        </View>
-        <RaiseHandNotificationModal
-          visible={showRaiseHandModal}
-          memberName={raiseHandMemberName}
-          primaryColor={primaryColor}
-          onClose={dismissRaiseHandModal}
-        />
-      </SafeAreaView>
-    );
-  }
-
   // If loading, show loading indicator
   if (isLoading) {
     return (
@@ -423,9 +450,13 @@ export default function CurrentLocationScreen() {
     );
   }
 
-  const statusText = currentLocationId 
-    ? `You are currently at:`
-    : `Next stop on your tour:`;
+  const statusText = nearestCampusMode
+    ? userLocation
+      ? 'Closest campus location to you:'
+      : 'Campus location (enable location for nearest):'
+    : currentLocationId
+      ? `You are currently at:`
+      : `Next stop on your tour:`;
 
   return (
     <SafeAreaView style={styles.container}>

@@ -23,6 +23,31 @@ function haversineDistance(
 }
 
 /**
+ * Returns the location whose coordinates are closest to the user, or null.
+ */
+export function findNearestLocation(
+  locations: Location[],
+  userCoords: { latitude: number; longitude: number } | null
+): Location | null {
+  if (!locations.length || !userCoords) return null;
+  let best: Location | null = null;
+  let bestDist = Infinity;
+  for (const loc of locations) {
+    const d = haversineDistance(
+      userCoords.latitude,
+      userCoords.longitude,
+      loc.coordinates.latitude,
+      loc.coordinates.longitude
+    );
+    if (d < bestDist) {
+      bestDist = d;
+      best = loc;
+    }
+  }
+  return best;
+}
+
+/**
  * Orders tour stops so the tour starts at the location nearest to the user,
  * then continues by order_index ascending, wrapping from max back to min
  * (finishing at the location just before the start in the circle).
