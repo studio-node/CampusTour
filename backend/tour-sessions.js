@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { createLiveTourSession, updateLiveTourSession, getLocations } from './supabase.mjs';
+import { createLiveTourSession, updateLiveTourSession, getLocations, ensureLiveTourSessionRow } from './supabase.mjs';
 import GeminiCaller from './gemini_caller.mjs';
 
 // --- Main Session Manager ---
@@ -304,29 +304,18 @@ async function handleJoinSession(ws, supabase, tourSessions, payload) {
     return;
   }
 
-  // Update joined_members array in database
+  // Update joined_members array in database (row may be missing if deleted manually while WS session lives on)
   try {
-    // Get current joined_members array
-    const { data: currentSession, error: fetchError } = await supabase
-      .from('live_tour_sessions')
-      .select('joined_members')
-      .eq('tour_appointment_id', tourId)
-      .single();
-    
-    if (fetchError) {
-      console.error('Error fetching session:', fetchError);
+    const row = await ensureLiveTourSessionRow(supabase, tourId, {});
+    if (!row) {
+      console.error('Could not ensure live_tour_sessions row for join; joined_members not persisted');
     } else {
-      const currentJoined = currentSession?.joined_members || [];
-      // Only add if not already present
+      const currentJoined = row.joined_members || [];
       if (!currentJoined.includes(leadId)) {
         const updatedJoined = [...currentJoined, leadId];
-        const { error: updateError } = await supabase
-          .from('live_tour_sessions')
-          .update({ joined_members: updatedJoined })
-          .eq('tour_appointment_id', tourId);
-        
-        if (updateError) {
-          console.error('Error updating joined_members:', updateError);
+        const updated = await updateLiveTourSession(supabase, tourId, { joined_members: updatedJoined });
+        if (!updated) {
+          console.error('Error updating joined_members after ensure');
         } else {
           console.log(`Added leadId ${leadId} to joined_members for tour ${tourId}`);
         }
@@ -631,21 +620,12 @@ async function handleDisconnect(ws, supabase, tourSessions) {
         // Remove leadId from joined_members array in database
         if (leadId) {
           try {
-            const { data: currentSession, error: fetchError } = await supabase
-              .from('live_tour_sessions')
-              .select('joined_members')
-              .eq('tour_appointment_id', tourId)
-              .single();
-            
-            if (!fetchError && currentSession?.joined_members) {
-              const updatedJoined = currentSession.joined_members.filter(id => id !== leadId);
-              const { error: updateError } = await supabase
-                .from('live_tour_sessions')
-                .update({ joined_members: updatedJoined })
-                .eq('tour_appointment_id', tourId);
-              
-              if (updateError) {
-                console.error('Error removing leadId from joined_members:', updateError);
+            const row = await ensureLiveTourSessionRow(supabase, tourId, {});
+            if (row?.joined_members?.length) {
+              const updatedJoined = row.joined_members.filter(id => id !== leadId);
+              const updated = await updateLiveTourSession(supabase, tourId, { joined_members: updatedJoined });
+              if (!updated) {
+                console.error('Error removing leadId from joined_members after ensure');
               } else {
                 console.log(`Removed leadId ${leadId} from joined_members for tour ${tourId}`);
               }

@@ -114,10 +114,15 @@ test('createLiveTourSession returns inserted row', async () => {
 
 test('updateLiveTourSession writes updated_at and returns row', async () => {
   const supabase = makeSupabaseDouble({
-    single: (_table, state) => ({
-      data: { id: 'session-1', ...state.updatePayload },
-      error: null,
-    }),
+    then: (_table, state) => {
+      if (state.updatePayload && state.table === 'live_tour_sessions') {
+        return {
+          data: [{ id: 'session-1', ...state.updatePayload }],
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    },
   });
 
   const updated = await updateLiveTourSession(supabase, 'tour-1', { status: 'active' });
