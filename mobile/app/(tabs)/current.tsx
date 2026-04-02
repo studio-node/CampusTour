@@ -352,6 +352,14 @@ export default function CurrentLocationScreen() {
     }
   };
 
+  const handleWalkingDirectionsPress = () => {
+    if (!building) return;
+    router.push({
+      pathname: '/map',
+      params: { building: building.id, directions: '1' },
+    });
+  };
+
   // Handle "Start Tour" button press when no tour is active
   const handleStartTour = () => {
     router.push('/tour');
@@ -556,13 +564,22 @@ export default function CurrentLocationScreen() {
             </View>
           )}
           
-          <TouchableOpacity 
-            style={[styles.viewOnMapButton, dynamicStyles.viewOnMapButton]}
-            onPress={handleViewOnMapPress}
-          >
-            <IconSymbol name="map.fill" size={16} color="white" style={styles.buttonIcon} />
-            <Text style={styles.viewOnMapButtonText}>View on Map</Text>
-          </TouchableOpacity>
+          <View style={styles.mapActionRow}>
+            <TouchableOpacity
+              style={[styles.directionsToHereButton, dynamicStyles.viewOnMapButton]}
+              onPress={handleWalkingDirectionsPress}
+            >
+              <IconSymbol name="figure.walk" size={16} color="white" style={styles.buttonIcon} />
+              <Text style={styles.viewOnMapButtonText}>Directions</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.viewOnMapButton, styles.viewOnMapButtonSecondary]}
+              onPress={handleViewOnMapPress}
+            >
+              <IconSymbol name="map.fill" size={16} color="white" style={styles.buttonIcon} />
+              <Text style={styles.viewOnMapButtonText}>View on Map</Text>
+            </TouchableOpacity>
+          </View>
 
           {isAmbassadorLedMember && building && (() => {
             const pushed = getPushedMedia(building.id);
@@ -813,14 +830,32 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 20,
   },
-  viewOnMapButton: {
+  mapActionRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    marginTop: 20,
+  },
+  directionsToHereButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: 12,
     borderRadius: 8,
-    marginTop: 20,
+    marginRight: 10,
+  },
+  viewOnMapButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  viewOnMapButtonSecondary: {
+    backgroundColor: '#555555',
   },
   buttonIcon: {
     marginRight: 8,

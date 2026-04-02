@@ -100,6 +100,13 @@ export default function BuildingInfoScreen() {
     });
   };
 
+  const handleWalkingDirectionsPress = () => {
+    router.push({
+      pathname: '/map',
+      params: { building: String(id), directions: '1' },
+    });
+  };
+
   // Handle "Location media" button press (ambassador only)
   const handleLocationMediaPress = () => {
     if (building) {
@@ -286,13 +293,22 @@ export default function BuildingInfoScreen() {
           
         </View>
       </ScrollView>
-      <TouchableOpacity 
-        style={[styles.viewOnMapButton, dynamicStyles.viewOnMapButton]}
-        onPress={handleViewOnMapPress}
-      >
-        <IconSymbol name="location.fill" size={16} color="white" style={styles.buttonIcon} />
-        <Text style={styles.buttonText}>View on Map</Text>
-      </TouchableOpacity>
+      <View style={styles.mapActionsBar}>
+        <TouchableOpacity
+          style={[styles.directionsToHereButton, dynamicStyles.viewOnMapButton]}
+          onPress={handleWalkingDirectionsPress}
+        >
+          <IconSymbol name="figure.walk" size={16} color="white" style={styles.buttonIcon} />
+          <Text style={styles.buttonText}>Directions</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.viewOnMapButtonBar, styles.viewOnMapButtonSecondary]}
+          onPress={handleViewOnMapPress}
+        >
+          <IconSymbol name="map.fill" size={16} color="white" style={styles.buttonIcon} />
+          <Text style={styles.buttonText}>View on Map</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -446,20 +462,45 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 20,
   },
-  viewOnMapButton: {
+  mapActionsBar: {
     position: 'absolute',
-    bottom: 50,
-    right: 24,
+    left: 16,
+    right: 16,
+    bottom: 48,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  directionsToHereButton: {
+    flex: 1,
+    marginRight: 8,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
+  },
+  viewOnMapButtonBar: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  viewOnMapButtonSecondary: {
+    backgroundColor: '#555555',
   },
   buttonIcon: {
     marginRight: 8,

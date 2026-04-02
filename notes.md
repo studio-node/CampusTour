@@ -1,6 +1,4 @@
-- I want there to be an unpause button on tour screen when the tour is paused
-- When the tour is ended, instead of taking the user back to the start, the user should still be in the main part of the app (the three main tabs). The tour tab should say "Tour Ended" and there should be a button to take the user back to the start. The map tab should work the same and the current location tab should just show the location closest to where you are.
-- No back swipe from main app
 - When pressing location button on location detail, made pin selected
 - Allow directions to any location by selecting a button on that loc or something idk
-- Change heading on tour page to be 'your tour' and add little blurb where your tour is to say tour is ordered
+- Change heading on tour page to be 'your tour' and add little blurb where your tour is to say tour is ordered (headings in general)
+- Make current stop tab and details page be the same component

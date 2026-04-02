@@ -1,12 +1,22 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Location, Region, locationService, schoolService, userTypeService, UserType } from '@/services/supabase';
-import { appStateManager, PersistedAppState } from '@/services/appStateManager';
+import { Location, Region, locationService, schoolService, userTypeService } from '@/services/supabase';
+import { appStateManager } from '@/services/appStateManager';
 import { wsManager } from '@/services/ws';
 import * as ExpoLocation from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Callout, Marker, Overlay, Polygon, Polyline, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
+import MapView, {
+  Callout,
+  CalloutSubview,
+  Marker,
+  Overlay,
+  Polygon,
+  Polyline,
+  PROVIDER_DEFAULT,
+  PROVIDER_GOOGLE,
+} from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import HamburgerMenu from '@/components/HamburgerMenu';
@@ -26,6 +36,15 @@ const FALLBACK_REGION: Region = {
   longitudeDelta: 0.007,
 };
 
+function pickSearchParam(v: string | string[] | undefined): string | undefined {
+  if (v == null) return undefined;
+  return Array.isArray(v) ? v[0] : v;
+}
+
+function wantsDirectionsParam(dir: string | undefined): boolean {
+  return dir === '1' || dir === 'true';
+}
+
 export default function MapScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -41,10 +60,9 @@ export default function MapScreen() {
   const [defaultRegion, setDefaultRegion] = useState<Region>(FALLBACK_REGION);
   const [primaryColor, setPrimaryColor] = useState<string>('#990000'); // Utah Tech red as fallback
   
-  // Map state tracking
+  // Live map region (not persisted)
   const [currentMapRegion, setCurrentMapRegion] = useState<Region>(FALLBACK_REGION);
-  const [lastViewedLocationId, setLastViewedLocationId] = useState<string | null>(null);
-  
+
   // Modal state for tour generation prompt
   const [showTourModal, setShowTourModal] = useState(false);
   const [hasTour, setHasTour] = useState<boolean | null>(null); // null = checking, true = has tour, false = no tour
@@ -53,8 +71,11 @@ export default function MapScreen() {
   // Tour state for self-guided: next stop (first unvisited) and user type
   const [nextStop, setNextStop] = useState<LocationItem | null>(null);
   const [isSelfGuided, setIsSelfGuided] = useState(false);
+
+  /** When opened via ?directions=1&building=…, route to this place instead of tour next stop. */
+  const [explicitDirectionsTarget, setExplicitDirectionsTarget] = useState<LocationItem | null>(null);
   
-  // Map vs Directions view (only relevant when self-guided with active tour and next stop)
+  // Map vs Directions view (self-guided tour next stop and/or explicit directions target)
   const [mapViewMode, setMapViewMode] = useState<'map' | 'directions'>('map');
   
   // Walking route for Directions view
@@ -100,6 +121,10 @@ export default function MapScreen() {
     getSelectedSchool();
   }, [router]);
 
+  useEffect(() => {
+    setCurrentMapRegion(defaultRegion);
+  }, [defaultRegion]);
+
   // Load locations from Supabase
   useEffect(() => {
     const fetchLocations = async () => {
@@ -120,10 +145,46 @@ export default function MapScreen() {
     fetchLocations();
   }, [schoolId]);
 
+  const routeDestination = explicitDirectionsTarget ?? nextStop;
+  const showMapDirectionsToggle =
+    (isSelfGuided && hasTour === true && nextStop !== null) || explicitDirectionsTarget !== null;
+
+  // Open directions mode when linked with ?directions=1&building=<id>
+  useEffect(() => {
+    const dir = pickSearchParam(params.directions as string | string[] | undefined);
+    const bid = pickSearchParam(params.building as string | string[] | undefined);
+    const wantDirections = wantsDirectionsParam(dir);
+
+    if (!locations.length) {
+      if (!wantDirections) setExplicitDirectionsTarget(null);
+      return;
+    }
+
+    if (wantDirections && bid) {
+      const loc = locations.find((l) => l.id.toLowerCase() === bid.toLowerCase());
+      if (loc) {
+        setExplicitDirectionsTarget(loc);
+        setMapViewMode('directions');
+      } else {
+        setExplicitDirectionsTarget(null);
+      }
+      return;
+    }
+
+    if (wantDirections && !bid) {
+      setExplicitDirectionsTarget(null);
+      return;
+    }
+
+    if (!wantDirections) {
+      setExplicitDirectionsTarget(null);
+    }
+  }, [params.directions, params.building, locations]);
+
   // Check if we need to focus on a specific building (from params)
   useEffect(() => {
-    if (params.building && typeof params.building === 'string' && locations.length > 0) {
-      const buildingId = params.building;
+    const buildingId = pickSearchParam(params.building as string | string[] | undefined);
+    if (buildingId && locations.length > 0) {
       const building = locations.find(loc => 
         loc.id.toLowerCase() === buildingId.toLowerCase()
       );
@@ -172,20 +233,6 @@ export default function MapScreen() {
     requestLocationPermission();
   }, []);
 
-  // Load map state on mount
-  useEffect(() => {
-    if (schoolId) {
-      loadMapState();
-    }
-  }, [schoolId]);
-
-  // Save map state when it changes
-  useEffect(() => {
-    if (schoolId && currentMapRegion) {
-      saveMapState();
-    }
-  }, [currentMapRegion, lastViewedLocationId, schoolId]);
-
   // When switching to map view, clear the route so we don't show it
   useEffect(() => {
     if (mapViewMode === 'map') {
@@ -193,16 +240,16 @@ export default function MapScreen() {
     }
   }, [mapViewMode]);
 
-  // Fetch walking route when in Directions view with user location and next stop
+  // Fetch walking route when in Directions view with user location and a destination
   useEffect(() => {
-    if (mapViewMode !== 'directions' || !userLocation || !nextStop) {
+    if (mapViewMode !== 'directions' || !userLocation || !routeDestination) {
       return;
     }
     let cancelled = false;
     setRouteLoading(true);
     setRouteCoordinates(null);
     const origin = { latitude: userLocation.latitude, longitude: userLocation.longitude };
-    const destination = nextStop.coordinates;
+    const destination = routeDestination.coordinates;
     fetchWalkingRoute(origin, destination, { deadzonePolygons: schoolDeadzones }).then((result) => {
       if (cancelled) return;
       setRouteLoading(false);
@@ -213,7 +260,7 @@ export default function MapScreen() {
     return () => {
       cancelled = true;
     };
-  }, [mapViewMode, userLocation?.latitude, userLocation?.longitude, nextStop?.id, schoolDeadzones]);
+  }, [mapViewMode, userLocation?.latitude, userLocation?.longitude, routeDestination?.id, schoolDeadzones]);
 
   // Fit map to route when route is loaded in Directions view
   useEffect(() => {
@@ -224,11 +271,11 @@ export default function MapScreen() {
     if (userLocation) {
       points.push({ latitude: userLocation.latitude, longitude: userLocation.longitude });
     }
-    if (nextStop?.coordinates) {
-      points.push(nextStop.coordinates);
+    if (routeDestination?.coordinates) {
+      points.push(routeDestination.coordinates);
     }
     mapRef.current.fitToCoordinates(points, { edgePadding: { top: 60, right: 40, bottom: 60, left: 40 }, animated: true });
-  }, [mapViewMode, routeCoordinates, mapReady, nextStop?.id, userLocation?.latitude, userLocation?.longitude]);
+  }, [mapViewMode, routeCoordinates, mapReady, routeDestination?.id, userLocation?.latitude, userLocation?.longitude]);
 
   // Check for existing tour whenever the map screen is focused; compute next stop for self-guided
   useFocusEffect(
@@ -320,7 +367,6 @@ export default function MapScreen() {
   // Handle marker press - Navigate to building info page
   const handleMarkerPress = (location: LocationItem) => {
     console.log(`Selected location: ${location.name}`);
-    setLastViewedLocationId(location.id);
     router.push({
       pathname: '/building/[id]',
       params: { id: location.id }
@@ -330,70 +376,6 @@ export default function MapScreen() {
   // Handle callout press - This provides a backup way to navigate if needed
   const handleCalloutPress = (location: LocationItem) => {
     handleMarkerPress(location);
-  };
-
-  // Load map state from app state manager
-  const loadMapState = async () => {
-    try {
-      const persistedState = appStateManager.getCurrentState();
-      
-      if (!persistedState) {
-        console.log('No persisted map state found, using defaults');
-        return;
-      }
-
-      const { mapState } = persistedState;
-      
-      // Restore map region
-      if (mapState.region) {
-        setCurrentMapRegion(mapState.region);
-      }
-      
-      // Restore last viewed location
-      if (mapState.lastViewedLocationId) {
-        setLastViewedLocationId(mapState.lastViewedLocationId);
-      }
-      
-      console.log('Map state restored from app state manager');
-    } catch (error) {
-      console.error('Error loading map state:', error);
-    }
-  };
-
-  // Save map state to app state manager
-  const saveMapState = async () => {
-    try {
-      if (!schoolId) return;
-
-      // Get current state or create new one
-      let currentState = appStateManager.getCurrentState();
-      if (!currentState) {
-        // Create new state if none exists
-        appStateManager.updateState({
-          schoolId,
-          userType: await userTypeService.getUserType(),
-          currentRoute: '/(tabs)/map',
-        });
-        currentState = appStateManager.getCurrentState();
-      }
-
-      if (!currentState) return;
-
-      // Update map state
-      const updatedState: Partial<PersistedAppState> = {
-        currentRoute: '/(tabs)/map',
-        mapState: {
-          region: currentMapRegion,
-          lastViewedLocationId,
-        },
-      };
-
-      appStateManager.updateState(updatedState);
-      
-      // console.log('Map state saved to app state manager');
-    } catch (error) {
-      console.error('Error saving map state:', error);
-    }
   };
 
   // Handle map region change
@@ -448,6 +430,56 @@ export default function MapScreen() {
     },
   };
 
+  const renderLocationCalloutActions = (location: LocationItem) => {
+    const goDetails = () => handleCalloutPress(location);
+    const goDirections = () => {
+      router.setParams({
+        building: location.id,
+        directions: '1',
+      });
+    };
+
+    const detailsInner = (
+      <View style={styles.detailsButton}>
+        <Text style={dynamicStyles.detailsButtonText}>Details</Text>
+        <IconSymbol name="chevron.right" size={14} color={primaryColor} />
+      </View>
+    );
+
+    const directionsInner = (
+      <View style={[styles.calloutDirectionsButton, { backgroundColor: primaryColor }]}>
+        <IconSymbol name="figure.walk" size={14} color="#FFFFFF" style={styles.calloutDirectionsIcon} />
+        <Text style={styles.calloutDirectionsButtonText}>Directions</Text>
+      </View>
+    );
+
+    // iOS: Touchables inside map callouts do not receive taps; CalloutSubview + onPress is required.
+    // Android: Use gesture-handler touchables inside the native info window.
+    if (Platform.OS === 'ios') {
+      return (
+        <View style={styles.calloutButtonRow}>
+          <CalloutSubview onPress={goDetails} style={styles.calloutSubviewHit}>
+            {detailsInner}
+          </CalloutSubview>
+          <CalloutSubview onPress={goDirections} style={styles.calloutSubviewHit}>
+            {directionsInner}
+          </CalloutSubview>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.calloutButtonRow}>
+        <TouchableOpacity style={styles.calloutSubviewHit} onPress={goDetails} activeOpacity={0.75}>
+          {detailsInner}
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.calloutSubviewHit} onPress={goDirections} activeOpacity={0.75}>
+          {directionsInner}
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.header, dynamicStyles.headerBorder]}>
@@ -469,15 +501,22 @@ export default function MapScreen() {
         </View>
       </View>
 
-      {/* Map / Directions toggle: only for self-guided with active tour and a next stop */}
-      {isSelfGuided && hasTour && nextStop !== null && (
+      {/* Map / Directions toggle: tour next stop (self-guided) and/or deep-linked directions to a place */}
+      {showMapDirectionsToggle && (
         <View style={styles.viewToggleContainer}>
           <TouchableOpacity
             style={[
               styles.viewToggleButton,
               mapViewMode === 'map' && [styles.viewToggleButtonActive, dynamicStyles.viewToggleButtonActive],
             ]}
-            onPress={() => setMapViewMode('map')}
+            onPress={() => {
+              setMapViewMode('map');
+              setExplicitDirectionsTarget(null);
+              router.setParams({
+                directions: '0',
+                building: pickSearchParam(params.building as string | string[] | undefined) ?? '',
+              });
+            }}
           >
             <IconSymbol name="map" size={16} color={mapViewMode === 'map' ? '#fff' : '#666'} />
             <Text style={[styles.viewToggleLabel, mapViewMode === 'map' && styles.viewToggleLabelActive]}>Map</Text>
@@ -550,23 +589,14 @@ export default function MapScreen() {
               <Marker
                 key={location.id}
                 coordinate={location.coordinates}
-                title={location.name}
-                description={location.description}
                 pinColor={locationService.getMarkerColor(location.type)}
+                tracksViewChanges={Platform.OS === 'android'}
               >
-                <Callout tooltip={false} onPress={() => handleCalloutPress(location)}>
-                  <View style={styles.calloutContainer}>
+                <Callout tooltip>
+                  <View style={styles.calloutContainer} collapsable={false}>
                     <Text style={styles.calloutTitle}>{location.name}</Text>
                     <Text style={styles.calloutDescription} numberOfLines={2}>{location.description}</Text>
-                    <View style={styles.calloutButtonContainer}>
-                      <TouchableOpacity 
-                        style={styles.detailsButton}
-                        onPress={() => handleCalloutPress(location)}
-                      >
-                        <Text style={dynamicStyles.detailsButtonText}>Details</Text>
-                        <IconSymbol name="chevron.right" size={14} color={primaryColor} />
-                      </TouchableOpacity>
-                    </View>
+                    {renderLocationCalloutActions(location)}
                   </View>
                 </Callout>
               </Marker>
@@ -582,14 +612,14 @@ export default function MapScreen() {
         )}
 
         {/* Directions view: no location — prompt to enable */}
-        {mapViewMode === 'directions' && nextStop && locationPermissionStatus !== 'granted' && !routeLoading && (
+        {mapViewMode === 'directions' && routeDestination && locationPermissionStatus !== 'granted' && !routeLoading && (
           <View style={styles.routeMessageOverlay}>
             <Text style={styles.routeMessageText}>Enable location to see route</Text>
           </View>
         )}
 
         {/* Directions view: API failed or no key */}
-        {mapViewMode === 'directions' && nextStop && userLocation && !routeLoading && !routeCoordinates && (
+        {mapViewMode === 'directions' && routeDestination && userLocation && !routeLoading && !routeCoordinates && (
           <View style={styles.routeMessageOverlay}>
             <Text style={styles.routeMessageText}>Directions unavailable</Text>
           </View>
@@ -731,6 +761,7 @@ const styles = StyleSheet.create({
     width: 300,
     padding: 6,
     borderRadius: 8,
+    backgroundColor: '#EEEEEE',
   },
   calloutTitle: {
     fontWeight: 'bold',
@@ -746,11 +777,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
   },
+  calloutButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  calloutSubviewHit: {
+    flex: 1,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
   detailsButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 6,
     paddingHorizontal: 8,
+  },
+  calloutDirectionsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+  },
+  calloutDirectionsIcon: {
+    marginRight: 6,
+  },
+  calloutDirectionsButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,
