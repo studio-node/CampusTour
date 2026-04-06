@@ -1,10 +1,20 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Location, Region, locationService, schoolService, userTypeService } from '@/services/supabase';
+import {
+  Location,
+  Region,
+  analyticsService,
+  leadsService,
+  locationService,
+  schoolService,
+  tourGroupSelectionService,
+  userTypeService,
+} from '@/services/supabase';
 import { appStateManager } from '@/services/appStateManager';
+import { getHighlightedLocationIdForCurrentTabLogic } from '@/services/currentLocationHighlight';
 import { wsManager } from '@/services/ws';
 import * as ExpoLocation from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import MapView, {
@@ -23,6 +33,7 @@ import HamburgerMenu from '@/components/HamburgerMenu';
 import { LocationMapPin } from '@/components/LocationMapPin';
 import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
 import { useRaiseHand } from '@/contexts/RaiseHandContext';
+import { useTourPause } from '@/contexts/TourPauseContext';
 import { parseDeadzonesFromSchool } from '@/services/deadzones';
 import { fetchWalkingRoute } from '@/services/directionsService';
 
@@ -85,6 +96,14 @@ export default function MapScreen() {
   
   // Raise hand notification state from shared context
   const { showModal: showRaiseHandModal, memberName: raiseHandMemberName, dismissModal: dismissRaiseHandModal } = useRaiseHand();
+  const { tourPaused, tourFinished, syncTourPausedFromStorage } = useTourPause();
+
+  /** Mirror Current tab: tour stops, visited list, geofence / live session "current" id */
+  const [tourStops, setTourStops] = useState<LocationItem[]>([]);
+  const [visitedLocations, setVisitedLocations] = useState<string[]>([]);
+  const [currentLocationId, setCurrentLocationId] = useState<string | null>(null);
+  const [isAmbassadorLedMember, setIsAmbassadorLedMember] = useState(false);
+  const locationWatchSubRef = useRef<{ remove: () => void } | null>(null);
 
   // Get the selected school ID and details
   useEffect(() => {
@@ -142,6 +161,31 @@ export default function MapScreen() {
   const routeDestination = explicitDirectionsTarget ?? nextStop;
   const showMapDirectionsToggle =
     (isSelfGuided && hasTour === true && nextStop !== null) || explicitDirectionsTarget !== null;
+
+  const nearestCampusMode = tourPaused || tourFinished;
+  const highlightedLocationId = useMemo(
+    () =>
+      getHighlightedLocationIdForCurrentTabLogic({
+        nearestCampusMode,
+        nearestCampusLoading: false,
+        allCampusLocations: locations,
+        userCoords: userLocation
+          ? { latitude: userLocation.latitude, longitude: userLocation.longitude }
+          : null,
+        currentLocationId,
+        tourStops,
+        visitedLocations,
+      }),
+    [
+      nearestCampusMode,
+      locations,
+      userLocation?.latitude,
+      userLocation?.longitude,
+      currentLocationId,
+      tourStops,
+      visitedLocations,
+    ]
+  );
 
   // Open directions mode when linked with ?directions=1&building=<id>
   useEffect(() => {
@@ -227,6 +271,108 @@ export default function MapScreen() {
     requestLocationPermission();
   }, []);
 
+  // Keep user coordinates fresh while Map is focused (same cadence as Current tab — geofence + nearest-campus highlight)
+  useFocusEffect(
+    React.useCallback(() => {
+      let alive = true;
+      (async () => {
+        try {
+          const { status } = await ExpoLocation.getForegroundPermissionsAsync();
+          if (!alive || status !== 'granted') return;
+          const sub = await ExpoLocation.watchPositionAsync(
+            {
+              accuracy: ExpoLocation.Accuracy.Balanced,
+              timeInterval: 5000,
+              distanceInterval: 10,
+            },
+            (newLocation) => {
+              setUserLocation((prev) => ({
+                latitude: newLocation.coords.latitude,
+                longitude: newLocation.coords.longitude,
+                latitudeDelta: prev?.latitudeDelta ?? 0.004,
+                longitudeDelta: prev?.longitudeDelta ?? 0.004,
+              }));
+            }
+          );
+          if (!alive) {
+            sub.remove();
+            return;
+          }
+          locationWatchSubRef.current = sub;
+        } catch (e) {
+          console.error('Map tab: location watch error', e);
+        }
+      })();
+      return () => {
+        alive = false;
+        locationWatchSubRef.current?.remove();
+        locationWatchSubRef.current = null;
+      };
+    }, [])
+  );
+
+  // Self-guided: current stop from geofence (ambassador-led members skip — they follow WebSocket state)
+  useEffect(() => {
+    if (tourPaused || tourFinished || isAmbassadorLedMember) {
+      return;
+    }
+    if (!userLocation || !schoolId || tourStops.length === 0) {
+      return;
+    }
+    let newCurrentLocationId: string | null = null;
+    for (const stop of tourStops) {
+      const isWithin = analyticsService.isWithinGeofence(
+        userLocation.latitude,
+        userLocation.longitude,
+        stop.coordinates.latitude,
+        stop.coordinates.longitude
+      );
+      if (isWithin) {
+        newCurrentLocationId = stop.id;
+        break;
+      }
+    }
+    setCurrentLocationId(newCurrentLocationId);
+  }, [
+    userLocation?.latitude,
+    userLocation?.longitude,
+    tourStops,
+    schoolId,
+    tourPaused,
+    tourFinished,
+    isAmbassadorLedMember,
+  ]);
+
+  // Ambassador-led members: live current stop from tour session
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    const attachLiveUpdates = async () => {
+      const isAmbassadorUser = await userTypeService.isAmbassador();
+      if (isAmbassadorUser) return;
+      const tourId = await tourGroupSelectionService.getSelectedTourGroup();
+      if (!tourId) return;
+      const leadId = await leadsService.getStoredLeadId();
+      if (!leadId) return;
+      wsManager.connect();
+      const onMessage = (msg: { type?: string; state?: { current_location_id?: string; visited_locations?: string[] } }) => {
+        if (msg?.type === 'tour_state_updated' && msg?.state) {
+          const { current_location_id, visited_locations } = msg.state;
+          if (current_location_id) setCurrentLocationId(current_location_id);
+          if (Array.isArray(visited_locations)) setVisitedLocations(visited_locations);
+        }
+      };
+      wsManager.on('message', onMessage);
+      wsManager.send('join_session', { tourId, leadId });
+      cleanup = () => {
+        wsManager.off('message', onMessage);
+      };
+    };
+    attachLiveUpdates();
+    return () => {
+      cleanup?.();
+    };
+  }, []);
+
   // When switching to map view, clear the route so we don't show it
   useEffect(() => {
     if (mapViewMode === 'map') {
@@ -274,6 +420,35 @@ export default function MapScreen() {
   // Check for existing tour whenever the map screen is focused; compute next stop for self-guided
   useFocusEffect(
     React.useCallback(() => {
+      const refreshTourHighlightState = () => {
+        try {
+          syncTourPausedFromStorage();
+          const currentState = appStateManager.getCurrentState();
+          if (currentState?.tourState) {
+            const { stops, visitedLocations: vis } = currentState.tourState;
+            setTourStops(stops);
+            setVisitedLocations(vis ?? []);
+          } else {
+            setTourStops([]);
+            setVisitedLocations([]);
+          }
+          if (currentState?.tourProgress) {
+            const currentStopIndex = currentState.tourProgress.currentStopIndex;
+            const loadedStops = currentState.tourState?.stops ?? [];
+            if (currentStopIndex >= 0 && currentStopIndex < loadedStops.length) {
+              setCurrentLocationId(loadedStops[currentStopIndex]?.id ?? null);
+            } else {
+              setCurrentLocationId(null);
+            }
+          } else {
+            setCurrentLocationId(null);
+          }
+        } catch (e) {
+          console.error('Map tab: error loading tour highlight state', e);
+        }
+      };
+      refreshTourHighlightState();
+
       const checkForTour = async () => {
         try {
           // Check if user is in an ambassador-led tour or is an ambassador
@@ -282,6 +457,7 @@ export default function MapScreen() {
           const isAmbassador = userType === 'ambassador';
           const isAmbassadorTour = isAmbassadorLed || isAmbassador;
           setIsSelfGuided(userType === 'self-guided');
+          setIsAmbassadorLedMember(isAmbassadorLed);
 
           // Check for active tour using appStateManager
           const currentState = appStateManager.getCurrentState();
@@ -324,6 +500,7 @@ export default function MapScreen() {
           setHasTour(false);
           setNextStop(null);
           setIsSelfGuided(userType === 'self-guided');
+          setIsAmbassadorLedMember(userType === 'ambassador-led');
           if (
             !isAmbassadorTour &&
             !hasShownModalThisSession &&
@@ -336,7 +513,7 @@ export default function MapScreen() {
       };
 
       checkForTour();
-    }, [hasShownModalThisSession])
+    }, [hasShownModalThisSession, syncTourPausedFromStorage])
   );
 
   // Function to handle the "recenter map" button press
@@ -576,16 +753,21 @@ export default function MapScreen() {
                   strokeWidth={2}
                 />
               ))}
-            {locations.map((location) => (
+            {locations.map((location) => {
+              const isHighlighted = highlightedLocationId === location.id;
+              return (
               <Marker
                 key={location.id}
                 coordinate={location.coordinates}
                 anchor={{ x: 0.5, y: 1 }}
+                zIndex={isHighlighted ? 10 : 1}
                 tracksViewChanges={Platform.OS === 'android'}
               >
                 <LocationMapPin
                   color={locationService.getMarkerColor(location.type)}
                   icon={locationService.getMarkerMaterialIcon(location.type)}
+                  emphasized={isHighlighted}
+                  outlineColor={isHighlighted ? primaryColor : undefined}
                 />
                 <Callout tooltip>
                   <View style={styles.calloutContainer} collapsable={false}>
@@ -595,7 +777,8 @@ export default function MapScreen() {
                   </View>
                 </Callout>
               </Marker>
-            ))}
+            );
+            })}
           </MapView>
         )}
 
