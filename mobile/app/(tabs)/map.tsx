@@ -61,9 +61,6 @@ export default function MapScreen() {
   const [defaultRegion, setDefaultRegion] = useState<Region>(FALLBACK_REGION);
   const [primaryColor, setPrimaryColor] = useState<string>('#990000'); // Utah Tech red as fallback
   
-  // Live map region (not persisted)
-  const [currentMapRegion, setCurrentMapRegion] = useState<Region>(FALLBACK_REGION);
-
   // Modal state for tour generation prompt
   const [showTourModal, setShowTourModal] = useState(false);
   const [hasTour, setHasTour] = useState<boolean | null>(null); // null = checking, true = has tour, false = no tour
@@ -121,10 +118,6 @@ export default function MapScreen() {
 
     getSelectedSchool();
   }, [router]);
-
-  useEffect(() => {
-    setCurrentMapRegion(defaultRegion);
-  }, [defaultRegion]);
 
   // Load locations from Supabase
   useEffect(() => {
@@ -379,11 +372,6 @@ export default function MapScreen() {
     handleMarkerPress(location);
   };
 
-  // Handle map region change
-  const handleMapRegionChange = (region: Region) => {
-    setCurrentMapRegion(region);
-  };
-
   // Determine which map provider to use based on platform
   const mapProvider = Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT;
 
@@ -550,8 +538,8 @@ export default function MapScreen() {
             style={styles.map}
             provider={mapProvider}
             mapType="standard"
-            initialRegion={currentMapRegion}
-            region={currentMapRegion}
+            initialRegion={defaultRegion}
+            region={defaultRegion}
             showsUserLocation={locationPermissionStatus === 'granted'}
             showsMyLocationButton={false}
             showsCompass={true}
@@ -559,15 +547,17 @@ export default function MapScreen() {
             scrollEnabled={true}
             zoomEnabled={true}
             onMapReady={() => setMapReady(true)}
-            onRegionChangeComplete={handleMapRegionChange}
           >
-            <Overlay image={require('@/assets/images/buildings_overlay_3.png')} bounds={[
+            {/* ONlY UTAH TECH HAS THIS OVERLAY FOR NOW HEHE */}
+            {schoolId == "e5a9dfd2-0c88-419e-b891-0a62283b8abd" && (
+              <Overlay image={require('@/assets/images/buildings_overlay_3.png')} bounds={[
               // [ 37.09798939695663, -113.57067719268706 ],
               [ 37.09755260505361, -113.57264516743909 ],
               [ 37.10815778141483, -113.55942540472526 ]
               // [ 37.097589, -113.572708 ]
               // new bottom left: 37.10815778141483, -113.55942540472526
-            ]}  />
+              ]}  />
+            )}
             {mapViewMode === 'directions' && routeCoordinates && routeCoordinates.length > 0 && (
               <Polyline
                 coordinates={routeCoordinates}
