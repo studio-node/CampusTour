@@ -20,6 +20,7 @@ import MapView, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import { LocationMapPin } from '@/components/LocationMapPin';
 import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
 import { useRaiseHand } from '@/contexts/RaiseHandContext';
 import { parseDeadzonesFromSchool } from '@/services/deadzones';
@@ -589,9 +590,13 @@ export default function MapScreen() {
               <Marker
                 key={location.id}
                 coordinate={location.coordinates}
-                pinColor={locationService.getMarkerColor(location.type)}
+                anchor={{ x: 0.5, y: 1 }}
                 tracksViewChanges={Platform.OS === 'android'}
               >
+                <LocationMapPin
+                  color={locationService.getMarkerColor(location.type)}
+                  icon={locationService.getMarkerMaterialIcon(location.type)}
+                />
                 <Callout tooltip>
                   <View style={styles.calloutContainer} collapsable={false}>
                     <Text style={styles.calloutTitle}>{location.name}</Text>

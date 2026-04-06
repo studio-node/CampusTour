@@ -449,7 +449,7 @@ export const locationService = {
           features: item.features || [],
           isTourStop: item.default_stop,
           order_index: item.order_index,
-          type: item.type
+          type: item.location_type ?? (item as { type?: string }).type,
         };
       });
     } catch (error) {
@@ -501,7 +501,7 @@ export const locationService = {
           features: item.features || [],
           isTourStop: item.default_stop,
           order_index: item.order_index,
-          type: item.type
+          type: item.location_type ?? (item as { type?: string }).type,
         };
       });
     } catch (error) {
@@ -510,32 +510,86 @@ export const locationService = {
     }
   },
 
+  /**
+   * Pin fill color for `locations.location_type` (and legacy builder labels).
+   * Uses hex so custom map markers render consistently on iOS and Android.
+   */
   getMarkerColor(type: string | undefined): string {
     switch (type) {
-      case 'building':
-        return 'tomato';
-      case 'landmark':
-        return 'orange';
-      case 'housing':
-        return 'yellow';
-      case 'dining':
-        return 'gold';
-      case 'athletics':
-        return 'wheat';
+      case 'academic':
       case 'academics':
-        return 'tan';
+        return '#1D4ED8';
+      case 'residential':
+      case 'housing':
+        return '#C2410C';
+      case 'dining':
+        return '#CA8A04';
+      case 'students':
+        return '#0D9488';
+      case 'recreation':
+      case 'athletics':
+        return '#15803D';
+      case 'study':
+        return '#4F46E5';
+      case 'misc':
+        return '#475569';
+      case 'building':
+        return '#DC2626';
+      case 'landmark':
+        return '#EA580C';
       case 'administration':
-        return 'linen';
+        return '#7C3AED';
       case 'outdoor_space':
-        return 'green';
+        return '#059669';
       case 'historical':
-        return 'aqua';
+        return '#BE185D';
       case 'service':
-        return 'violet';
+        return '#6366F1';
       default:
-        return 'black';
+        return '#334155';
     }
-  }
+  },
+
+  /**
+   * Material icon name for the location type (shown inside the circular pin head).
+   */
+  getMarkerMaterialIcon(
+    type: string | undefined
+  ): 'school' | 'apartment' | 'restaurant' | 'groups' | 'fitness-center' | 'local-library' | 'place' | 'domain' | 'explore' | 'business-center' | 'park' | 'museum' | 'support-agent' {
+    switch (type) {
+      case 'academic':
+      case 'academics':
+        return 'school';
+      case 'residential':
+      case 'housing':
+        return 'apartment';
+      case 'dining':
+        return 'restaurant';
+      case 'students':
+        return 'groups';
+      case 'recreation':
+      case 'athletics':
+        return 'fitness-center';
+      case 'study':
+        return 'local-library';
+      case 'misc':
+        return 'place';
+      case 'building':
+        return 'domain';
+      case 'landmark':
+        return 'explore';
+      case 'administration':
+        return 'business-center';
+      case 'outdoor_space':
+        return 'park';
+      case 'historical':
+        return 'museum';
+      case 'service':
+        return 'support-agent';
+      default:
+        return 'place';
+    }
+  },
 };
 
 // building

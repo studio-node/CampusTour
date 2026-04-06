@@ -133,23 +133,20 @@ ALTER TYPE "public"."communication_preference" OWNER TO "postgres";
 
 
 CREATE TYPE "public"."location_type" AS ENUM (
-    'building',
-    'landmark',
-    'housing',
+    'academic',
+    'residential',
     'dining',
-    'athletics',
-    'academics',
-    'administration',
-    'outdoor_space',
-    'historical',
-    'service'
+    'students',
+    'recreation',
+    'study',
+    'misc'
 );
 
 
 ALTER TYPE "public"."location_type" OWNER TO "postgres";
 
 
-COMMENT ON TYPE "public"."location_type" IS 'What type this location is.';
+COMMENT ON TYPE "public"."location_type" IS 'Each location''s broad type';
 
 
 
@@ -854,6 +851,65 @@ ALTER FUNCTION "public"."validate_pin"("p_creation_token" "text") OWNER TO "post
 
 COMMENT ON FUNCTION "public"."validate_pin"("p_creation_token" "text") IS 'Validates a creation_token PIN and returns user info if valid. Allows anonymous access.';
 
+
+
+CREATE OR REPLACE FUNCTION "storage"."allow_any_operation"("expected_operations" "text"[]) RETURNS boolean
+    LANGUAGE "sql" STABLE
+    AS $$
+  WITH current_operation AS (
+    SELECT storage.operation() AS raw_operation
+  ),
+  normalized AS (
+    SELECT CASE
+      WHEN raw_operation LIKE 'storage.%' THEN substr(raw_operation, 9)
+      ELSE raw_operation
+    END AS current_operation
+    FROM current_operation
+  )
+  SELECT EXISTS (
+    SELECT 1
+    FROM normalized n
+    CROSS JOIN LATERAL unnest(expected_operations) AS expected_operation
+    WHERE expected_operation IS NOT NULL
+      AND expected_operation <> ''
+      AND n.current_operation = CASE
+        WHEN expected_operation LIKE 'storage.%' THEN substr(expected_operation, 9)
+        ELSE expected_operation
+      END
+  );
+$$;
+
+
+ALTER FUNCTION "storage"."allow_any_operation"("expected_operations" "text"[]) OWNER TO "supabase_storage_admin";
+
+
+CREATE OR REPLACE FUNCTION "storage"."allow_only_operation"("expected_operation" "text") RETURNS boolean
+    LANGUAGE "sql" STABLE
+    AS $$
+  WITH current_operation AS (
+    SELECT storage.operation() AS raw_operation
+  ),
+  normalized AS (
+    SELECT
+      CASE
+        WHEN raw_operation LIKE 'storage.%' THEN substr(raw_operation, 9)
+        ELSE raw_operation
+      END AS current_operation,
+      CASE
+        WHEN expected_operation LIKE 'storage.%' THEN substr(expected_operation, 9)
+        ELSE expected_operation
+      END AS requested_operation
+    FROM current_operation
+  )
+  SELECT CASE
+    WHEN requested_operation IS NULL OR requested_operation = '' THEN FALSE
+    ELSE COALESCE(current_operation = requested_operation, FALSE)
+  END
+  FROM normalized;
+$$;
+
+
+ALTER FUNCTION "storage"."allow_only_operation"("expected_operation" "text") OWNER TO "supabase_storage_admin";
 
 
 CREATE OR REPLACE FUNCTION "storage"."can_insert_object"("bucketid" "text", "name" "text", "owner" "uuid", "metadata" "jsonb") RETURNS "void"
@@ -2383,6 +2439,41 @@ COMMENT ON COLUMN "auth"."users"."is_sso_user" IS 'Auth: Set this column to true
 
 
 
+CREATE TABLE IF NOT EXISTS "auth"."webauthn_challenges" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid",
+    "challenge_type" "text" NOT NULL,
+    "session_data" "jsonb" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "expires_at" timestamp with time zone NOT NULL,
+    CONSTRAINT "webauthn_challenges_challenge_type_check" CHECK (("challenge_type" = ANY (ARRAY['signup'::"text", 'registration'::"text", 'authentication'::"text"])))
+);
+
+
+ALTER TABLE "auth"."webauthn_challenges" OWNER TO "supabase_auth_admin";
+
+
+CREATE TABLE IF NOT EXISTS "auth"."webauthn_credentials" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "credential_id" "bytea" NOT NULL,
+    "public_key" "bytea" NOT NULL,
+    "attestation_type" "text" DEFAULT ''::"text" NOT NULL,
+    "aaguid" "uuid",
+    "sign_count" bigint DEFAULT 0 NOT NULL,
+    "transports" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    "backup_eligible" boolean DEFAULT false NOT NULL,
+    "backed_up" boolean DEFAULT false NOT NULL,
+    "friendly_name" "text" DEFAULT ''::"text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "last_used_at" timestamp with time zone
+);
+
+
+ALTER TABLE "auth"."webauthn_credentials" OWNER TO "supabase_auth_admin";
+
+
 CREATE TABLE IF NOT EXISTS "public"."analytics_events" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "event_type" "text" NOT NULL,
@@ -2507,7 +2598,8 @@ CREATE TABLE IF NOT EXISTS "public"."locations" (
     "features" "text"[],
     "builder_passcode_salt" "text",
     "builder_passcode_hash" "text",
-    "builder_passcode_updated_at" timestamp with time zone
+    "builder_passcode_updated_at" timestamp with time zone,
+    "location_type" "public"."location_type" DEFAULT 'misc'::"public"."location_type" NOT NULL
 );
 
 
@@ -2656,7 +2748,8 @@ CREATE TABLE IF NOT EXISTS "storage"."s3_multipart_uploads" (
     "version" "text" NOT NULL,
     "owner_id" "text",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "user_metadata" "jsonb"
+    "user_metadata" "jsonb",
+    "metadata" "jsonb"
 );
 
 
@@ -2852,6 +2945,16 @@ ALTER TABLE ONLY "auth"."users"
 
 ALTER TABLE ONLY "auth"."users"
     ADD CONSTRAINT "users_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "auth"."webauthn_challenges"
+    ADD CONSTRAINT "webauthn_challenges_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "auth"."webauthn_credentials"
+    ADD CONSTRAINT "webauthn_credentials_pkey" PRIMARY KEY ("id");
 
 
 
@@ -3168,6 +3271,22 @@ CREATE INDEX "users_is_anonymous_idx" ON "auth"."users" USING "btree" ("is_anony
 
 
 
+CREATE INDEX "webauthn_challenges_expires_at_idx" ON "auth"."webauthn_challenges" USING "btree" ("expires_at");
+
+
+
+CREATE INDEX "webauthn_challenges_user_id_idx" ON "auth"."webauthn_challenges" USING "btree" ("user_id");
+
+
+
+CREATE UNIQUE INDEX "webauthn_credentials_credential_id_key" ON "auth"."webauthn_credentials" USING "btree" ("credential_id");
+
+
+
+CREATE INDEX "webauthn_credentials_user_id_idx" ON "auth"."webauthn_credentials" USING "btree" ("user_id");
+
+
+
 CREATE UNIQUE INDEX "bname" ON "storage"."buckets" USING "btree" ("name");
 
 
@@ -3321,6 +3440,16 @@ ALTER TABLE ONLY "auth"."sessions"
 
 ALTER TABLE ONLY "auth"."sso_domains"
     ADD CONSTRAINT "sso_domains_sso_provider_id_fkey" FOREIGN KEY ("sso_provider_id") REFERENCES "auth"."sso_providers"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "auth"."webauthn_challenges"
+    ADD CONSTRAINT "webauthn_challenges_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "auth"."webauthn_credentials"
+    ADD CONSTRAINT "webauthn_credentials_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
 
@@ -3938,6 +4067,16 @@ GRANT ALL ON TABLE "auth"."sso_providers" TO "dashboard_user";
 GRANT ALL ON TABLE "auth"."users" TO "dashboard_user";
 GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE "auth"."users" TO "postgres";
 GRANT SELECT ON TABLE "auth"."users" TO "postgres" WITH GRANT OPTION;
+
+
+
+GRANT ALL ON TABLE "auth"."webauthn_challenges" TO "postgres";
+GRANT ALL ON TABLE "auth"."webauthn_challenges" TO "dashboard_user";
+
+
+
+GRANT ALL ON TABLE "auth"."webauthn_credentials" TO "postgres";
+GRANT ALL ON TABLE "auth"."webauthn_credentials" TO "dashboard_user";
 
 
 
