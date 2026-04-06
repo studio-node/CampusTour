@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { locationsService } from '../services/locationsService.js'
 import LocationMediaForm from '../components/LocationMediaForm.vue'
 import { availableInterests } from '../services/interestsMap.js'
+import { DEFAULT_LOCATION_TYPE, LOCATION_TYPE_OPTIONS } from '../constants/locationTypes.js'
 
 const route = useRoute()
 
@@ -27,7 +28,8 @@ const formData = ref({
   interests: [],
   careers: [],
   talking_points: [],
-  features: []
+  features: [],
+  location_type: DEFAULT_LOCATION_TYPE,
 })
 
 const tagInputs = ref({
@@ -42,7 +44,8 @@ function populateForm(loc) {
     interests: loc?.interests || [],
     careers: loc?.careers || [],
     talking_points: loc?.talking_points || [],
-    features: loc?.features || []
+    features: loc?.features || [],
+    location_type: loc?.location_type || DEFAULT_LOCATION_TYPE,
   }
   tagInputs.value = { careers: '', talking_points: '', features: '' }
 }
@@ -145,7 +148,8 @@ async function submitChanges() {
       interests: formData.value.interests.length > 0 ? formData.value.interests : null,
       careers: formData.value.careers.length > 0 ? formData.value.careers : null,
       talking_points: formData.value.talking_points.length > 0 ? formData.value.talking_points : null,
-      features: formData.value.features.length > 0 ? formData.value.features : null
+      features: formData.value.features.length > 0 ? formData.value.features : null,
+      location_type: formData.value.location_type || DEFAULT_LOCATION_TYPE,
     }
 
     const result = await locationsService.updateLocationAsBuilder(locationId.value, passcode.value.trim(), patch)
@@ -221,6 +225,25 @@ onMounted(fetchLocation)
       <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
         <form class="space-y-6" @submit.prevent="submitChanges">
           <fieldset :disabled="!unlocked || isSubmitting" class="space-y-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-300 mb-2">Location type</label>
+              <p class="text-xs text-gray-400 mb-2">
+                Category for this place on the campus map (academic, dining, etc.).
+              </p>
+              <select
+                v-model="formData.location_type"
+                class="w-full max-w-md border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option
+                  v-for="opt in LOCATION_TYPE_OPTIONS"
+                  :key="opt.value"
+                  :value="opt.value"
+                >
+                  {{ opt.label }}
+                </option>
+              </select>
+            </div>
+
             <div>
               <label class="block text-sm font-medium text-gray-300 mb-2">Description</label>
               <textarea

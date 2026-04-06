@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { locationsService } from '../services/locationsService.js'
 import { locationMediaService } from '../services/locationMediaService.js'
 import { availableInterests } from '../services/interestsMap.js'
+import { labelForLocationType } from '../constants/locationTypes.js'
 
 // Fix Leaflet default icon issue
 import icon from 'leaflet/dist/images/marker-icon.png'
@@ -214,10 +215,8 @@ async function copyText(text) {
             <p class="text-white">{{ location.default_stop ? 'Yes' : 'No' }}</p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-400 mb-1">Coordinates</label>
-            <p class="text-white">
-              {{ location.latitude?.toFixed(6) }}, {{ location.longitude?.toFixed(6) }}
-            </p>
+            <label class="block text-sm font-medium text-gray-400 mb-1">Location Type</label>
+            <p class="text-white">{{ labelForLocationType(location.location_type) }}</p>
           </div>
         </div>
       </div>

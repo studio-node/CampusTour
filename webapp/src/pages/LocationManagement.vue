@@ -7,6 +7,7 @@ import { locationsService } from '../services/locationsService.js'
 import { locationMediaService } from '../services/locationMediaService.js'
 import { useAuth } from '../composables/useAuth.js'
 import { availableInterests } from '../services/interestsMap.js'
+import { labelForLocationType } from '../constants/locationTypes.js'
 const { user } = useAuth()
 const router = useRouter()
 
@@ -257,18 +258,19 @@ async function deleteLocation() {
                 <tr>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Cover Image</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Location Name</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Type</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Interests</th>
                   <!-- <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th> -->
                 </tr>
               </thead>
               <tbody class="bg-gray-800 divide-y divide-gray-700">
                 <tr v-if="isLoadingLocations">
-                  <td colspan="4" class="px-6 py-4 text-center text-gray-400">
+                  <td colspan="5" class="px-6 py-4 text-center text-gray-400">
                     Loading locations...
                   </td>
                 </tr>
                 <tr v-else-if="locations.length === 0">
-                  <td colspan="4" class="px-6 py-4 text-center text-gray-400">
+                  <td colspan="5" class="px-6 py-4 text-center text-gray-400">
                     No locations found. Click "Add Location" to create one.
                   </td>
                 </tr>
@@ -287,6 +289,9 @@ async function deleteLocation() {
                 </td>
                   <td class="px-6 py-4">
                     <div class="text-sm font-medium text-white">{{ location.name }}</div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="text-sm text-gray-300">{{ labelForLocationType(location.location_type) }}</span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="flex flex-wrap gap-1">

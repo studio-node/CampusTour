@@ -24,6 +24,16 @@ const ALLOWED_FIELDS = new Set([
   "features",
 ]);
 
+const LOCATION_TYPE_ENUM = new Set([
+  "academic",
+  "residential",
+  "dining",
+  "students",
+  "recreation",
+  "study",
+  "misc",
+]);
+
 export default Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -55,6 +65,12 @@ export default Deno.serve(async (req) => {
   // Allowlist patch fields
   const updateData: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(patch)) {
+    if (key === "location_type") {
+      if (typeof value === "string" && LOCATION_TYPE_ENUM.has(value)) {
+        updateData[key] = value;
+      }
+      continue;
+    }
     if (!ALLOWED_FIELDS.has(key)) continue;
     updateData[key] = value;
   }
@@ -71,7 +87,7 @@ export default Deno.serve(async (req) => {
   const { data: location, error: locErr } = await serviceClient
     .from("locations")
     .select(
-      "id, builder_passcode_salt, builder_passcode_hash, description, interests, careers, talking_points, features",
+      "id, builder_passcode_salt, builder_passcode_hash, description, interests, careers, talking_points, features, location_type",
     )
     .eq("id", location_id)
     .single();
@@ -96,7 +112,7 @@ export default Deno.serve(async (req) => {
     .from("locations")
     .update(updateData)
     .eq("id", location_id)
-    .select("id, description, interests, careers, talking_points, features")
+    .select("id, description, interests, careers, talking_points, features, location_type")
     .single();
 
   if (updErr) {

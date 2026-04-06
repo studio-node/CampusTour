@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@geoman-io/leaflet-geoman-free": "^2.19.2",
+    "@geoman-io/leaflet-geoman-free": "^2.11.0",
     "@supabase/supabase-js": "^2.50.0",
     "@tailwindcss/postcss": "^4.1.10",
     "@tailwindcss/vite": "^4.1.10",

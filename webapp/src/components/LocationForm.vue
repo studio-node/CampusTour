@@ -6,6 +6,7 @@ import LocationMapPicker from './LocationMapPicker.vue'
 import LocationsOverviewMap from './LocationsOverviewMap.vue'
 import LocationMediaForm from './LocationMediaForm.vue' 
 import { availableInterests } from '../services/interestsMap.js'
+import { DEFAULT_LOCATION_TYPE, LOCATION_TYPE_OPTIONS } from '../constants/locationTypes.js'
 
 const props = defineProps({
   modelValue: {
@@ -41,7 +42,8 @@ const formData = ref({
   talking_points: [],
   features: [],
   default_stop: true,
-  order_index: ''
+  order_index: '',
+  location_type: DEFAULT_LOCATION_TYPE,
 })
 
 // Map coordinates (for v-model binding)
@@ -184,7 +186,8 @@ function populateFormForEdit() {
     talking_points: location.talking_points || [],
     features: location.features || [],
     default_stop: location.default_stop !== undefined ? location.default_stop : true,
-    order_index: location.order_index !== null && location.order_index !== undefined ? location.order_index.toString() : ''
+    order_index: location.order_index !== null && location.order_index !== undefined ? location.order_index.toString() : '',
+    location_type: location.location_type || DEFAULT_LOCATION_TYPE,
   }
 
   // Set map coordinates if latitude/longitude exist
@@ -218,7 +221,8 @@ function resetForm() {
     talking_points: [],
     features: [],
     default_stop: true,
-    order_index: ''
+    order_index: '',
+    location_type: DEFAULT_LOCATION_TYPE,
   }
   mapCoordinates.value = null
   tagInputs.value = {
@@ -296,7 +300,8 @@ async function handleSubmit() {
       talking_points: formData.value.talking_points.length > 0 ? formData.value.talking_points : null,
       features: formData.value.features.length > 0 ? formData.value.features : null,
       default_stop: formData.value.default_stop,
-      order_index: formData.value.order_index ? parseInt(formData.value.order_index) : null
+      order_index: formData.value.order_index ? parseInt(formData.value.order_index) : null,
+      location_type: formData.value.location_type || DEFAULT_LOCATION_TYPE,
     }
     
     let result
@@ -380,6 +385,28 @@ async function handleSubmit() {
                   placeholder="e.g., Smith Computing Center"
                   class="w-full border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
+              </div>
+
+              <!-- Location type (map / app marker category) -->
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-300 mb-2">
+                  Location type
+                </label>
+                <p class="text-xs text-gray-400 mb-2">
+                  Used for map pin styling in the mobile app (academic, dining, residential, etc.).
+                </p>
+                <select
+                  v-model="formData.location_type"
+                  class="w-full max-w-md border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option
+                    v-for="opt in LOCATION_TYPE_OPTIONS"
+                    :key="opt.value"
+                    :value="opt.value"
+                  >
+                    {{ opt.label }}
+                  </option>
+                </select>
               </div>
               
               <!-- Map Picker (Required) -->

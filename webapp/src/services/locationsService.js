@@ -50,7 +50,8 @@ export async function createLocation(locationData) {
       talking_points: locationData.talking_points || null,
       features: locationData.features || null,
       default_stop: locationData.default_stop !== undefined ? locationData.default_stop : true,
-      order_index: locationData.order_index || null
+      order_index: locationData.order_index || null,
+      location_type: locationData.location_type || 'misc',
     }
 
     // Insert the location into the database
@@ -124,7 +125,8 @@ export async function updateLocation(locationId, locationData) {
       talking_points: locationData.talking_points || null,
       features: locationData.features || null,
       default_stop: locationData.default_stop !== undefined ? locationData.default_stop : true,
-      order_index: locationData.order_index || null
+      order_index: locationData.order_index || null,
+      location_type: locationData.location_type || 'misc',
     }
 
     // Update the location in the database
@@ -196,7 +198,7 @@ export async function getLocationById(locationId) {
   try {
     const { data, error } = await supabase
       .from('locations')
-      .select('id, school_id, name, description, interests, careers, talking_points, features')
+      .select('id, school_id, name, description, interests, careers, talking_points, features, location_type')
       .eq('id', locationId)
       .single()
 
