@@ -146,6 +146,15 @@ const routes = [
     }
   },
   {
+    path: '/admin/appointments',
+    name: 'TourAppointments',
+    component: () => import('../pages/TourAppointments.vue'),
+    meta: {
+      layout: 'admin',
+      title: 'Tour Appointments'
+    }
+  },
+  {
     path: '/admin/locations/deadzones',
     name: 'NoGoZones',
     component: () => import('../pages/NoGoZones.vue'),
