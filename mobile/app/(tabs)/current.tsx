@@ -1,5 +1,4 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { formatInterest } from '@/constants/labels';
 import { analyticsService, Location, locationService, schoolService, userTypeService, tourGroupSelectionService, leadsService } from '@/services/supabase';
 import { findNearestLocation } from '@/services/tourOrderUtils';
 import { wsManager } from '@/services/ws';
@@ -7,14 +6,14 @@ import { appStateManager } from '@/services/appStateManager';
 import * as ExpoLocation from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
+import { LocationDetailsView } from '@/components/LocationDetailsView';
 import { useRaiseHand } from '@/contexts/RaiseHandContext';
 import { useTourPause } from '@/contexts/TourPauseContext';
-import { usePushedLocationMedia } from '@/contexts/PushedLocationMediaContext';
 
 
 export default function CurrentLocationScreen() {
@@ -38,7 +37,6 @@ export default function CurrentLocationScreen() {
   
   // Raise hand notification state from shared context
   const { showModal: showRaiseHandModal, memberName: raiseHandMemberName, dismissModal: dismissRaiseHandModal } = useRaiseHand();
-  const { getPushedMedia, showTakeover } = usePushedLocationMedia();
 
   /** All campus locations when the tour is paused or ended (nearest-location UX). */
   const [nearestCampusLocations, setNearestCampusLocations] = useState<Location[]>([]);
@@ -360,6 +358,15 @@ export default function CurrentLocationScreen() {
     });
   };
 
+  // Handle "Location media" button press (ambassador only)
+  const handleLocationMediaPress = () => {
+    if (!building) return;
+    router.push({
+      pathname: '/building/location-media',
+      params: { locationId: building.id, locationName: building.name },
+    } as never);
+  };
+
   // Handle "Start Tour" button press when no tour is active
   const handleStartTour = () => {
     router.push('/tour');
@@ -471,7 +478,12 @@ export default function CurrentLocationScreen() {
       <View style={[styles.header, dynamicStyles.headerBorder]}>
         <HamburgerMenu primaryColor={primaryColor} />
         <Text style={styles.headerText}>Current Location</Text>
-        {isAmbassadorLedMember ? (
+        {isAmbassador ? (
+          <TouchableOpacity style={styles.headerRightButton} onPress={handleLocationMediaPress}>
+            <IconSymbol name="photo.on.rectangle.angled" size={20} color="#FFFFFF" />
+            <Text style={styles.headerRightButtonText}>Location media</Text>
+          </TouchableOpacity>
+        ) : isAmbassadorLedMember ? (
           <TouchableOpacity 
             style={[styles.headerRaiseHandButton, dynamicStyles.raiseHandButton]}
             onPress={handleRaiseHand}
@@ -484,134 +496,27 @@ export default function CurrentLocationScreen() {
         )}
       </View>
       
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.statusContainer}>
-          <IconSymbol 
-            name={currentLocationId ? "location.fill" : "arrow.right.circle.fill"} 
-            size={20} 
-            color={primaryColor} 
-            style={styles.statusIcon} 
-          />
-          <Text style={[styles.statusText, { color: primaryColor }]}>{statusText}</Text>
-        </View>
-
-        {building.image ? (
-          <Image
-            source={{ uri: building.image }}
-            style={styles.buildingImage}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={styles.imagePlaceholder}>
-            <Text style={styles.imagePlaceholderText}>No Image Available</Text>
+      <LocationDetailsView
+        location={building}
+        primaryColor={primaryColor}
+        onDirectionsPress={handleWalkingDirectionsPress}
+        onViewOnMapPress={handleViewOnMapPress}
+        bottomActionsMargin={60}
+        scrollBottomPadding={40}
+        showTalkingPoints={isAmbassador}
+        showPushedMedia={isAmbassadorLedMember}
+        topContent={
+          <View style={styles.statusContainer}>
+            <IconSymbol
+              name={currentLocationId ? "location.fill" : "arrow.right.circle.fill"}
+              size={20}
+              color={primaryColor}
+              style={styles.statusIcon}
+            />
+            <Text style={[styles.statusText, { color: primaryColor }]}>{statusText}</Text>
           </View>
-        )}
-        
-        <View style={styles.buildingInfo}>
-          <Text style={styles.buildingName}>{building.name}</Text>
-          <Text style={styles.buildingDescription}>{building.description}</Text>
-
-          {isAmbassador && building.talking_points && building.talking_points.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Talking Points</Text>
-              <View style={styles.bulletPointsContainer}>
-                {building.talking_points.map((point, index) => (
-                  <View key={index} style={styles.bulletPoint}>
-                    <Text style={styles.bulletPointIcon}>•</Text>
-                    <Text style={styles.bulletPointText}>{point}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-          
-          {building.interests && building.interests.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Interests</Text>
-              <View style={styles.tagContainer}>
-                {building.interests.map((interest, index) => (
-                  <View key={index} style={styles.interestTag}>
-                    <Text style={styles.interestTagText}>{formatInterest(interest)}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-          
-          {building.careers && building.careers.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Career Opportunities</Text>
-              <View style={styles.tagContainer}>
-                {building.careers.map((career, index) => (
-                  <View key={index} style={styles.careerTag}>
-                    <Text style={styles.careerTagText}>{career}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-          
-          {building.features && building.features.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Features & Amenities</Text>
-              <View style={styles.tagContainer}>
-                {building.features.map((feature, index) => (
-                  <View key={index} style={styles.featureTag}>
-                    <Text style={styles.featureTagText}>{feature}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-          
-          <View style={styles.mapActionRow}>
-            <TouchableOpacity
-              style={[styles.directionsToHereButton, dynamicStyles.viewOnMapButton]}
-              onPress={handleWalkingDirectionsPress}
-            >
-              <IconSymbol name="figure.walk" size={16} color="white" style={styles.buttonIcon} />
-              <Text style={styles.viewOnMapButtonText}>Directions</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.viewOnMapButton, styles.viewOnMapButtonSecondary]}
-              onPress={handleViewOnMapPress}
-            >
-              <IconSymbol name="map.fill" size={16} color="white" style={styles.buttonIcon} />
-              <Text style={styles.viewOnMapButtonText}>View on Map</Text>
-            </TouchableOpacity>
-          </View>
-
-          {isAmbassadorLedMember && building && (() => {
-            const pushed = getPushedMedia(building.id);
-            if (pushed.length === 0) return null;
-            return (
-              <View style={styles.pushedSection}>
-                <Text style={styles.pushedSectionTitle}>Media</Text>
-                {pushed.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.pushedItem}
-                    onPress={() => showTakeover(item)}
-                    activeOpacity={0.7}
-                  >
-                    {item.media_type?.toLowerCase().includes('video') ? (
-                      <View style={styles.pushedVideoPlaceholder}>
-                        <IconSymbol name="play.circle.fill" size={24} color="#FFFFFF" />
-                        <Text style={styles.pushedItemName}>{item.name || 'Video'}</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.pushedItemContent}>
-                        <Image source={{ uri: item.url }} style={styles.pushedThumbnail} resizeMode="cover" />
-                        <Text style={styles.pushedItemName} numberOfLines={1}>{item.name || 'Image'}</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            );
-          })()}
-        </View>
-      </ScrollView>
+        }
+      />
 
       {/* Raise Hand Notification Modal for Ambassadors */}
       <RaiseHandNotificationModal
@@ -644,6 +549,19 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 50, // Approximate width to balance the hamburger menu
+  },
+  headerRightButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginRight: 12,
+  },
+  headerRightButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginLeft: 4,
   },
   headerRaiseHandButton: {
     width: 120,
@@ -720,188 +638,6 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 16,
     fontWeight: '600',
-  },
-  buildingImage: {
-    width: '100%',
-    height: 250,
-    backgroundColor: '#DDDDDD',
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: 250,
-    backgroundColor: '#DDDDDD',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imagePlaceholderText: {
-    color: '#666666',
-    fontSize: 16,
-  },
-  buildingInfo: {
-    padding: 20,
-    backgroundColor: '#000000',
-    marginBottom: 50,
-  },
-  buildingName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#FFFFFF',
-  },
-  buildingDescription: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#FFFFFF',
-  },
-  section: {
-    marginBottom: 16,
-    marginTop: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#FFFFFF',
-  },
-  tagContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  interestTag: {
-    backgroundColor: '#454545',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#555555',
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  interestTagText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  careerTag: {
-    backgroundColor: '#2E7D32',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#4CAF50',
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  careerTagText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  featureTag: {
-    backgroundColor: '#1976D2',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#2196F3',
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  featureTagText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  bulletPointsContainer: {
-    flex: 1,
-  },
-  bulletPoint: {
-    flexDirection: 'row',
-    marginBottom: 8,
-    alignItems: 'flex-start',
-  },
-  bulletPointIcon: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    marginRight: 8,
-    marginTop: 2,
-  },
-  bulletPointText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    flex: 1,
-    lineHeight: 20,
-  },
-  mapActionRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    marginTop: 20,
-  },
-  directionsToHereButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginRight: 10,
-  },
-  viewOnMapButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  viewOnMapButtonSecondary: {
-    backgroundColor: '#555555',
-  },
-  buttonIcon: {
-    marginRight: 8,
-  },
-  viewOnMapButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  pushedSection: {
-    marginTop: 24,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#444',
-  },
-  pushedSectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 12,
-  },
-  pushedItem: {
-    marginBottom: 12,
-  },
-  pushedItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  pushedThumbnail: {
-    width: 64,
-    height: 64,
-    borderRadius: 8,
-  },
-  pushedItemName: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    flex: 1,
-  },
-  pushedVideoPlaceholder: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#3A3A3A',
-    padding: 12,
-    borderRadius: 8,
   },
   tourPausedContainer: {
     flex: 1,
