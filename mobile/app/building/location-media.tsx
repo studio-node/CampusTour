@@ -126,8 +126,8 @@ export default function LocationMediaScreen() {
 
   const dynamicStyles = {
     headerBorder: { borderBottomColor: primaryColor },
-    addButton: { backgroundColor: primaryColor },
-    pushButton: { borderColor: primaryColor },
+    pushButton: { backgroundColor: primaryColor },
+    addButton: { borderColor: primaryColor },
   };
 
   if (isLoading) {
@@ -172,7 +172,7 @@ export default function LocationMediaScreen() {
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerText}>
-          {locationName ? `${locationName} – media` : 'Location media'}
+          {locationName ? `${locationName} - media` : 'Location media'}
         </Text>
       </View>
 
@@ -304,16 +304,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   thumbnailWrap: {
-    width: 80,
-    height: 80,
+    width: 100,
+    height: 100,
   },
   thumbnail: {
-    width: 80,
-    height: 80,
+    width: 100,
+    height: 100,
   },
   videoPlaceholder: {
-    width: 80,
-    height: 80,
+    width: 100,
+    height: 100,
     backgroundColor: '#454545',
     justifyContent: 'center',
     alignItems: 'center',
@@ -342,6 +342,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 8,
+    borderWidth: 2,
   },
   addToDetailButtonText: {
     color: '#FFFFFF',
@@ -349,10 +350,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   pushToScreenButton: {
-    paddingVertical: 6,
+    paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: 8,
-    borderWidth: 2,
   },
   pushToScreenButtonText: {
     color: '#FFFFFF',

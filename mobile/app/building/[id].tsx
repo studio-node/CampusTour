@@ -215,10 +215,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginLeft: -20,
+    // marginLeft: -20,
     flex: 1,
     textAlign: 'center',
-    marginRight: 36, // Balance the text with the back button
+    // marginRight: 36, // Balance the text with the back button
   },
   backButton: {
     padding: 4,
