@@ -465,14 +465,6 @@ export default function CurrentLocationScreen() {
     );
   }
 
-  const statusText = nearestCampusMode
-    ? userLocation
-      ? 'Closest campus location to you:'
-      : 'Campus location (enable location for nearest):'
-    : currentLocationId
-      ? `You are currently at:`
-      : `Next stop on your tour:`;
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.header, dynamicStyles.headerBorder]}>
@@ -505,17 +497,6 @@ export default function CurrentLocationScreen() {
         scrollBottomPadding={40}
         showTalkingPoints={isAmbassador}
         showPushedMedia={isAmbassadorLedMember}
-        topContent={
-          <View style={styles.statusContainer}>
-            <IconSymbol
-              name={currentLocationId ? "location.fill" : "arrow.right.circle.fill"}
-              size={20}
-              color={primaryColor}
-              style={styles.statusIcon}
-            />
-            <Text style={[styles.statusText, { color: primaryColor }]}>{statusText}</Text>
-          </View>
-        }
       />
 
       {/* Raise Hand Notification Modal for Ambassadors */}
@@ -624,20 +605,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  statusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  statusIcon: {
-    marginRight: 8,
-  },
-  statusText: {
-    fontSize: 16,
-    fontWeight: '600',
   },
   tourPausedContainer: {
     flex: 1,

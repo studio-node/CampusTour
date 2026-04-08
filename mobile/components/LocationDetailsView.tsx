@@ -18,8 +18,6 @@ type Props = {
   showTalkingPoints?: boolean;
   /** Defaults to `false`. */
   showPushedMedia?: boolean;
-  /** Optional content rendered above the image (inside the ScrollView). */
-  topContent?: React.ReactNode;
 };
 
 export function LocationDetailsView({
@@ -31,7 +29,6 @@ export function LocationDetailsView({
   scrollBottomPadding = 200,
   showTalkingPoints = false,
   showPushedMedia = false,
-  topContent,
 }: Props) {
   const { getPushedMedia, showTakeover } = usePushedLocationMedia();
 
@@ -44,7 +41,6 @@ export function LocationDetailsView({
   return (
     <View style={styles.container}>
       <ScrollView style={[styles.scrollView, { marginBottom: scrollBottomPadding }]}>
-        {topContent}
         {location.image ? (
           <Image source={{ uri: location.image }} style={styles.buildingImage} resizeMode="cover" />
         ) : (
