@@ -26,6 +26,7 @@ export default function CurrentLocationScreen() {
   const [primaryColor, setPrimaryColor] = useState<string>('#990000');
   const [isAmbassador, setIsAmbassador] = useState<boolean>(false);
   const [isAmbassadorLedMember, setIsAmbassadorLedMember] = useState<boolean>(false);
+  const [isSelfGuided, setIsSelfGuided] = useState(false);
   const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<string | null>(null);
   const [locationWatcher, setLocationWatcher] = useState<any>(null);
@@ -71,6 +72,7 @@ export default function CurrentLocationScreen() {
       
       const userType = await userTypeService.getUserType();
       setIsAmbassadorLedMember(userType === 'ambassador-led');
+      setIsSelfGuided(userType === 'self-guided');
     };
 
     checkUserType();
@@ -493,6 +495,7 @@ export default function CurrentLocationScreen() {
         primaryColor={primaryColor}
         onDirectionsPress={handleWalkingDirectionsPress}
         onViewOnMapPress={handleViewOnMapPress}
+        showDirections={isSelfGuided}
         bottomActionsMargin={60}
         scrollBottomPadding={40}
         showTalkingPoints={isAmbassador}

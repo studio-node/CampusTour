@@ -10,6 +10,8 @@ type Props = {
   primaryColor: string;
   onDirectionsPress: () => void;
   onViewOnMapPress: () => void;
+  /** Walking directions (map routing) — self-guided tours only. */
+  showDirections?: boolean;
   /** Distance from bottom for the floating action buttons. */
   bottomActionsMargin?: number;
   /** Extra scroll padding so content isn't covered by the action bar. */
@@ -25,6 +27,7 @@ export function LocationDetailsView({
   primaryColor,
   onDirectionsPress,
   onViewOnMapPress,
+  showDirections = true,
   bottomActionsMargin = 48,
   scrollBottomPadding = 200,
   showTalkingPoints = false,
@@ -143,13 +146,15 @@ export function LocationDetailsView({
       </ScrollView>
 
       <View style={[styles.mapActionsBar, { bottom: bottomActionsMargin }]}>
-        <TouchableOpacity
-          style={[styles.directionsToHereButton, dynamicStyles.viewOnMapButton]}
-          onPress={onDirectionsPress}
-        >
-          <IconSymbol name="figure.walk" size={16} color="white" style={styles.buttonIcon} />
-          <Text style={styles.buttonText}>Directions</Text>
-        </TouchableOpacity>
+        {showDirections ? (
+          <TouchableOpacity
+            style={[styles.directionsToHereButton, dynamicStyles.viewOnMapButton]}
+            onPress={onDirectionsPress}
+          >
+            <IconSymbol name="figure.walk" size={16} color="white" style={styles.buttonIcon} />
+            <Text style={styles.buttonText}>Directions</Text>
+          </TouchableOpacity>
+        ) : null}
         <TouchableOpacity
           style={[styles.viewOnMapButtonBar, styles.viewOnMapButtonSecondary]}
           onPress={onViewOnMapPress}

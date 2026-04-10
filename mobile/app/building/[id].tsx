@@ -18,6 +18,7 @@ export default function BuildingInfoScreen() {
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [primaryColor, setPrimaryColor] = useState<string>('#990000'); // Utah Tech red as fallback
   const [isAmbassador, setIsAmbassador] = useState<boolean>(false);
+  const [isSelfGuided, setIsSelfGuided] = useState(false);
 
   // Get the selected school ID and details
   useEffect(() => {
@@ -41,11 +42,15 @@ export default function BuildingInfoScreen() {
     getSelectedSchool();
   }, [router]);
 
-  // Check if user is an ambassador
+  // User type: ambassador features vs self-guided-only (e.g. walking directions)
   useEffect(() => {
     const checkUserType = async () => {
-      const ambassadorStatus = await userTypeService.isAmbassador();
+      const [ambassadorStatus, userType] = await Promise.all([
+        userTypeService.isAmbassador(),
+        userTypeService.getUserType(),
+      ]);
       setIsAmbassador(ambassadorStatus);
+      setIsSelfGuided(userType === 'self-guided');
     };
 
     checkUserType();
@@ -190,6 +195,7 @@ export default function BuildingInfoScreen() {
         primaryColor={primaryColor}
         onDirectionsPress={handleWalkingDirectionsPress}
         onViewOnMapPress={handleViewOnMapPress}
+        showDirections={isSelfGuided}
         bottomActionsMargin={16}
         scrollBottomPadding={10}
         showTalkingPoints={isAmbassador}

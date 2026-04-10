@@ -160,7 +160,8 @@ export default function MapScreen() {
 
   const routeDestination = explicitDirectionsTarget ?? nextStop;
   const showMapDirectionsToggle =
-    (isSelfGuided && hasTour === true && nextStop !== null) || explicitDirectionsTarget !== null;
+    isSelfGuided &&
+    (((hasTour === true && nextStop !== null) || explicitDirectionsTarget !== null));
 
   const nearestCampusMode = tourPaused || tourFinished;
   const highlightedLocationId = useMemo(
@@ -187,36 +188,54 @@ export default function MapScreen() {
     ]
   );
 
-  // Open directions mode when linked with ?directions=1&building=<id>
+  // Open directions mode when linked with ?directions=1&building=<id> (self-guided only)
   useEffect(() => {
-    const dir = pickSearchParam(params.directions as string | string[] | undefined);
-    const bid = pickSearchParam(params.building as string | string[] | undefined);
-    const wantDirections = wantsDirectionsParam(dir);
+    let cancelled = false;
 
-    if (!locations.length) {
-      if (!wantDirections) setExplicitDirectionsTarget(null);
-      return;
-    }
+    const apply = async () => {
+      const userType = await userTypeService.getUserType();
+      if (cancelled) return;
 
-    if (wantDirections && bid) {
-      const loc = locations.find((l) => l.id.toLowerCase() === bid.toLowerCase());
-      if (loc) {
-        setExplicitDirectionsTarget(loc);
-        setMapViewMode('directions');
-      } else {
+      if (userType !== 'self-guided') {
+        setExplicitDirectionsTarget(null);
+        setMapViewMode('map');
+        return;
+      }
+
+      const dir = pickSearchParam(params.directions as string | string[] | undefined);
+      const bid = pickSearchParam(params.building as string | string[] | undefined);
+      const wantDirections = wantsDirectionsParam(dir);
+
+      if (!locations.length) {
+        if (!wantDirections) setExplicitDirectionsTarget(null);
+        return;
+      }
+
+      if (wantDirections && bid) {
+        const loc = locations.find((l) => l.id.toLowerCase() === bid.toLowerCase());
+        if (loc) {
+          setExplicitDirectionsTarget(loc);
+          setMapViewMode('directions');
+        } else {
+          setExplicitDirectionsTarget(null);
+        }
+        return;
+      }
+
+      if (wantDirections && !bid) {
+        setExplicitDirectionsTarget(null);
+        return;
+      }
+
+      if (!wantDirections) {
         setExplicitDirectionsTarget(null);
       }
-      return;
-    }
+    };
 
-    if (wantDirections && !bid) {
-      setExplicitDirectionsTarget(null);
-      return;
-    }
-
-    if (!wantDirections) {
-      setExplicitDirectionsTarget(null);
-    }
+    void apply();
+    return () => {
+      cancelled = true;
+    };
   }, [params.directions, params.building, locations]);
 
   // Check if we need to focus on a specific building (from params)
@@ -456,8 +475,13 @@ export default function MapScreen() {
           const isAmbassadorLed = userType === 'ambassador-led';
           const isAmbassador = userType === 'ambassador';
           const isAmbassadorTour = isAmbassadorLed || isAmbassador;
-          setIsSelfGuided(userType === 'self-guided');
+          const selfGuided = userType === 'self-guided';
+          setIsSelfGuided(selfGuided);
           setIsAmbassadorLedMember(isAmbassadorLed);
+          if (!selfGuided) {
+            setExplicitDirectionsTarget(null);
+            setMapViewMode('map');
+          }
 
           // Check for active tour using appStateManager
           const currentState = appStateManager.getCurrentState();
@@ -499,8 +523,13 @@ export default function MapScreen() {
 
           setHasTour(false);
           setNextStop(null);
-          setIsSelfGuided(userType === 'self-guided');
+          const selfGuidedFallback = userType === 'self-guided';
+          setIsSelfGuided(selfGuidedFallback);
           setIsAmbassadorLedMember(userType === 'ambassador-led');
+          if (!selfGuidedFallback) {
+            setExplicitDirectionsTarget(null);
+            setMapViewMode('map');
+          }
           if (
             !isAmbassadorTour &&
             !hasShownModalThisSession &&
@@ -627,9 +656,11 @@ export default function MapScreen() {
           <CalloutSubview onPress={goDetails} style={styles.calloutSubviewHit}>
             {detailsInner}
           </CalloutSubview>
-          <CalloutSubview onPress={goDirections} style={styles.calloutSubviewHit}>
-            {directionsInner}
-          </CalloutSubview>
+          {isSelfGuided ? (
+            <CalloutSubview onPress={goDirections} style={styles.calloutSubviewHit}>
+              {directionsInner}
+            </CalloutSubview>
+          ) : null}
         </View>
       );
     }
@@ -639,9 +670,11 @@ export default function MapScreen() {
         <TouchableOpacity style={styles.calloutSubviewHit} onPress={goDetails} activeOpacity={0.75}>
           {detailsInner}
         </TouchableOpacity>
-        <TouchableOpacity style={styles.calloutSubviewHit} onPress={goDirections} activeOpacity={0.75}>
-          {directionsInner}
-        </TouchableOpacity>
+        {isSelfGuided ? (
+          <TouchableOpacity style={styles.calloutSubviewHit} onPress={goDirections} activeOpacity={0.75}>
+            {directionsInner}
+          </TouchableOpacity>
+        ) : null}
       </View>
     );
   };
