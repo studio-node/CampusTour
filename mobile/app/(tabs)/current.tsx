@@ -425,7 +425,7 @@ export default function CurrentLocationScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={[styles.header, dynamicStyles.headerBorder]}>
-          <HamburgerMenu primaryColor={primaryColor} />
+          <HamburgerMenu primaryColor={primaryColor} showAmbassadorTourRoster={isAmbassador} />
           <Text style={styles.headerText}>Current Location</Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -441,7 +441,7 @@ export default function CurrentLocationScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={[styles.header, dynamicStyles.headerBorder]}>
-          <HamburgerMenu primaryColor={primaryColor} />
+          <HamburgerMenu primaryColor={primaryColor} showAmbassadorTourRoster={isAmbassador} />
           <Text style={styles.headerText}>Current Location</Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -470,7 +470,7 @@ export default function CurrentLocationScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.header, dynamicStyles.headerBorder]}>
-        <HamburgerMenu primaryColor={primaryColor} />
+        <HamburgerMenu primaryColor={primaryColor} showAmbassadorTourRoster={isAmbassador} />
         <Text style={styles.headerText}>Current Location</Text>
         {isAmbassador ? (
           <TouchableOpacity style={styles.headerRightButton} onPress={handleLocationMediaPress}>

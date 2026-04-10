@@ -22,6 +22,8 @@ const MAPPING = {
   'map': 'map',
   'map.fill': 'map',
   'figure.walk': 'directions-walk',
+  'person.3': 'groups',
+  'arrow.clockwise': 'refresh',
 } as IconMapping;
 
 /**

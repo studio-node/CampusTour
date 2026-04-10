@@ -103,6 +103,7 @@ export default function MapScreen() {
   const [visitedLocations, setVisitedLocations] = useState<string[]>([]);
   const [currentLocationId, setCurrentLocationId] = useState<string | null>(null);
   const [isAmbassadorLedMember, setIsAmbassadorLedMember] = useState(false);
+  const [isAmbassador, setIsAmbassador] = useState(false);
   const locationWatchSubRef = useRef<{ remove: () => void } | null>(null);
 
   // Get the selected school ID and details
@@ -473,11 +474,12 @@ export default function MapScreen() {
           // Check if user is in an ambassador-led tour or is an ambassador
           const userType = await userTypeService.getUserType();
           const isAmbassadorLed = userType === 'ambassador-led';
-          const isAmbassador = userType === 'ambassador';
-          const isAmbassadorTour = isAmbassadorLed || isAmbassador;
+          const isAmbassadorUser = userType === 'ambassador';
+          const isAmbassadorTour = isAmbassadorLed || isAmbassadorUser;
           const selfGuided = userType === 'self-guided';
           setIsSelfGuided(selfGuided);
           setIsAmbassadorLedMember(isAmbassadorLed);
+          setIsAmbassador(isAmbassadorUser);
           if (!selfGuided) {
             setExplicitDirectionsTarget(null);
             setMapViewMode('map');
@@ -513,8 +515,9 @@ export default function MapScreen() {
           console.error('Error checking for tour:', error);
           const userType = await userTypeService.getUserType();
           const isAmbassadorLed = userType === 'ambassador-led';
-          const isAmbassador = userType === 'ambassador';
-          const isAmbassadorTour = isAmbassadorLed || isAmbassador;
+          const isAmbassadorUser = userType === 'ambassador';
+          const isAmbassadorTour = isAmbassadorLed || isAmbassadorUser;
+          setIsAmbassador(isAmbassadorUser);
 
           const fallbackState = appStateManager.getCurrentState();
           const fallbackFinished = !!fallbackState?.tourState?.tourFinished;
@@ -682,7 +685,7 @@ export default function MapScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.header, dynamicStyles.headerBorder]}>
-        <HamburgerMenu primaryColor={primaryColor} />
+        <HamburgerMenu primaryColor={primaryColor} showAmbassadorTourRoster={isAmbassador} />
         <Text style={styles.headerText}>Map</Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity

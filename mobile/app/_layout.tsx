@@ -87,6 +87,7 @@ export default function RootLayout() {
         <Stack.Screen name="tour-group-selection" options={{ headerShown: false }} />
         <Stack.Screen name="interest-selection" options={{ headerShown: false }} />
         <Stack.Screen name="tour-confirmation" options={{ headerShown: false }} />
+        <Stack.Screen name="tour-roster" options={{ headerShown: false }} />
         <Stack.Screen name="add-tour-locations" options={{ headerShown: false }} />
 
         <Stack.Screen

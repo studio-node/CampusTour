@@ -1,11 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Animated, Dimensions, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useTourPause } from '@/contexts/TourPauseContext';
 import { appStateManager } from '@/services/appStateManager';
 
 interface HamburgerMenuProps {
   primaryColor: string;
+  /** When true, show "Tour roster" (ambassadors on an active tour). */
+  showAmbassadorTourRoster?: boolean;
 }
 
 function getTourMenuState(): { hasActiveTour: boolean; tourFinished: boolean } {
@@ -19,7 +22,8 @@ function getTourMenuState(): { hasActiveTour: boolean; tourFinished: boolean } {
   };
 }
 
-const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ primaryColor }) => {
+const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ primaryColor, showAmbassadorTourRoster = false }) => {
+  const router = useRouter();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const slideAnimation = useRef(new Animated.Value(-Dimensions.get('window').width)).current;
   const { tourPaused, tourFinished, setTourPaused, markTourFinished } = useTourPause();
@@ -88,6 +92,10 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ primaryColor }) => {
         }
         endTour();
         break;
+      case 'Tour roster':
+        closeMenu();
+        router.push('/tour-roster');
+        return;
       default:
         break;
     }
@@ -165,6 +173,17 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ primaryColor }) => {
                       <Text style={styles.menuItemText}>End Tour</Text>
                       <IconSymbol name="chevron.right" size={16} color="#999" />
                     </TouchableOpacity>
+
+                    {showAmbassadorTourRoster ? (
+                      <TouchableOpacity
+                        style={[styles.menuItem, dynamicStyles.menuItem]}
+                        onPress={() => handleMenuItemPress('Tour roster')}
+                      >
+                        <IconSymbol name="person.3" size={24} color="#333" style={styles.menuIcon} />
+                        <Text style={styles.menuItemText}>Tour roster</Text>
+                        <IconSymbol name="chevron.right" size={16} color="#999" />
+                      </TouchableOpacity>
+                    ) : null}
                   </>
                 ) : (
                   <View style={styles.menuEndedHint}>

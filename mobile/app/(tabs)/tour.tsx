@@ -1202,7 +1202,7 @@ export default function TourScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={[styles.header, dynamicStyles.headerBorder]}>
-          <HamburgerMenu primaryColor={primaryColor} />
+          <HamburgerMenu primaryColor={primaryColor} showAmbassadorTourRoster={isAmbassador} />
           <Text style={styles.headerText}>Your Tour</Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -1228,7 +1228,7 @@ export default function TourScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={[styles.header, dynamicStyles.headerBorder]}>
-          <HamburgerMenu primaryColor={primaryColor} />
+          <HamburgerMenu primaryColor={primaryColor} showAmbassadorTourRoster={isAmbassador} />
           <Text style={styles.headerText}>Your Tour</Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -1250,7 +1250,7 @@ export default function TourScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.header, dynamicStyles.headerBorder]}>
-        <HamburgerMenu primaryColor={primaryColor} />
+        <HamburgerMenu primaryColor={primaryColor} showAmbassadorTourRoster={isAmbassador} />
         {!isEditingTour && <Text style={styles.headerText}>Your Tour</Text>}
         {/* <Text style={styles.headerText}>Your Tour</Text> */}
         <View style={styles.headerRightContainer}>
