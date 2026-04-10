@@ -1199,8 +1199,12 @@ export const tourAppointmentsService = {
    */
   async getAvailableTourGroups(schoolId: string): Promise<TourAppointment[]> {
     try {
-      const now = new Date().toISOString();
-      
+      // Start of local calendar day (UTC ISO) so same-day tours aren't excluded when
+      // scheduled_date is stored at midnight or earlier in the day than "now".
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const startOfTodayIso = startOfToday.toISOString();
+
       const { data, error } = await supabase
         .from('tour_appointments')
         .select(`
@@ -1211,7 +1215,7 @@ export const tourAppointmentsService = {
         `)
         .eq('school_id', schoolId)
         .eq('status', 'scheduled')
-        .gte('scheduled_date', now)
+        .gte('scheduled_date', startOfTodayIso)
         .order('scheduled_date', { ascending: true });
 
       if (error) {
