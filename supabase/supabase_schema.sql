@@ -465,16 +465,35 @@ CREATE OR REPLACE FUNCTION "public"."current_user_can_admin_school"("p_school_id
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $$
-  select exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid()
-      and p.school_id = p_school_id
-      and lower(trim(p.role)) in ('admin', 'super-admin', 'super_admin', 'super admin')
-  );
+  select
+    public.current_user_is_super_admin()
+    or exists (
+      select 1
+      from public.profiles p
+      where p.id = auth.uid()
+        and p.school_id = p_school_id
+        and lower(trim(p.role)) in ('admin', 'super_admin', 'super-admin', 'super admin')
+    );
 $$;
 
 
 ALTER FUNCTION "public"."current_user_can_admin_school"("p_school_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."current_user_is_super_admin"() RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  select exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and lower(trim(p.role)) in ('super_admin', 'super-admin', 'super admin')
+  );
+$$;
+
+
+ALTER FUNCTION "public"."current_user_is_super_admin"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."get_school_users_with_auth"("p_school_id" "uuid") RETURNS TABLE("id" "uuid", "full_name" "text", "email" "text", "role" "text", "is_active" boolean, "created_at" timestamp with time zone, "updated_at" timestamp with time zone, "last_sign_in_at" timestamp with time zone, "creation_token" "text")
@@ -640,7 +659,8 @@ CREATE TABLE IF NOT EXISTS "public"."schools" (
     "primary_color" "text" DEFAULT '#990000'::"text",
     "logo_url" "text",
     "degrees_offered" "text"[],
-    "deadzones" "jsonb" DEFAULT '[]'::"jsonb"
+    "deadzones" "jsonb" DEFAULT '[]'::"jsonb",
+    "timezone" "text"
 );
 
 
@@ -648,6 +668,10 @@ ALTER TABLE "public"."schools" OWNER TO "postgres";
 
 
 COMMENT ON COLUMN "public"."schools"."deadzones" IS 'Polygons (array of {latitude, longitude}[]) that routes must not pass through. Used when computing walking directions.';
+
+
+
+COMMENT ON COLUMN "public"."schools"."timezone" IS 'IANA timezone identifier for this school (e.g. America/New_York). Used for tour appointment scheduling/display.';
 
 
 
@@ -3601,26 +3625,6 @@ ALTER TABLE "auth"."sso_providers" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "auth"."users" ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY "Admins can view all appointments" ON "public"."tour_appointments" USING ((EXISTS ( SELECT 1
-   FROM "public"."profiles"
-  WHERE (("profiles"."id" = "auth"."uid"()) AND ("profiles"."role" = ANY (ARRAY['admin'::"text", 'super_admin'::"text"]))))));
-
-
-
-CREATE POLICY "Ambassadors can create appointments" ON "public"."tour_appointments" FOR INSERT WITH CHECK ((("ambassador_id" = "auth"."uid"()) AND (EXISTS ( SELECT 1
-   FROM "public"."profiles"
-  WHERE (("profiles"."id" = "auth"."uid"()) AND ("profiles"."role" = ANY (ARRAY['ambassador'::"text", 'admin'::"text", 'super_admin'::"text"])))))));
-
-
-
-CREATE POLICY "Ambassadors can update own appointments" ON "public"."tour_appointments" FOR UPDATE USING (("ambassador_id" = "auth"."uid"()));
-
-
-
-CREATE POLICY "Ambassadors can view own appointments" ON "public"."tour_appointments" FOR SELECT USING (("ambassador_id" = "auth"."uid"()));
-
-
-
 CREATE POLICY "Enable insert for all users (for now)" ON "public"."analytics_events" FOR INSERT WITH CHECK (true);
 
 
@@ -3743,6 +3747,29 @@ CREATE POLICY "schools_update_admin_in_school" ON "public"."schools" FOR UPDATE 
 
 
 
+ALTER TABLE "public"."tour_appointments" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "tour_appointments_delete_admin_school" ON "public"."tour_appointments" FOR DELETE TO "authenticated" USING ("public"."current_user_can_admin_school"("school_id"));
+
+
+
+CREATE POLICY "tour_appointments_insert_admin_school" ON "public"."tour_appointments" FOR INSERT TO "authenticated" WITH CHECK ("public"."current_user_can_admin_school"("school_id"));
+
+
+
+CREATE POLICY "tour_appointments_select_admin_school" ON "public"."tour_appointments" FOR SELECT TO "authenticated" USING ("public"."current_user_can_admin_school"("school_id"));
+
+
+
+CREATE POLICY "tour_appointments_select_ambassador_own" ON "public"."tour_appointments" FOR SELECT TO "authenticated" USING (("ambassador_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "tour_appointments_update_admin_school" ON "public"."tour_appointments" FOR UPDATE TO "authenticated" USING ("public"."current_user_can_admin_school"("school_id")) WITH CHECK ("public"."current_user_can_admin_school"("school_id"));
+
+
+
 CREATE POLICY "Allow authenticated delete media bucket" ON "storage"."objects" FOR DELETE TO "authenticated" USING (("bucket_id" = 'media'::"text"));
 
 
@@ -3843,6 +3870,12 @@ GRANT ALL ON FUNCTION "public"."create_partial_user"("p_email" "text", "p_full_n
 GRANT ALL ON FUNCTION "public"."current_user_can_admin_school"("p_school_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."current_user_can_admin_school"("p_school_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_user_can_admin_school"("p_school_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."current_user_is_super_admin"() TO "anon";
+GRANT ALL ON FUNCTION "public"."current_user_is_super_admin"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_user_is_super_admin"() TO "service_role";
 
 
 

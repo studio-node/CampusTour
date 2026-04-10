@@ -1,4 +1,1 @@
-- When pressing location button on location detail, made pin selected
-- Allow directions to any location by selecting a button on that loc or something idk
-- Change heading on tour page to be 'your tour' and add little blurb where your tour is to say tour is ordered (headings in general)
-- Make current stop tab and details page be the same component
+- Get rid of directions for non self-guided 
