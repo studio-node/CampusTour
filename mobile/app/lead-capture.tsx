@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
+import { IconSymbol } from '@/components/ui/IconSymbol';
 import { leadsService, schoolService, tourGroupSelectionService, userTypeService } from '@/services/supabase';
 
 type Identity = 'prospective-student' | 'friend-family' | 'touring-campus' | '';
@@ -323,7 +324,8 @@ export default function LeadCaptureScreen() {
           style={styles.backButton} 
           onPress={() => router.back()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
+          <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
       </View>
 
@@ -479,16 +481,20 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 60,
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     paddingBottom: 10,
   },
   backButton: {
     alignSelf: 'flex-start',
+    padding: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backButtonText: {
-    color: '#fff',
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   scrollView: {
     flex: 1,

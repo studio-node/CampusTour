@@ -94,7 +94,7 @@ export default function AddTourLocationsScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
-            <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
+            <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
             <Text style={styles.backButtonText}>Cancel</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Add locations to tour</Text>
@@ -113,7 +113,7 @@ export default function AddTourLocationsScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
-            <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
+            <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
             <Text style={styles.backButtonText}>Back</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Add locations to tour</Text>
@@ -133,7 +133,7 @@ export default function AddTourLocationsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
-          <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
+          <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
           <Text style={styles.backButtonText}>Cancel</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Add locations to tour</Text>
@@ -243,15 +243,17 @@ const styles = StyleSheet.create({
     borderBottomColor: '#444',
   },
   backButton: {
-    flexDirection: 'row',
+    padding: 4,
+    marginLeft: 12,
+    display: 'flex',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingRight: 12,
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
   backButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
-    marginLeft: 4,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   headerTitle: {
     fontSize: 18,

@@ -414,9 +414,10 @@ export default function TourDetailsScreen() {
   if (error) {
     return (
       <View style={styles.errorContainer}>
-        <Text>{error}</Text>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text>Go Back</Text>
+        <Text style={styles.errorStateMessage}>{error}</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
+          <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -548,8 +549,28 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
+    backgroundColor: '#282828',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  errorStateMessage: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  backButton: {
+    padding: 4,
+    marginLeft: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   header: {
     alignItems: 'center',

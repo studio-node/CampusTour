@@ -1182,7 +1182,7 @@ export default function TourScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={[styles.header, dynamicStyles.headerBorder]}>
-          <Text style={styles.headerText}>Campus Tour</Text>
+          <Text style={styles.headerText}>Your Tour</Text>
         </View>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading your tour...</Text>
@@ -1203,7 +1203,7 @@ export default function TourScreen() {
       <SafeAreaView style={styles.container}>
         <View style={[styles.header, dynamicStyles.headerBorder]}>
           <HamburgerMenu primaryColor={primaryColor} />
-          <Text style={styles.headerText}>Campus Tour</Text>
+          <Text style={styles.headerText}>Your Tour</Text>
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.tourPausedContainer}>
@@ -1216,7 +1216,7 @@ export default function TourScreen() {
             onPress={() => void handleBackToStartFromEndedTour()}
             activeOpacity={0.85}
           >
-            <IconSymbol name="arrow.backward.circle.fill" size={20} color="white" style={styles.unpauseButtonIcon} />
+            <IconSymbol name="chevron.left" size={20} color="white" style={styles.unpauseButtonIcon} />
             <Text style={styles.unpauseButtonText}>Back to start</Text>
           </TouchableOpacity>
         </View>
@@ -1229,7 +1229,7 @@ export default function TourScreen() {
       <SafeAreaView style={styles.container}>
         <View style={[styles.header, dynamicStyles.headerBorder]}>
           <HamburgerMenu primaryColor={primaryColor} />
-          <Text style={styles.headerText}>Campus Tour</Text>
+          <Text style={styles.headerText}>Your Tour</Text>
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.tourPausedContainer}>
@@ -1251,8 +1251,8 @@ export default function TourScreen() {
     <SafeAreaView style={styles.container}>
       <View style={[styles.header, dynamicStyles.headerBorder]}>
         <HamburgerMenu primaryColor={primaryColor} />
-        {!isEditingTour && <Text style={styles.headerText}>Campus Tour</Text>}
-        {/* <Text style={styles.headerText}>Campus Tour</Text> */}
+        {!isEditingTour && <Text style={styles.headerText}>Your Tour</Text>}
+        {/* <Text style={styles.headerText}>Your Tour</Text> */}
         <View style={styles.headerRightContainer}>
           {isAmbassadorLedMember && (
             <TouchableOpacity 
@@ -1409,7 +1409,11 @@ export default function TourScreen() {
           contentContainerStyle={styles.tourListContent}
           ListHeaderComponent={
             <View style={styles.tourHeaderContainer}>
-              <Text style={styles.tourHeaderText}>Your Tour</Text>
+              {!isAmbassadorLedMember && !isAmbassador && (
+                <Text style={styles.tourHeaderText}>
+                  Tour locations are in order. Edit your tour to add, remove, or reorder locations.
+                </Text>
+              )}
             </View>
           }
           ListEmptyComponent={
@@ -1544,10 +1548,10 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   tourHeaderText: {
-    fontSize: 30,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '400',
     textAlign: 'center',
-    color: '#FFFFFF',
+    color: '#EEEEEE',
   },
   deleteButton: {
     backgroundColor: '#D22B2B',

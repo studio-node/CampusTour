@@ -20,6 +20,7 @@ import {
   leadsService,
 } from '@/services/supabase';
 import ConfirmationCodeInput from '@/components/ConfirmationCodeInput';
+import { IconSymbol } from '@/components/ui/IconSymbol';
 
 export default function TourConfirmationScreen() {
   const router = useRouter();
@@ -120,7 +121,8 @@ export default function TourConfirmationScreen() {
       
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBackToTourSelection}>
-          <Text style={styles.backButtonText}>← Back</Text>
+          <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
+          <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
       </View>
 
@@ -189,16 +191,20 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 60,
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     paddingBottom: 10,
   },
   backButton: {
     alignSelf: 'flex-start',
+    padding: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backButtonText: {
-    color: '#fff',
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   content: {
     flex: 1,

@@ -250,8 +250,10 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 4,
     marginLeft: 12,
-    flexDirection: 'row',
+    display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
   backButtonText: {
     fontSize: 16,
