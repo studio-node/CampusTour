@@ -3728,6 +3728,12 @@ CREATE POLICY "profiles_select_admin_same_school" ON "public"."profiles" FOR SEL
 
 
 
+CREATE POLICY "profiles_select_for_listed_tour_ambassador" ON "public"."profiles" FOR SELECT TO "authenticated", "anon" USING ((EXISTS ( SELECT 1
+   FROM "public"."tour_appointments" "t"
+  WHERE (("t"."ambassador_id" = "profiles"."id") AND ("t"."status" = ANY (ARRAY['scheduled'::"text", 'active'::"text"]))))));
+
+
+
 CREATE POLICY "profiles_select_own" ON "public"."profiles" FOR SELECT TO "authenticated" USING (("id" = "auth"."uid"()));
 
 
@@ -3763,6 +3769,10 @@ CREATE POLICY "tour_appointments_select_admin_school" ON "public"."tour_appointm
 
 
 CREATE POLICY "tour_appointments_select_ambassador_own" ON "public"."tour_appointments" FOR SELECT TO "authenticated" USING (("ambassador_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "tour_appointments_select_public_scheduled" ON "public"."tour_appointments" FOR SELECT TO "authenticated", "anon" USING (("status" = ANY (ARRAY['scheduled'::"text", 'active'::"text"])));
 
 
 
