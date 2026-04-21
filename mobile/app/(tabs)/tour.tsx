@@ -340,12 +340,16 @@ export default function TourScreen() {
     initializeTourData();
   }, [schoolId]);
 
-  // Save state when it changes
+  // Save state when it changes.
+  // Note: schoolId and userType are in the deps so that when they finish
+  // loading asynchronously, we re-save to overwrite any earlier state that
+  // may have been persisted with null userType (which would break the
+  // resume-tour check on next launch).
   useEffect(() => {
     if (!isLoading) {
       saveTourState();
     }
-  }, [showInterestSelection, selectedInterests, tourStops, visitedLocations, tourStarted, tourFinished, processingTourStart, locationPermissionStatus, currentLocationId, locationEntryTimes, previouslyEnteredLocations, isEditingTour, isLoading, tourPaused]);
+  }, [showInterestSelection, selectedInterests, tourStops, visitedLocations, tourStarted, tourFinished, processingTourStart, locationPermissionStatus, currentLocationId, locationEntryTimes, previouslyEnteredLocations, isEditingTour, isLoading, tourPaused, schoolId, userType]);
 
   // When ambassador updates state, broadcast to members
   useEffect(() => {
@@ -570,23 +574,20 @@ export default function TourScreen() {
   const saveTourState = async () => {
     try {
       if (!schoolId) return;
+      // userType is loaded asynchronously on mount (separate await from schoolId).
+      // If we save before it resolves, the persisted state ends up with
+      // userType=null and hasResumableTour() returns false on next launch,
+      // so the Resume Tour modal never shows. Wait for it before saving.
+      if (!userType) return;
 
-      // Get current state or create new one
-      let currentState = appStateManager.getCurrentState();
-      if (!currentState) {
-        // Create new state if none exists
-        appStateManager.updateState({
-          schoolId,
-          userType,
-          currentRoute: '/(tabs)/tour',
-        });
-        currentState = appStateManager.getCurrentState();
-      }
-
-      if (!currentState) return;
-
-      // Update tour state
+      // Always write userType + schoolId as part of the save, not just on
+      // initial creation. Previously these were only populated when the
+      // in-memory state was null (first save), so if the first save fired
+      // while userType was still null they'd stay null forever and the
+      // resume modal would never appear.
       const updatedState: Partial<PersistedAppState> = {
+        schoolId,
+        userType,
         currentRoute: '/(tabs)/tour',
         tourState: {
           stops: tourStops,

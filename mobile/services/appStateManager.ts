@@ -59,6 +59,14 @@ class AppStateManager {
   private currentState: PersistedAppState | null = null;
   /** In-memory only; not persisted. Used to pass selected locations from add-tour-locations screen back to Tour tab. */
   private pendingLocationsToAdd: Location[] | null = null;
+  /**
+   * Timer that coalesces rapid updateState calls into a single disk write.
+   * We can't rely on AppState 'background' alone — in Expo Go and on hard
+   * app-kill the event often doesn't fire in time to flush, and the saved
+   * tour state gets lost. So every updateState schedules a debounced save.
+   */
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly SAVE_DEBOUNCE_MS = 250;
 
   /**
    * Initialize the app state manager
@@ -87,6 +95,10 @@ class AppStateManager {
     if (this.appStateSubscription) {
       this.appStateSubscription.remove();
       this.appStateSubscription = null;
+    }
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
     }
     this.isInitialized = false;
   }
@@ -126,6 +138,11 @@ class AppStateManager {
    */
   private async handleAppBackground(): Promise<void> {
     try {
+      // Flush any pending debounced save so we don't drop the last update.
+      if (this.saveTimer) {
+        clearTimeout(this.saveTimer);
+        this.saveTimer = null;
+      }
       // Save current state before going to background
       await this.saveCurrentState();
       console.log('App backgrounded - state saved');
@@ -151,8 +168,14 @@ class AppStateManager {
 
       await AsyncStorage.setItem(STORAGE_KEYS.APP_STATE, JSON.stringify(stateToSave));
       await AsyncStorage.setItem(STORAGE_KEYS.LAST_ACTIVE, new Date().toISOString());
-      
-      console.log('App state saved successfully');
+
+      console.log('[Resume] App state saved', {
+        userType: stateToSave.userType,
+        tourStarted: stateToSave.tourState?.tourStarted,
+        tourFinished: stateToSave.tourState?.tourFinished,
+        stops: stateToSave.tourState?.stops?.length ?? 0,
+        visited: stateToSave.tourState?.visitedLocations?.length ?? 0,
+      });
     } catch (error) {
       console.error('Error saving app state:', error);
     }
@@ -198,7 +221,10 @@ class AppStateManager {
 
 
   /**
-   * Update the current state
+   * Update the current state and schedule a debounced persist to AsyncStorage.
+   * We persist on every change (debounced) because relying on AppState
+   * 'background' alone drops state when the app is reloaded via the Expo
+   * dev menu or force-killed before the 'background' event fires.
    */
   updateState(updates: Partial<PersistedAppState>): void {
     if (!this.currentState) {
@@ -210,6 +236,25 @@ class AppStateManager {
       ...updates,
       lastUpdated: new Date().toISOString(),
     };
+
+    this.scheduleSave();
+  }
+
+  /**
+   * Debounced persist. Coalesces rapid successive updateState calls
+   * (e.g. from a single render that touches many pieces of state) into
+   * one AsyncStorage write.
+   */
+  private scheduleSave(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+    }
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      this.saveCurrentState().catch((err) => {
+        console.error('Error in debounced saveCurrentState:', err);
+      });
+    }, this.SAVE_DEBOUNCE_MS);
   }
 
   /**
@@ -238,12 +283,22 @@ class AppStateManager {
         return false;
       }
       
-      // Check for self-guided tours
+      // Check for self-guided tours. Only offer resume if the user has an
+      // actual tour in progress (stops generated, or explicitly started).
+      // Otherwise we'd pop the modal even when the user only got as far as
+      // the tour-type selection screen last session, which is confusing.
       if (state.userType === 'self-guided') {
-        // For now, assume all tours are resumable if they have any tour state
-        // This is a simplified approach for testing
-        console.log('Self-guided tour found, considering resumable');
-        return true;
+        const stops = state.tourState?.stops ?? [];
+        const hasStops = Array.isArray(stops) && stops.length > 0;
+        const tourStarted = !!state.tourState?.tourStarted;
+        const visited = state.tourState?.visitedLocations?.length ?? 0;
+
+        if (hasStops || tourStarted || visited > 0) {
+          console.log('Self-guided tour in progress, offering resume');
+          return true;
+        }
+        console.log('Self-guided state exists but no tour in progress; skipping resume');
+        return false;
       }
       
       // Check for ambassador-led tours

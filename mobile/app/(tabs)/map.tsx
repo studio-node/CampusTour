@@ -411,11 +411,6 @@ export default function MapScreen() {
   // Fetch walking route when in Directions view with user location and a destination
   useEffect(() => {
     if (mapViewMode !== 'directions' || !userLocation || !routeDestination) {
-      // console.log('[Directions] fetch skipped', {
-      //   mapViewMode,
-      //   hasUserLocation: !!userLocation,
-      //   hasRouteDestination: !!routeDestination,
-      // });
       return;
     }
     let cancelled = false;
@@ -423,16 +418,9 @@ export default function MapScreen() {
     setRouteCoordinates(null);
     const origin = { latitude: userLocation.latitude, longitude: userLocation.longitude };
     const destination = routeDestination.coordinates;
-    // console.log('[Directions] fetching route', { origin, destination, destId: routeDestination.id });
     fetchWalkingRoute(origin, destination, { deadzonePolygons: schoolDeadzones }).then((result) => {
       if (cancelled) return;
       setRouteLoading(false);
-      // console.log('[Directions] fetch result', {
-      //   ok: !!result,
-      //   points: result?.coordinates?.length ?? 0,
-      //   first: result?.coordinates?.[0],
-      //   last: result?.coordinates?.[result.coordinates.length - 1],
-      // });
       if (result?.coordinates?.length) {
         setRouteCoordinates(result.coordinates);
       }
@@ -741,7 +729,6 @@ export default function MapScreen() {
               mapViewMode === 'map' && [styles.viewToggleButtonActive, dynamicStyles.viewToggleButtonActive],
             ]}
             onPress={() => {
-              // console.log('[Directions] Map toggle pressed');
               // Clear the polyline first so it unmounts on this render, then
               // flip the mode on the next tick. Unmounting Polyline + Polygons
               // in the same frame as a mode switch has been the source of a
@@ -806,25 +793,14 @@ export default function MapScreen() {
               // new bottom left: 37.10815778141483, -113.55942540472526
               ]}  />
             )}
-            {(() => {
-              const shouldRender =
-                mapViewMode === 'directions' && !!routeCoordinates && routeCoordinates.length > 0;
-              // console.log('[Directions] polyline render', {
-              //   mapViewMode,
-              //   routeCoordsLength: routeCoordinates?.length ?? 'null',
-              //   primaryColor,
-              //   shouldRender,
-              // });
-              if (!shouldRender) return null;
-              return (
-                <Polyline
-                  coordinates={routeCoordinates!}
-                  strokeColor={primaryColor}
-                  strokeWidth={6}
-                  zIndex={9999}
-                />
-              );
-            })()}
+            {mapViewMode === 'directions' && !!routeCoordinates && routeCoordinates.length > 0 && (
+              <Polyline
+                coordinates={routeCoordinates}
+                strokeColor={primaryColor}
+                strokeWidth={6}
+                zIndex={9999}
+              />
+            )}
             {/* Debug: translucent red deadzones (only in Directions view) */}
             {mapViewMode === 'directions' &&
               schoolDeadzones.map((polygon, idx) => (

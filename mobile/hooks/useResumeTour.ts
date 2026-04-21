@@ -39,13 +39,13 @@ export function useResumeTour(): UseResumeTourReturn {
   const checkForResumableTour = useCallback(async () => {
     try {
       setIsLoading(true);
-      
-      // Check if there's a resumable tour
+
       const hasResumableTour = await appStateManager.hasResumableTour();
-      
+      console.log('[Resume] hasResumableTour =>', hasResumableTour);
+
       if (hasResumableTour) {
-        // Get user type to determine tour type
         const userType = appStateManager.getUserType();
+        console.log('[Resume] userType from state =>', userType);
         if (userType === 'ambassador-led') {
           setTourType('ambassador-led');
         } else if (userType === 'ambassador') {
@@ -53,11 +53,12 @@ export function useResumeTour(): UseResumeTourReturn {
         } else {
           setTourType('self-guided');
         }
-        
-        // Get tour progress for the modal (may be null for ambassador-led/ambassador)
+
         const progress = appStateManager.getTourProgress();
+        console.log('[Resume] tourProgress =>', progress);
         setTourProgress(progress);
         setShowResumeModal(true);
+        console.log('[Resume] showResumeModal set to true');
       } else {
         setShowResumeModal(false);
         setTourProgress(null);
