@@ -1,1 +1,2 @@
-- Get rid of directions for non self-guided 
+- Web app tab thing
+- Restarting app after closing out for self-guided isn't working correctly

@@ -16,7 +16,6 @@ import * as ExpoLocation from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import MapView, {
   Callout,
   CalloutSubview,
@@ -239,8 +238,17 @@ export default function MapScreen() {
     };
   }, [params.directions, params.building, locations]);
 
-  // Check if we need to focus on a specific building (from params)
+  // Check if we need to focus on a specific building (from params).
+  // Skip this when we're entering Directions view — the fit-to-route effect will
+  // frame the camera on the whole route instead. Otherwise the two animations race,
+  // the destination zoom can win, and the drawn polyline ends up off-screen.
+  // We also check ?directions=1 directly so we don't briefly animate to the
+  // building before the async user-type check flips `mapViewMode` to 'directions'.
   useEffect(() => {
+    const wantDirections = wantsDirectionsParam(
+      pickSearchParam(params.directions as string | string[] | undefined)
+    );
+    if (mapViewMode === 'directions' || wantDirections) return;
     const buildingId = pickSearchParam(params.building as string | string[] | undefined);
     if (buildingId && locations.length > 0) {
       const building = locations.find(loc => 
@@ -259,7 +267,7 @@ export default function MapScreen() {
         // setSelectedBuilding(building);
       }
     }
-  }, [params.building, mapReady, locations]);
+  }, [params.building, params.directions, mapReady, locations, mapViewMode]);
 
   // Request location permissions and get user location
   const requestLocationPermission = async () => {
@@ -403,6 +411,11 @@ export default function MapScreen() {
   // Fetch walking route when in Directions view with user location and a destination
   useEffect(() => {
     if (mapViewMode !== 'directions' || !userLocation || !routeDestination) {
+      // console.log('[Directions] fetch skipped', {
+      //   mapViewMode,
+      //   hasUserLocation: !!userLocation,
+      //   hasRouteDestination: !!routeDestination,
+      // });
       return;
     }
     let cancelled = false;
@@ -410,9 +423,16 @@ export default function MapScreen() {
     setRouteCoordinates(null);
     const origin = { latitude: userLocation.latitude, longitude: userLocation.longitude };
     const destination = routeDestination.coordinates;
+    // console.log('[Directions] fetching route', { origin, destination, destId: routeDestination.id });
     fetchWalkingRoute(origin, destination, { deadzonePolygons: schoolDeadzones }).then((result) => {
       if (cancelled) return;
       setRouteLoading(false);
+      // console.log('[Directions] fetch result', {
+      //   ok: !!result,
+      //   points: result?.coordinates?.length ?? 0,
+      //   first: result?.coordinates?.[0],
+      //   last: result?.coordinates?.[result.coordinates.length - 1],
+      // });
       if (result?.coordinates?.length) {
         setRouteCoordinates(result.coordinates);
       }
@@ -434,7 +454,16 @@ export default function MapScreen() {
     if (routeDestination?.coordinates) {
       points.push(routeDestination.coordinates);
     }
-    mapRef.current.fitToCoordinates(points, { edgePadding: { top: 60, right: 40, bottom: 60, left: 40 }, animated: true });
+    // Defer so the native map finishes layout; avoids fit being overwritten and native crashes
+    // on some platforms when the camera is updated in the same frame as polyline mount.
+    // otherwise fitToCoordinates can be overwritten or crash on some platforms.
+    const id = setTimeout(() => {
+      mapRef.current?.fitToCoordinates(points, {
+        edgePadding: { top: 60, right: 40, bottom: 60, left: 40 },
+        animated: true,
+      });
+    }, 50);
+    return () => clearTimeout(id);
   }, [mapViewMode, routeCoordinates, mapReady, routeDestination?.id, userLocation?.latitude, userLocation?.longitude]);
 
   // Check for existing tour whenever the map screen is focused; compute next stop for self-guided
@@ -712,12 +741,18 @@ export default function MapScreen() {
               mapViewMode === 'map' && [styles.viewToggleButtonActive, dynamicStyles.viewToggleButtonActive],
             ]}
             onPress={() => {
-              setMapViewMode('map');
+              // console.log('[Directions] Map toggle pressed');
+              // Clear the polyline first so it unmounts on this render, then
+              // flip the mode on the next tick. Unmounting Polyline + Polygons
+              // in the same frame as a mode switch has been the source of a
+              // native iOS crash (react-native-maps 1.20 on iOS 17+ tears down
+              // MKOverlays unsafely when multiple change at once). Deferring
+              // the mode flip lets the polyline detach cleanly first.
+              setRouteCoordinates(null);
               setExplicitDirectionsTarget(null);
-              router.setParams({
-                directions: '0',
-                building: pickSearchParam(params.building as string | string[] | undefined) ?? '',
-              });
+              setTimeout(() => {
+                setMapViewMode('map');
+              }, 0);
             }}
           >
             <IconSymbol name="map" size={16} color={mapViewMode === 'map' ? '#fff' : '#666'} />
@@ -747,12 +782,12 @@ export default function MapScreen() {
           </View>
         ) : (
           <MapView
+            key={schoolId ?? 'map'}
             ref={mapRef}
             style={styles.map}
             provider={mapProvider}
             mapType="standard"
             initialRegion={defaultRegion}
-            region={defaultRegion}
             showsUserLocation={locationPermissionStatus === 'granted'}
             showsMyLocationButton={false}
             showsCompass={true}
@@ -771,13 +806,25 @@ export default function MapScreen() {
               // new bottom left: 37.10815778141483, -113.55942540472526
               ]}  />
             )}
-            {mapViewMode === 'directions' && routeCoordinates && routeCoordinates.length > 0 && (
-              <Polyline
-                coordinates={routeCoordinates}
-                strokeColor={primaryColor}
-                strokeWidth={6}
-              />
-            )}
+            {(() => {
+              const shouldRender =
+                mapViewMode === 'directions' && !!routeCoordinates && routeCoordinates.length > 0;
+              // console.log('[Directions] polyline render', {
+              //   mapViewMode,
+              //   routeCoordsLength: routeCoordinates?.length ?? 'null',
+              //   primaryColor,
+              //   shouldRender,
+              // });
+              if (!shouldRender) return null;
+              return (
+                <Polyline
+                  coordinates={routeCoordinates!}
+                  strokeColor={primaryColor}
+                  strokeWidth={6}
+                  zIndex={9999}
+                />
+              );
+            })()}
             {/* Debug: translucent red deadzones (only in Directions view) */}
             {mapViewMode === 'directions' &&
               schoolDeadzones.map((polygon, idx) => (
