@@ -10,9 +10,7 @@ import { StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import HamburgerMenu from '@/components/HamburgerMenu';
-import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
 import { LocationDetailsView } from '@/components/LocationDetailsView';
-import { useRaiseHand } from '@/contexts/RaiseHandContext';
 import { useTourPause } from '@/contexts/TourPauseContext';
 
 
@@ -37,8 +35,6 @@ export default function CurrentLocationScreen() {
   const [currentLocationId, setCurrentLocationId] = useState<string | null>(null);
   
   // Raise hand notification state from shared context
-  const { showModal: showRaiseHandModal, memberName: raiseHandMemberName, dismissModal: dismissRaiseHandModal } = useRaiseHand();
-
   /** All campus locations when the tour is paused or ended (nearest-location UX). */
   const [nearestCampusLocations, setNearestCampusLocations] = useState<Location[]>([]);
   const [nearestCampusLoading, setNearestCampusLoading] = useState(false);
@@ -500,14 +496,6 @@ export default function CurrentLocationScreen() {
         scrollBottomPadding={40}
         showTalkingPoints={isAmbassador}
         showPushedMedia={isAmbassadorLedMember}
-      />
-
-      {/* Raise Hand Notification Modal for Ambassadors */}
-      <RaiseHandNotificationModal
-        visible={showRaiseHandModal}
-        memberName={raiseHandMemberName}
-        primaryColor={primaryColor}
-        onClose={dismissRaiseHandModal}
       />
     </SafeAreaView>
   );

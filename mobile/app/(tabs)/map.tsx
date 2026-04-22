@@ -30,8 +30,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import { LocationMapPin } from '@/components/LocationMapPin';
-import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
-import { useRaiseHand } from '@/contexts/RaiseHandContext';
 import { useTourPause } from '@/contexts/TourPauseContext';
 import { parseDeadzonesFromSchool } from '@/services/deadzones';
 import { fetchWalkingRoute } from '@/services/directionsService';
@@ -94,7 +92,6 @@ export default function MapScreen() {
   const [schoolDeadzones, setSchoolDeadzones] = useState<Array<Array<{ latitude: number; longitude: number }>>>([]);
   
   // Raise hand notification state from shared context
-  const { showModal: showRaiseHandModal, memberName: raiseHandMemberName, dismissModal: dismissRaiseHandModal } = useRaiseHand();
   const { tourPaused, tourFinished, syncTourPausedFromStorage } = useTourPause();
 
   /** Mirror Current tab: tour stops, visited list, geofence / live session "current" id */
@@ -909,14 +906,6 @@ export default function MapScreen() {
           </View>
         </View>
       </Modal>
-
-      {/* Raise Hand Notification Modal for Ambassadors */}
-      <RaiseHandNotificationModal
-        visible={showRaiseHandModal}
-        memberName={raiseHandMemberName}
-        primaryColor={primaryColor}
-        onClose={dismissRaiseHandModal}
-      />
     </SafeAreaView>
   );
 }

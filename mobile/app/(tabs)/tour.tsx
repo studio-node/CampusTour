@@ -12,8 +12,6 @@ import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert }
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HamburgerMenu from '@/components/HamburgerMenu';
-import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
-import { useRaiseHand } from '@/contexts/RaiseHandContext';
 import { useTourPause } from '@/contexts/TourPauseContext';
 
 
@@ -252,9 +250,6 @@ export default function TourScreen() {
   
   // Tour update notification state
   const [tourUpdatedByAmbassador, setTourUpdatedByAmbassador] = useState<boolean>(false);
-  
-  // Raise hand notification state from shared context
-  const { showModal: showRaiseHandModal, memberName: raiseHandMemberName, dismissModal: dismissRaiseHandModal } = useRaiseHand();
   
   // Location tracking and geofencing state
   const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
@@ -1465,14 +1460,6 @@ export default function TourScreen() {
           }
         />
       )}
-      
-      {/* Raise Hand Notification Modal for Ambassadors */}
-      <RaiseHandNotificationModal
-        visible={showRaiseHandModal}
-        memberName={raiseHandMemberName}
-        primaryColor={primaryColor}
-        onClose={dismissRaiseHandModal}
-      />
     </SafeAreaView>
   );
 }

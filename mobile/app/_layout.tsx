@@ -12,8 +12,11 @@ import { cleanupStaleData } from '@/services/stateCleanup';
 import ResumeTourModal from '@/components/ResumeTourModal';
 import { useResumeTour } from '@/hooks/useResumeTour';
 import MediaTakeoverModal from '@/components/MediaTakeoverModal';
-import { RaiseHandProvider } from '@/contexts/RaiseHandContext';
+import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
+import { RaiseHandProvider, useRaiseHand } from '@/contexts/RaiseHandContext';
 import { PushedLocationMediaProvider, usePushedLocationMedia } from '@/contexts/PushedLocationMediaContext';
+import { useState, useEffect as useReactEffect } from 'react';
+import { schoolService } from '@/services/supabase';
 
 function MediaTakeoverModalWrapper() {
   const { takeoverVisible, takeoverMedia, closeTakeover } = usePushedLocationMedia();
@@ -22,6 +25,44 @@ function MediaTakeoverModalWrapper() {
       visible={takeoverVisible}
       media={takeoverMedia}
       onClose={closeTakeover}
+    />
+  );
+}
+
+// Renders the raise-hand modal exactly once at the root so multiple native
+// <Modal>s aren't stacked across tabs. Previously we mounted it per-tab,
+// which left dormant native modal instances blocking touches on the tabs the
+// ambassador didn't dismiss from.
+function RaiseHandNotificationModalWrapper() {
+  const { showModal, memberName, dismissModal } = useRaiseHand();
+  const [primaryColor, setPrimaryColor] = useState<string>('#990000');
+
+  useReactEffect(() => {
+    let cancelled = false;
+    const loadColor = async () => {
+      try {
+        const schoolId = await schoolService.getSelectedSchool();
+        if (!schoolId) return;
+        const school = await schoolService.getSchoolById(schoolId);
+        if (!cancelled && school?.primary_color) {
+          setPrimaryColor(school.primary_color);
+        }
+      } catch (e) {
+        console.error('RaiseHand modal: failed to load school primary color', e);
+      }
+    };
+    if (showModal) loadColor();
+    return () => {
+      cancelled = true;
+    };
+  }, [showModal]);
+
+  return (
+    <RaiseHandNotificationModal
+      visible={showModal}
+      memberName={memberName}
+      primaryColor={primaryColor}
+      onClose={dismissModal}
     />
   );
 }
@@ -77,6 +118,7 @@ export default function RootLayout() {
         <RaiseHandProvider>
           <PushedLocationMediaProvider>
           <MediaTakeoverModalWrapper />
+          <RaiseHandNotificationModalWrapper />
           <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="ambassador-signin" options={{ headerShown: false }} />
