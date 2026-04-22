@@ -60,7 +60,9 @@ function getInterestName(interestId) {
 const locationMedia = ref([])
 const mediaLoading = ref(false)
 const primaryImage = computed(() => locationMedia.value.find(m => m.media_type === 'primaryImage'))
-const additionalMedia = computed(() => locationMedia.value.filter(m => m.media_type === 'additional'))
+// Treat anything that isn't the primary image as additional media so that
+// other media_type values (e.g. 'video') still appear in the list.
+const additionalMedia = computed(() => locationMedia.value.filter(m => m.media_type !== 'primaryImage'))
 
 // Detect video by URL extension (for display)
 function isVideoUrl(url) {

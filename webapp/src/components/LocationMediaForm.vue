@@ -43,7 +43,9 @@ const additionalMedia = ref([])
 
 function partitionMedia() {
   const primary = media.value.find(m => m.media_type === 'primaryImage')
-  const additional = media.value.filter(m => m.media_type === 'additional')
+  // Treat anything that isn't the primary image as additional media so that
+  // other media_type values (e.g. 'video') still appear in the list.
+  const additional = media.value.filter(m => m.media_type !== 'primaryImage')
   primaryImage.value = primary || null
   additionalMedia.value = additional
 }
