@@ -274,6 +274,14 @@ export default function TourDetailsScreen() {
               console.warn('Could not get location for tour ordering:', e);
             }
             ordered = orderTourStopsByNearestFirst(ordered, coords);
+            const orderedIds = ordered.map((l) => l.id);
+
+            // Persist ambassador-visible ordering into Supabase so members can fetch it
+            // from `live_tour_sessions` and match the ambassador's screen.
+            if (tourId) {
+              await leadsService.setLiveTourStructure(tourId, orderedIds);
+            }
+
             // Update app state with the generated tour and save tour ID
             appStateManager.updateState({
               userType: currentUserType,
@@ -297,6 +305,15 @@ export default function TourDetailsScreen() {
             
             // Save state to persist tour ID
             await appStateManager.saveCurrentState();
+
+            // Broadcast the initial tour structure to all group members immediately.
+            // Otherwise members won't see a tour list until the ambassador later edits/saves.
+            if (tourId) {
+              wsManager.send('tour:tour-list-changed', {
+                tourId,
+                newTourStructure: orderedIds,
+              });
+            }
           }
         } catch (e) {
           console.error('Failed to persist generated tour:', e);
@@ -348,6 +365,66 @@ export default function TourDetailsScreen() {
         }
         
         // Navigate to map when tour actually starts
+        router.replace('/map');
+      }
+
+      // Ambassador-led members: server implementations differ in which message indicates tour start.
+      // Handle `tour_started` and `tour_list_changed` as start signals so members move on immediately.
+      if (
+        userType === 'ambassador-led' &&
+        (message?.type === 'tour_started' || message?.type === 'tour_list_changed')
+      ) {
+        const tId = await tourGroupSelectionService.getSelectedTourGroup();
+        const schoolId = await schoolService.getSelectedSchool();
+        const currentUserType = await userTypeService.getUserType();
+
+        // Prefer IDs from the WS payload; fall back to Supabase session if missing.
+        let locationIds: string[] = [];
+        if (Array.isArray(message?.payload?.generated_tour_order)) {
+          locationIds = message.payload.generated_tour_order;
+        } else if (Array.isArray(message?.payload?.newTourStructure)) {
+          locationIds = message.payload.newTourStructure;
+        }
+
+        try {
+          if (!locationIds.length && tId) {
+            const session = await leadsService.getLiveTourSession(tId);
+            if (session?.status === 'active' && Array.isArray(session.live_tour_structure)) {
+              locationIds = session.live_tour_structure;
+            }
+          }
+
+          if (tId && schoolId && locationIds.length) {
+            const allLocations = await locationService.getTourStops(schoolId);
+            const ordered: Location[] = locationIds
+              .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
+              .filter((loc: Location | undefined): loc is Location => Boolean(loc));
+
+            appStateManager.updateState({
+              userType: currentUserType,
+              schoolId,
+              sessionData: {
+                sessionId: '',
+                leadId: await leadsService.getStoredLeadId(),
+                tourAppointmentId: tId,
+              },
+              tourState: {
+                stops: ordered,
+                selectedInterests: [],
+                visitedLocations: [],
+                currentStopIndex: 0,
+                tourStarted: true,
+                tourFinished: false,
+                isEditingTour: false,
+                tourPaused: false,
+              },
+            });
+            await appStateManager.saveCurrentState();
+          }
+        } catch (e) {
+          console.error('Ambassador-led start: failed to load initial structure:', e);
+        }
+
         router.replace('/map');
       }
     };

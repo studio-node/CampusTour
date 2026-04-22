@@ -784,6 +784,30 @@ export const leadsService = {
   },
 
   /**
+   * Update the live tour structure for an active session.
+   * This is used so ambassador-led members can fetch the tour in the same order
+   * as the ambassador sees it (e.g. after nearest-first ordering).
+   */
+  async setLiveTourStructure(tourAppointmentId: string, liveTourStructure: string[]): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('live_tour_sessions')
+        .update({ live_tour_structure: liveTourStructure })
+        .eq('tour_appointment_id', tourAppointmentId);
+
+      if (error) {
+        console.error('Error updating live tour structure:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Exception updating live tour structure:', error);
+      return false;
+    }
+  },
+
+  /**
    * Get joined members for a tour appointment from live_tour_sessions
    * @param tourAppointmentId - The tour appointment ID
    * @returns Promise<string[]> Array of lead IDs that have joined

@@ -1,5 +1,5 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { analyticsService, Location, locationService, schoolService, userTypeService, UserType, tourGroupSelectionService, authService } from '@/services/supabase';
+import { analyticsService, Location, locationService, schoolService, userTypeService, UserType, tourGroupSelectionService, authService, leadsService } from '@/services/supabase';
 import { orderTourStopsByNearestFirst } from '@/services/tourOrderUtils';
 import { wsManager } from '@/services/ws';
 import { appStateManager, PersistedAppState } from '@/services/appStateManager';
@@ -494,6 +494,41 @@ export default function TourScreen() {
       wsManager.off('tour_structure_updated', handleTourStructureUpdated);
     };
   }, [isAmbassadorLedMember, schoolId]);
+
+  // Ambassador-led: if we don't yet have a tour list, load it from the active session.
+  // This covers the "tour started but member didn't receive initial broadcast" case.
+  useEffect(() => {
+    if (!isAmbassadorLedMember) return;
+    if (!schoolId) return;
+    if (tourStops.length > 0) return;
+
+    let cancelled = false;
+    const hydrateFromSession = async () => {
+      try {
+        const tourId = await tourGroupSelectionService.getSelectedTourGroup();
+        if (!tourId) return;
+        const session = await leadsService.getLiveTourSession(tourId);
+        if (cancelled) return;
+        if (session?.status !== 'active') return;
+        if (!Array.isArray(session.live_tour_structure) || session.live_tour_structure.length === 0) return;
+
+        const allLocations = await locationService.getTourStops(schoolId);
+        if (cancelled) return;
+        const orderedLocations: Location[] = session.live_tour_structure
+          .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
+          .filter((loc: Location | undefined): loc is Location => Boolean(loc));
+
+        setTourStops(orderedLocations);
+      } catch (e) {
+        console.error('Ambassador-led: failed to hydrate tour list from session:', e);
+      }
+    };
+
+    hydrateFromSession();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAmbassadorLedMember, schoolId, tourStops.length]);
 
   // Listen for WebSocket events (for ambassadors to confirm their changes)
   useEffect(() => {
