@@ -20,4 +20,13 @@
 
 
 
-RANDY HUNT to talk to for element
+- RANDY HUNT to talk to for element
+- INTEGRATE WITH element
+- Future of Studio Node and it's stability. Will it be supported and maintained
+- Cost for them?
+- Bulk appointment adding and scheduling and editing
+
+
+
+
+
