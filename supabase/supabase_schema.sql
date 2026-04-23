@@ -2518,17 +2518,17 @@ CREATE TABLE IF NOT EXISTS "public"."leads" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "school_id" "uuid" NOT NULL,
-    "name" "text" NOT NULL,
     "identity" "text" DEFAULT ''::"text" NOT NULL,
-    "address" "text" NOT NULL,
     "email" "text" NOT NULL,
     "date_of_birth" "date",
-    "gender" "text",
-    "grad_year" smallint DEFAULT (EXTRACT(year FROM CURRENT_DATE) + (4)::numeric),
     "tour_type" "public"."tour_type",
     "tour_appointment_id" "uuid",
     "appointment_confirmation" "text",
-    "comm_preference" "public"."communication_preference"[]
+    "comm_preference" "public"."communication_preference"[],
+    "first_name" "text" NOT NULL,
+    "last_name" "text" NOT NULL,
+    "expected_attendance" "text",
+    CONSTRAINT "leads_expected_attendance_format" CHECK ((("expected_attendance" IS NULL) OR ("expected_attendance" ~* '^[[:space:]]*(fall|spring|summer)_[0-9]{4}[[:space:]]*$'::"text")))
 );
 
 
@@ -2540,6 +2540,18 @@ COMMENT ON TABLE "public"."leads" IS 'This is the app users, so mostly just here
 
 
 COMMENT ON COLUMN "public"."leads"."tour_appointment_id" IS 'If ambassador-led, what appointment are they apart of';
+
+
+
+COMMENT ON COLUMN "public"."leads"."first_name" IS 'Given name';
+
+
+
+COMMENT ON COLUMN "public"."leads"."last_name" IS 'Family name';
+
+
+
+COMMENT ON COLUMN "public"."leads"."expected_attendance" IS 'Target term to start, e.g. fall_2026, spring_2027, summer_2026';
 
 
 

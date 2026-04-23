@@ -608,15 +608,15 @@ export interface Lead {
   id?: string;
   created_at?: string;
   school_id: string;
-  name: string;
+  first_name: string;
+  last_name: string;
   identity: string;
-  address: string;
   email: string;
   date_of_birth?: string | null;
-  gender?: string | null;
-  grad_year?: number | null;
+  expected_attendance?: string | null;
   tour_type?: string | null;
   tour_appointment_id?: string | null;
+  appointment_confirmation?: string | null;
 }
 
 // Tour participant interface (extended from Lead)
@@ -628,22 +628,22 @@ export interface TourParticipant extends Lead {
 export const leadsService = {
   async createLead(lead: Omit<Lead, 'id' | 'created_at'>): Promise<{ success: boolean; id?: string; error?: string }> {
     try {
-      const { data, error } = await supabase
-        .from('leads')
-        .insert([{
-          school_id: lead.school_id,
-          name: lead.name,
-          identity: lead.identity,
-          address: lead.address,
-          email: lead.email,
-          date_of_birth: lead.date_of_birth,
-          gender: lead.gender,
-          grad_year: lead.grad_year,
-          tour_type: lead.tour_type,
-          tour_appointment_id: lead.tour_appointment_id,
-          created_at: new Date().toISOString()
-        }])
-        .select();
+      const row: Record<string, unknown> = {
+        school_id: lead.school_id,
+        first_name: lead.first_name,
+        last_name: lead.last_name,
+        identity: lead.identity,
+        email: lead.email,
+        date_of_birth: lead.date_of_birth,
+        expected_attendance: lead.expected_attendance ?? null,
+        tour_type: lead.tour_type ?? null,
+        tour_appointment_id: lead.tour_appointment_id,
+        created_at: new Date().toISOString(),
+      };
+      if (lead.appointment_confirmation != null) {
+        row.appointment_confirmation = lead.appointment_confirmation;
+      }
+      const { data, error } = await supabase.from('leads').insert([row]).select();
 
       if (error) {
         console.error('Error creating lead:', error);

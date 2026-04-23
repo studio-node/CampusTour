@@ -337,17 +337,21 @@ async function handleJoinSession(ws, supabase, tourSessions, payload) {
   
   // Notify ambassador with full lead information
   if (session.ambassador && session.ambassador.readyState === 1) {
+    const displayName = [leadInfo.first_name, leadInfo.last_name]
+      .filter(Boolean)
+      .join(' ')
+      .trim() || 'Member';
     session.ambassador.send(JSON.stringify({ 
       type: 'member_joined', 
       lead: {
         id: leadInfo.id,
-        name: leadInfo.name,
+        name: displayName,
+        first_name: leadInfo.first_name,
+        last_name: leadInfo.last_name,
         email: leadInfo.email,
         identity: leadInfo.identity,
-        address: leadInfo.address,
         date_of_birth: leadInfo.date_of_birth,
-        gender: leadInfo.gender,
-        grad_year: leadInfo.grad_year,
+        expected_attendance: leadInfo.expected_attendance,
       }
     }));
   }
@@ -561,12 +565,13 @@ async function handleAmbassadorPing(ws, supabase, session, payload) {
     try {
       const { data: lead, error: leadError } = await supabase
         .from('leads')
-        .select('name')
+        .select('first_name, last_name')
         .eq('id', leadId)
         .single();
       
-      if (!leadError && lead?.name) {
-        memberName = lead.name;
+      if (!leadError && lead) {
+        const n = [lead.first_name, lead.last_name].filter(Boolean).join(' ').trim();
+        if (n) memberName = n;
       }
     } catch (error) {
       console.error('Error fetching lead name for ping:', error);

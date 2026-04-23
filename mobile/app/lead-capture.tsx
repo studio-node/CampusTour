@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ScrollView, 
   StyleSheet, 
@@ -15,48 +15,48 @@ import {
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { leadsService, schoolService, tourGroupSelectionService, userTypeService } from '@/services/supabase';
+import { formatExpectedAttendanceLabel, getExpectedAttendanceOptions } from '@/lib/expectedAttendance';
 
 type Identity = 'prospective-student' | 'friend-family' | 'touring-campus' | '';
-type Gender = 'male' | 'female' | 'non-binary' | 'prefer-not-to-say' | '';
 
 interface UserInfo {
   identity: Identity;
-  name: string;
-  address: string;
+  firstName: string;
+  lastName: string;
   dateOfBirth: string;
   email: string;
-  gender: Gender;
   phone: string;
-  gradYear: string;
+  expectedAttendance: string;
 }
 
 interface FormErrors {
   identity?: string;
-  name?: string;
-  address?: string;
+  firstName?: string;
+  lastName?: string;
   dateOfBirth?: string;
   email?: string;
-  gender?: string;
   phone?: string;
-  gradYear?: string;
+  expectedAttendance?: string;
 }
 
 export default function LeadCaptureScreen() {
   const router = useRouter();
   const [userInfo, setUserInfo] = useState<UserInfo>({
     identity: '',
-    name: '',
-    address: '',
+    firstName: '',
+    lastName: '',
     dateOfBirth: '',
     email: '',
-    gender: '',
     phone: '',
-    gradYear: ''
+    expectedAttendance: '',
   });
 
+  const attendanceOptions = useMemo(() => getExpectedAttendanceOptions(), []);
+
   const [showIdentityModal, setShowIdentityModal] = useState(false);
-  const [showGenderModal, setShowGenderModal] = useState(false);
+  const [showExpectedAttendanceModal, setShowExpectedAttendanceModal] = useState(false);
   const [schoolId, setSchoolId] = useState<string | null>(null);
+  const [schoolName, setSchoolName] = useState('School');
   const [tourAppointmentId, setTourAppointmentId] = useState<string | null>(null);
   const [isAmbassadorLed, setIsAmbassadorLed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,6 +74,11 @@ export default function LeadCaptureScreen() {
         Alert.alert('Error', 'No school selected. Please select a school first.');
         router.back();
         return;
+      }
+
+      const school = await schoolService.getSchoolById(selectedSchoolId);
+      if (school?.name) {
+        setSchoolName(school.name);
       }
       
       setSchoolId(selectedSchoolId);
@@ -93,43 +98,67 @@ export default function LeadCaptureScreen() {
     switch (field) {
       case 'identity':
         return value ? '' : 'Please select your identity';
-      case 'name':
-        return value.trim() ? '' : 'Full name is required';
-      case 'address':
-        return value.trim() ? '' : 'Address is required';
-      case 'email':
+      case 'firstName':
+        return value.trim() ? '' : 'First name is required';
+      case 'lastName':
+        return value.trim() ? '' : 'Last name is required';
+      case 'email': {
         const emailRegex = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
         if (!value.trim()) return 'Email is required';
         if (!emailRegex.test(value)) return 'Please enter a valid email address';
         return '';
+      }
       case 'dateOfBirth':
         if (!value.trim()) return '';
-        const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/\d{4}$/;
-        return dateRegex.test(value) ? '' : 'Please use MM/DD/YYYY format';
-      case 'gradYear':
-        if (!value.trim()) return '';
-        const year = parseInt(value);
-        const currentYear = new Date().getFullYear();
-        if (isNaN(year) || year < currentYear || year > currentYear + 10) {
-          return 'Please enter a valid graduation year';
+        {
+          const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/\d{4}$/;
+          return dateRegex.test(value) ? '' : 'Please use MM/DD/YYYY format';
         }
-        return '';
+      case 'expectedAttendance':
+        if (!value.trim()) return 'Select when you expect to start';
+        return /^(fall|spring|summer)_[0-9]{4}$/i.test(value.trim())
+          ? ''
+          : 'Please select a term';
       default:
         return '';
     }
   };
 
+  const showExtendedLeadFields =
+    isAmbassadorLed || userInfo.identity === 'prospective-student';
+
   const updateUserInfo = (field: keyof UserInfo, value: string) => {
     setUserInfo(prev => ({ ...prev, [field]: value }));
+    if (field === 'identity' && !isAmbassadorLed) {
+      if (value === 'prospective-student') {
+        const err = validateField('identity', value);
+        setErrors((prev) => ({ ...prev, identity: err }));
+      } else {
+        setErrors({ identity: validateField('identity', value) });
+      }
+      return;
+    }
     const error = validateField(field, value);
-    setErrors(prev => ({ ...prev, [field]: error }));
+    setErrors((prev) => ({ ...prev, [field]: error }));
   };
 
   // Check all fields for validation
   const validateAllFields = (): boolean => {
+    if (!showExtendedLeadFields) {
+      const err = validateField('identity', userInfo.identity);
+      if (err) {
+        setErrors({ identity: err });
+      } else {
+        setErrors({});
+      }
+      return !err;
+    }
     const newErrors: FormErrors = {};
-    Object.keys(userInfo).forEach(field => {
-      const error = validateField(field as keyof UserInfo, userInfo[field as keyof UserInfo]);
+    Object.keys(userInfo).forEach((field) => {
+      const error = validateField(
+        field as keyof UserInfo,
+        userInfo[field as keyof UserInfo]
+      );
       if (error) {
         newErrors[field as keyof UserInfo] = error;
       }
@@ -141,26 +170,26 @@ export default function LeadCaptureScreen() {
   const identityOptions = [
     { value: 'prospective-student', label: 'Prospective Student' },
     { value: 'friend-family', label: 'Friends/Family' },
-    { value: 'touring-campus', label: 'Just Touring' }
+    { value: 'touring-campus', label: 'Just Touring' },
   ];
 
-  const genderOptions = [
-    { value: 'male', label: 'Male' },
-    { value: 'female', label: 'Female' },
-    { value: 'non-binary', label: 'Non-binary' },
-    { value: 'prefer-not-to-say', label: 'Prefer not to say' }
-  ];
-
-  // const updateUserInfo = (field: keyof UserInfo, value: string) => {
-  //   setUserInfo(prev => ({ ...prev, [field]: value }));
-  // };
+  const getIdentityLabel = (v: string) =>
+    identityOptions.find((o) => o.value === v)?.label ?? v;
+  const getAttendanceLabel = (v: string) =>
+    attendanceOptions.find((o) => o.value === v)?.label ?? formatExpectedAttendanceLabel(v);
 
   const isFormValid = () => {
-    return userInfo.identity && 
-           userInfo.name.trim() && 
-           userInfo.address.trim() && 
-           userInfo.email.trim() &&
-           Object.values(errors).every(error => !error);
+    if (!userInfo.identity) return false;
+    if (!showExtendedLeadFields) {
+      return !errors.identity;
+    }
+    return (
+      userInfo.firstName.trim() &&
+      userInfo.lastName.trim() &&
+      userInfo.email.trim() &&
+      userInfo.expectedAttendance.trim() &&
+      Object.values(errors).every((error) => !error)
+    );
   };
 
   // Helper function to format date for database (YYYY-MM-DD)
@@ -197,17 +226,23 @@ export default function LeadCaptureScreen() {
     setIsSubmitting(true);
 
     try {
-      // Prepare lead data for database
+      const skipLeadForSelfGuided =
+        !isAmbassadorLed && userInfo.identity !== 'prospective-student';
+      if (skipLeadForSelfGuided) {
+        await leadsService.clearStoredLeadId();
+        router.replace('/(tabs)/map');
+        return;
+      }
+
       const leadData = {
         school_id: schoolId,
-        name: userInfo.name.trim(),
+        first_name: userInfo.firstName.trim(),
+        last_name: userInfo.lastName.trim(),
         identity: userInfo.identity,
-        address: userInfo.address.trim(),
         email: userInfo.email.trim().toLowerCase(),
         date_of_birth: formatDateForDatabase(userInfo.dateOfBirth),
-        gender: userInfo.gender || null,
-        grad_year: userInfo.gradYear.trim() ? parseInt(userInfo.gradYear.trim()) : null,
-        tour_appointment_id: tourAppointmentId
+        expected_attendance: userInfo.expectedAttendance.trim().toLowerCase(),
+        tour_appointment_id: tourAppointmentId,
       };
 
       // Save to database
@@ -254,7 +289,9 @@ export default function LeadCaptureScreen() {
     label: string,
     value: string,
     onPress: () => void,
-    required: boolean = false
+    getDisplay: (v: string) => string,
+    required: boolean = false,
+    fieldError?: string
   ) => (
     <View style={styles.fieldContainer}>
       <Text style={styles.label}>
@@ -262,16 +299,11 @@ export default function LeadCaptureScreen() {
       </Text>
       <TouchableOpacity style={styles.dropdownButton} onPress={onPress}>
         <Text style={[styles.dropdownText, !value && styles.placeholderText]}>
-          {value ? 
-            (label === 'Identity' ? 
-              identityOptions.find(opt => opt.value === value)?.label :
-              genderOptions.find(opt => opt.value === value)?.label
-            ) : 
-            `Select ${label}`
-          }
+          {value ? getDisplay(value) : 'Choose an option'}
         </Text>
         <Text style={styles.dropdownArrow}>▼</Text>
       </TouchableOpacity>
+      {fieldError ? <Text style={styles.errorText}>{fieldError}</Text> : null}
     </View>
   );
 
@@ -279,7 +311,7 @@ export default function LeadCaptureScreen() {
     visible: boolean,
     onClose: () => void,
     title: string,
-    options: Array<{value: string, label: string}>,
+    options: Array<{ value: string; label: string }>,
     onSelect: (value: string) => void
   ) => (
     <Modal
@@ -291,18 +323,24 @@ export default function LeadCaptureScreen() {
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>{title}</Text>
-          {options.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              style={styles.modalOption}
-              onPress={() => {
-                onSelect(option.value);
-                onClose();
-              }}
-            >
-              <Text style={styles.modalOptionText}>{option.label}</Text>
-            </TouchableOpacity>
-          ))}
+          <ScrollView
+            style={styles.modalOptionsScroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
+          >
+            {options.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={styles.modalOption}
+                onPress={() => {
+                  onSelect(option.value);
+                  onClose();
+                }}
+              >
+                <Text style={styles.modalOptionText}>{option.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
           <TouchableOpacity style={styles.modalCancelButton} onPress={onClose}>
             <Text style={styles.modalCancelText}>Cancel</Text>
           </TouchableOpacity>
@@ -344,103 +382,99 @@ export default function LeadCaptureScreen() {
         </Text>
 
         {renderDropdownField(
-          'Identity', 
-          userInfo.identity, 
+          'Identity',
+          userInfo.identity,
           () => setShowIdentityModal(true),
-          true
+          getIdentityLabel,
+          true,
+          errors.identity
         )}
 
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>
-            Full Name <Text style={styles.required}>*</Text>
-          </Text>
-          <TextInput
-            style={[styles.textInput, errors.name ? styles.errorInput : null]}
-            value={userInfo.name}
-            onChangeText={(text) => updateUserInfo('name', text)}
-            placeholder="Enter your full name"
-            placeholderTextColor="#999"
-          />
-          {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
-        </View>
+        {showExtendedLeadFields && (
+          <>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>
+                First name <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={[styles.textInput, errors.firstName ? styles.errorInput : null]}
+                value={userInfo.firstName}
+                onChangeText={(text) => updateUserInfo('firstName', text)}
+                placeholder="First name"
+                placeholderTextColor="#999"
+                autoCapitalize="words"
+              />
+              {errors.firstName && <Text style={styles.errorText}>{errors.firstName}</Text>}
+            </View>
 
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>
-            Address <Text style={styles.required}>*</Text>
-          </Text>
-          <TextInput
-            style={[styles.textInput, errors.address ? styles.errorInput : null]}
-            value={userInfo.address}
-            onChangeText={(text) => updateUserInfo('address', text)}
-            placeholder="Enter your address"
-            placeholderTextColor="#999"
-            multiline={true}
-            numberOfLines={2}
-          />
-          {errors.address && <Text style={styles.errorText}>{errors.address}</Text>}
-        </View>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>
+                Last name <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={[styles.textInput, errors.lastName ? styles.errorInput : null]}
+                value={userInfo.lastName}
+                onChangeText={(text) => updateUserInfo('lastName', text)}
+                placeholder="Last name"
+                placeholderTextColor="#999"
+                autoCapitalize="words"
+              />
+              {errors.lastName && <Text style={styles.errorText}>{errors.lastName}</Text>}
+            </View>
 
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Date of Birth</Text>
-          <TextInput
-            style={[styles.textInput, errors.dateOfBirth ? styles.errorInput : null]}
-            value={userInfo.dateOfBirth}
-            onChangeText={(text) => updateUserInfo('dateOfBirth', text)}
-            placeholder="MM/DD/YYYY"
-            placeholderTextColor="#999"
-          />
-          {errors.dateOfBirth && <Text style={styles.errorText}>{errors.dateOfBirth}</Text>}
-        </View>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Date of Birth</Text>
+              <TextInput
+                style={[styles.textInput, errors.dateOfBirth ? styles.errorInput : null]}
+                value={userInfo.dateOfBirth}
+                onChangeText={(text) => updateUserInfo('dateOfBirth', text)}
+                placeholder="MM/DD/YYYY"
+                placeholderTextColor="#999"
+              />
+              {errors.dateOfBirth && <Text style={styles.errorText}>{errors.dateOfBirth}</Text>}
+            </View>
 
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>
-            Email <Text style={styles.required}>*</Text>
-          </Text>
-          <TextInput
-            style={[styles.textInput, errors.email ? styles.errorInput : null]}
-            value={userInfo.email}
-            onChangeText={(text) => updateUserInfo('email', text)}
-            placeholder="Enter your email"
-            placeholderTextColor="#999"
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-        </View>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>
+                Email <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={[styles.textInput, errors.email ? styles.errorInput : null]}
+                value={userInfo.email}
+                onChangeText={(text) => updateUserInfo('email', text)}
+                placeholder="Enter your email"
+                placeholderTextColor="#999"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+            </View>
 
-        {renderDropdownField(
-          'Gender', 
-          userInfo.gender, 
-          () => setShowGenderModal(true)
+            {renderDropdownField(
+              `Expected ${schoolName} attendance`,
+              userInfo.expectedAttendance,
+              () => setShowExpectedAttendanceModal(true),
+              getAttendanceLabel,
+              true,
+              errors.expectedAttendance
+            )}
+
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Phone Number</Text>
+              <TextInput
+                style={styles.textInput}
+                value={userInfo.phone}
+                onChangeText={(text) => updateUserInfo('phone', text)}
+                placeholder="Enter your phone number (optional)"
+                placeholderTextColor="#999"
+                keyboardType="phone-pad"
+              />
+              <Text style={styles.fieldNote}>
+                Note: Phone number will not be saved to our database
+              </Text>
+            </View>
+          </>
         )}
-
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Phone Number</Text>
-          <TextInput
-            style={styles.textInput}
-            value={userInfo.phone}
-            onChangeText={(text) => updateUserInfo('phone', text)}
-            placeholder="Enter your phone number (optional)"
-            placeholderTextColor="#999"
-            keyboardType="phone-pad"
-          />
-          <Text style={styles.fieldNote}>
-            Note: Phone number will not be saved to our database
-          </Text>
-        </View>
-
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Expected Graduation Year</Text>
-          <TextInput
-            style={[styles.textInput, errors.gradYear ? styles.errorInput : null]}
-            value={userInfo.gradYear}
-            onChangeText={(text) => updateUserInfo('gradYear', text)}
-            placeholder="e.g., 2028"
-            placeholderTextColor="#999"
-            keyboardType="numeric"
-          />
-          {errors.gradYear && <Text style={styles.errorText}>{errors.gradYear}</Text>}
-        </View>
 
         <TouchableOpacity 
           style={[styles.continueButton, (!isFormValid() || isSubmitting) && styles.continueButtonDisabled]} 
@@ -464,11 +498,11 @@ export default function LeadCaptureScreen() {
       )}
 
       {renderModal(
-        showGenderModal,
-        () => setShowGenderModal(false),
-        'Select Gender',
-        genderOptions,
-        (value) => updateUserInfo('gender', value as Gender)
+        showExpectedAttendanceModal,
+        () => setShowExpectedAttendanceModal(false),
+        'Expected first semester of attendance',
+        attendanceOptions,
+        (value) => updateUserInfo('expectedAttendance', value)
       )}
     </KeyboardAvoidingView>
   );
@@ -602,7 +636,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 20,
-    maxHeight: '60%',
+    maxHeight: '75%',
+  },
+  modalOptionsScroll: {
+    maxHeight: 360,
   },
   modalTitle: {
     fontSize: 20,

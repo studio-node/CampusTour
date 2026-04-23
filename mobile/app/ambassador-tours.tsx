@@ -21,6 +21,7 @@ import {
   TourAppointment,
   TourParticipant 
 } from '@/services/supabase';
+import { formatLeadDisplayName } from '@/lib/leadDisplayName';
 import { formatInterest, formatIdentity } from '@/constants/labels';
 import { useResumeTour } from '@/hooks/useResumeTour';
 import ResumeTourModal from '@/components/ResumeTourModal';
@@ -224,7 +225,7 @@ export default function AmbassadorToursScreen() {
   const renderParticipant = (participant: TourParticipant, index: number) => (
     <View key={participant.id || index} style={styles.participantCard}>
       <View style={styles.participantHeader}>
-        <Text style={styles.participantName}>{participant.name}</Text>
+        <Text style={styles.participantName}>{formatLeadDisplayName(participant)}</Text>
         <Text style={styles.participantIdentity}>{formatIdentity(participant.identity)}</Text>
       </View>
       {participant.interests && participant.interests.length > 0 && (

@@ -74,7 +74,7 @@ test('ambassador:ping from member reaches ambassador with lead metadata', async 
   const member = attachClient({ supabase, tourSessions });
 
   supabase.setSingleResponse('leads', leadId, {
-    data: { id: leadId, name: 'Alex Member' },
+    data: { id: leadId, first_name: 'Alex', last_name: 'Member' },
     error: null,
   });
 

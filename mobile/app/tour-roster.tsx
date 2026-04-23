@@ -7,6 +7,7 @@ import {
   TourParticipant,
 } from '@/services/supabase';
 import { formatInterest } from '@/constants/labels';
+import { formatLeadDisplayName } from '@/lib/leadDisplayName';
 import { wsManager } from '@/services/ws';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -32,7 +33,9 @@ function sortRosterRows(participants: TourParticipant[], joinedIds: Set<string>)
   }));
   return rows.sort((a, b) => {
     if (a.isAttending !== b.isAttending) return a.isAttending ? -1 : 1;
-    return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+    return formatLeadDisplayName(a).localeCompare(formatLeadDisplayName(b), undefined, {
+      sensitivity: 'base',
+    });
   });
 }
 
@@ -169,7 +172,7 @@ export default function TourRosterScreen() {
   const renderItem = ({ item }: { item: Row }) => (
     <View style={styles.card}>
       <View style={styles.cardTop}>
-        <Text style={styles.name}>{item.name}</Text>
+        <Text style={styles.name}>{formatLeadDisplayName(item)}</Text>
         <View
           style={[
             styles.badge,
@@ -181,12 +184,6 @@ export default function TourRosterScreen() {
           </Text>
         </View>
       </View>
-      {item.address && (
-        <Text style={styles.metaLine}>
-          <Text style={styles.metaLabel}>Address: </Text>
-          {item.address}
-        </Text>
-      )}
       {item.interests && item.interests.length > 0 ? (
         <View style={styles.interestsBlock}>
           <Text style={styles.metaLabel}>Interests</Text>

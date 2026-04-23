@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { schoolService } from '../services/schoolService.js'
 import { leadsService } from '../services/leadsService.js'
+import { getExpectedAttendanceOptions } from '../utils/expectedAttendance.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -10,14 +11,15 @@ const route = useRoute()
 // Form data
 const userInfo = ref({
   identity: '',
-  name: '',
-  address: '',
+  firstName: '',
+  lastName: '',
   dateOfBirth: '',
   email: '',
-  gender: '',
   phone: '',
-  gradYear: ''
+  expectedAttendance: '',
 })
+
+const attendanceOptions = ref(getExpectedAttendanceOptions())
 
 // State
 const schoolId = ref(null)
@@ -37,13 +39,10 @@ const identityOptions = [
   { value: 'touring-campus', label: 'Just Touring Campus' }
 ]
 
-// Gender options
-const genderOptions = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-  { value: 'non-binary', label: 'Non-binary' },
-  { value: 'prefer-not-to-say', label: 'Prefer not to say' }
-]
+/** Same pattern as mobile lead capture: extra fields only for prospective students. */
+const showExtendedLeadFields = computed(
+  () => userInfo.value.identity === 'prospective-student'
+)
 
 // Get selected school on mount
 onMounted(async () => {
@@ -74,10 +73,10 @@ const validateField = (field, value) => {
   switch (field) {
     case 'identity':
       return value ? '' : 'Please select your identity'
-    case 'name':
-      return value.trim() ? '' : 'Full name is required'
-    case 'address':
-      return value.trim() ? '' : 'Address is required'
+    case 'firstName':
+      return value.trim() ? '' : 'First name is required'
+    case 'lastName':
+      return value.trim() ? '' : 'Last name is required'
     case 'email':
       const emailRegex = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
       if (!value.trim()) return 'Email is required'
@@ -87,14 +86,11 @@ const validateField = (field, value) => {
       if (!value.trim()) return ''
       const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/\d{4}$/
       return dateRegex.test(value) ? '' : 'Please use MM/DD/YYYY format'
-    case 'gradYear':
-      if (!value.trim()) return ''
-      const year = parseInt(value)
-      const currentYear = new Date().getFullYear()
-      if (isNaN(year) || year < currentYear || year > currentYear + 10) {
-        return 'Please enter a valid graduation year'
-      }
-      return ''
+    case 'expectedAttendance':
+      if (!value.trim()) return 'Select when you expect to start'
+      return /^(fall|spring|summer)_[0-9]{4}$/i.test(value.trim())
+        ? ''
+        : 'Please select a term'
     default:
       return ''
   }
@@ -102,10 +98,19 @@ const validateField = (field, value) => {
 
 // Real-time validation
 const validateAllFields = () => {
+  if (!showExtendedLeadFields.value) {
+    const err = validateField('identity', userInfo.value.identity)
+    if (err) {
+      errors.value = { identity: err }
+    } else {
+      errors.value = {}
+    }
+    return !err
+  }
   const newErrors = {}
-  Object.keys(userInfo.value).forEach(field => {
-    const error = validateField(field, userInfo.value[field])
-    if (error) newErrors[field] = error
+  Object.keys(userInfo.value).forEach((field) => {
+    const e = validateField(field, userInfo.value[field])
+    if (e) newErrors[field] = e
   })
   errors.value = newErrors
   return Object.keys(newErrors).length === 0
@@ -113,16 +118,32 @@ const validateAllFields = () => {
 
 // Check if form is valid
 const isFormValid = computed(() => {
-  return userInfo.value.identity &&
-         userInfo.value.name.trim() &&
-         userInfo.value.address.trim() &&
-         userInfo.value.email.trim() &&
-         Object.keys(errors.value).length === 0
+  if (!userInfo.value.identity) return false
+  if (!showExtendedLeadFields.value) {
+    return !errors.value.identity
+  }
+  return (
+    userInfo.value.firstName.trim() &&
+    userInfo.value.lastName.trim() &&
+    userInfo.value.email.trim() &&
+    userInfo.value.expectedAttendance.trim() &&
+    Object.keys(errors.value).length === 0
+  )
 })
 
 // Update field and validate
 const updateField = (field, value) => {
   userInfo.value[field] = value
+  if (field === 'identity' && value !== 'prospective-student') {
+    const err = validateField('identity', value)
+    errors.value = err ? { identity: err } : {}
+    return
+  }
+  if (field === 'identity' && value === 'prospective-student') {
+    const err = validateField('identity', value)
+    errors.value = err ? { identity: err } : {}
+    return
+  }
   const error = validateField(field, value)
   if (error) {
     errors.value[field] = error
@@ -183,16 +204,24 @@ const handleSubmit = async () => {
   success.value = ''
 
   try {
+    if (userInfo.value.identity !== 'prospective-student') {
+      const query = {}
+      if (tourAppointmentId.value) {
+        query.tour_appointment_id = tourAppointmentId.value
+      }
+      await router.push({ path: '/select-interests', query })
+      return
+    }
+
     // Prepare lead data for database
     const leadData = {
       school_id: schoolId.value,
-      name: userInfo.value.name.trim(),
+      first_name: userInfo.value.firstName.trim(),
+      last_name: userInfo.value.lastName.trim(),
       identity: userInfo.value.identity,
-      address: userInfo.value.address.trim(),
       email: userInfo.value.email.trim().toLowerCase(),
       date_of_birth: formatDateForDatabase(userInfo.value.dateOfBirth),
-      gender: userInfo.value.gender || null,
-      grad_year: userInfo.value.gradYear.trim() ? parseInt(userInfo.value.gradYear.trim()) : null,
+      expected_attendance: userInfo.value.expectedAttendance.trim().toLowerCase(),
       tour_type: 'ambassador-led',
       tour_appointment_id: tourAppointmentId.value,
       appointment_confirmation: generateConfirmationCode()
@@ -303,55 +332,52 @@ const handleBack = () => {
           <p v-if="errors.identity" class="mt-1 text-sm text-red-400">{{ errors.identity }}</p>
         </div>
 
+        <template v-if="showExtendedLeadFields">
         <!-- Two Column Layout for larger screens -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <!-- Full Name -->
           <div>
             <label class="block text-sm font-medium text-white mb-2">
-              Full Name <span class="text-red-400">*</span>
+              First name <span class="text-red-400">*</span>
             </label>
             <input
               type="text"
-              :value="userInfo.name"
-              @input="updateField('name', $event.target.value)"
-              placeholder="Enter your full name"
+              :value="userInfo.firstName"
+              @input="updateField('firstName', $event.target.value)"
+              placeholder="First name"
               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              :class="{ 'border-red-500': errors.name }"
+              :class="{ 'border-red-500': errors.firstName }"
             />
-            <p v-if="errors.name" class="mt-1 text-sm text-red-400">{{ errors.name }}</p>
+            <p v-if="errors.firstName" class="mt-1 text-sm text-red-400">{{ errors.firstName }}</p>
           </div>
-
-          <!-- Email -->
           <div>
             <label class="block text-sm font-medium text-white mb-2">
-              Email <span class="text-red-400">*</span>
+              Last name <span class="text-red-400">*</span>
             </label>
             <input
-              type="email"
-              :value="userInfo.email"
-              @input="updateField('email', $event.target.value)"
-              placeholder="Enter your email"
+              type="text"
+              :value="userInfo.lastName"
+              @input="updateField('lastName', $event.target.value)"
+              placeholder="Last name"
               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              :class="{ 'border-red-500': errors.email }"
+              :class="{ 'border-red-500': errors.lastName }"
             />
-            <p v-if="errors.email" class="mt-1 text-sm text-red-400">{{ errors.email }}</p>
+            <p v-if="errors.lastName" class="mt-1 text-sm text-red-400">{{ errors.lastName }}</p>
           </div>
         </div>
 
-        <!-- Address -->
         <div>
           <label class="block text-sm font-medium text-white mb-2">
-            Address <span class="text-red-400">*</span>
+            Email <span class="text-red-400">*</span>
           </label>
-          <textarea
-            :value="userInfo.address"
-            @input="updateField('address', $event.target.value)"
-            placeholder="Enter your address"
-            rows="3"
-            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
-            :class="{ 'border-red-500': errors.address }"
-          ></textarea>
-          <p v-if="errors.address" class="mt-1 text-sm text-red-400">{{ errors.address }}</p>
+          <input
+            type="email"
+            :value="userInfo.email"
+            @input="updateField('email', $event.target.value)"
+            placeholder="Enter your email"
+            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            :class="{ 'border-red-500': errors.email }"
+          />
+          <p v-if="errors.email" class="mt-1 text-sm text-red-400">{{ errors.email }}</p>
         </div>
 
         <!-- Optional Fields Section -->
@@ -375,21 +401,22 @@ const handleBack = () => {
               <p v-if="errors.dateOfBirth" class="mt-1 text-sm text-red-400">{{ errors.dateOfBirth }}</p>
             </div>
 
-            <!-- Gender -->
-            <div>
+            <div class="lg:col-span-2">
               <label class="block text-sm font-medium text-white mb-2">
-                Gender
+                Expected {{ schoolData?.name || 'college' }} attendance <span class="text-red-400">*</span>
               </label>
               <select
-                :value="userInfo.gender"
-                @change="updateField('gender', $event.target.value)"
-                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                :value="userInfo.expectedAttendance"
+                @change="updateField('expectedAttendance', $event.target.value)"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                :class="{ 'border-red-500': errors.expectedAttendance, 'text-gray-400': !userInfo.expectedAttendance, 'text-white': userInfo.expectedAttendance }"
               >
-                <option value="" disabled selected>Select gender</option>
-                <option v-for="option in genderOptions" :key="option.value" :value="option.value">
-                  {{ option.label }}
+                <option value="" disabled selected>Select a term</option>
+                <option class="text-white" v-for="opt in attendanceOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
                 </option>
               </select>
+              <p v-if="errors.expectedAttendance" class="mt-1 text-sm text-red-400">{{ errors.expectedAttendance }}</p>
             </div>
 
             <!-- Phone Number -->
@@ -405,26 +432,9 @@ const handleBack = () => {
                 class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-
-            <!-- Expected Graduation Year -->
-            <div>
-              <label class="block text-sm font-medium text-white mb-2">
-                Expected Graduation Year
-              </label>
-              <input
-                type="number"
-                :value="userInfo.gradYear"
-                @input="updateField('gradYear', $event.target.value)"
-                placeholder="e.g., 2028"
-                min="2024"
-                max="2034"
-                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                :class="{ 'border-red-500': errors.gradYear }"
-              />
-              <p v-if="errors.gradYear" class="mt-1 text-sm text-red-400">{{ errors.gradYear }}</p>
-            </div>
           </div>
         </div>
+        </template>
 
         <!-- Submit Button -->
         <div class="pt-6">

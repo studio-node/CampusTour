@@ -15,13 +15,12 @@ export async function createLead(leadData) {
     // Prepare the data for insertion
     const insertData = {
       school_id: leadData.school_id,
-      name: leadData.name,
+      first_name: leadData.first_name,
+      last_name: leadData.last_name,
       identity: leadData.identity,
-      address: leadData.address,
       email: leadData.email,
       date_of_birth: leadData.date_of_birth,
-      gender: leadData.gender,
-      grad_year: leadData.grad_year,
+      expected_attendance: leadData.expected_attendance ?? null,
       tour_type: leadData.tour_type,
       tour_appointment_id: leadData.tour_appointment_id,
       appointment_confirmation: leadData.appointment_confirmation,

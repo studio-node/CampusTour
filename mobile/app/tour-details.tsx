@@ -10,6 +10,7 @@ import {
   Alert,
   FlatList
 } from 'react-native';
+import { formatLeadDisplayName } from '@/lib/leadDisplayName';
 import {
   tourAppointmentsService,
   tourGroupSelectionService,
@@ -562,7 +563,7 @@ export default function TourDetailsScreen() {
                         return (
                           <View style={styles.memberItem}>
                             <View style={styles.memberInfo}>
-                              <Text style={styles.memberName}>{item.name}</Text>
+                              <Text style={styles.memberName}>{formatLeadDisplayName(item)}</Text>
                               <Text style={styles.memberEmail}>{item.email}</Text>
                               {item.interests && item.interests.length > 0 && (
                                 <Text style={styles.memberInterests}>
