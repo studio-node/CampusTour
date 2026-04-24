@@ -496,6 +496,25 @@ $$;
 ALTER FUNCTION "public"."current_user_is_super_admin"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."generate_general_confirmation_code"() RETURNS "text"
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE
+  chars constant text := 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  result text := '';
+  i int;
+BEGIN
+  FOR i IN 1..6 LOOP
+    result := result || substr(chars, floor(random() * length(chars) + 1)::int, 1);
+  END LOOP;
+  RETURN result;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."generate_general_confirmation_code"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."get_school_users_with_auth"("p_school_id" "uuid") RETURNS TABLE("id" "uuid", "full_name" "text", "email" "text", "role" "text", "is_active" boolean, "created_at" timestamp with time zone, "updated_at" timestamp with time zone, "last_sign_in_at" timestamp with time zone, "creation_token" "text")
     LANGUAGE "sql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -775,6 +794,34 @@ ALTER FUNCTION "public"."sync_profiles_email_to_auth_users"() OWNER TO "postgres
 
 COMMENT ON FUNCTION "public"."sync_profiles_email_to_auth_users"() IS 'Trigger function: sync profiles.email to auth.users when profiles.email is updated.';
 
+
+
+CREATE OR REPLACE FUNCTION "public"."tour_appointments_set_general_confirmation_code"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE
+  code text;
+BEGIN
+  IF NEW.general_confirmation_code IS NOT NULL AND length(NEW.general_confirmation_code) > 0 THEN
+    RETURN NEW;
+  END IF;
+
+  LOOP
+    code := public.generate_general_confirmation_code();
+    EXIT WHEN NOT EXISTS (
+      SELECT 1
+      FROM public.tour_appointments ta
+      WHERE ta.general_confirmation_code = code
+    );
+  END LOOP;
+
+  NEW.general_confirmation_code := code;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."tour_appointments_set_general_confirmation_code"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."update_school_user_profile"("p_target_id" "uuid", "p_full_name" "text" DEFAULT NULL::"text", "p_email" "text" DEFAULT NULL::"text", "p_role" "text" DEFAULT NULL::"text", "p_is_active" boolean DEFAULT NULL::boolean) RETURNS "jsonb"
@@ -2687,6 +2734,7 @@ CREATE TABLE IF NOT EXISTS "public"."tour_appointments" (
     "updated_at" timestamp with time zone DEFAULT "now"(),
     "participants_signed_up" smallint DEFAULT '0'::smallint NOT NULL,
     "max_participants" smallint DEFAULT '30'::smallint,
+    "general_confirmation_code" "text",
     CONSTRAINT "tour_appointments_status_check" CHECK (("status" = ANY (ARRAY['scheduled'::"text", 'active'::"text", 'completed'::"text", 'cancelled'::"text"])))
 );
 
@@ -3045,6 +3093,11 @@ ALTER TABLE ONLY "public"."schools"
 
 
 ALTER TABLE ONLY "public"."tour_appointments"
+    ADD CONSTRAINT "tour_appointments_general_confirmation_code_key" UNIQUE ("general_confirmation_code");
+
+
+
+ALTER TABLE ONLY "public"."tour_appointments"
     ADD CONSTRAINT "tour_appointments_pkey" PRIMARY KEY ("id");
 
 
@@ -3380,6 +3433,10 @@ CREATE OR REPLACE TRIGGER "trigger_increment_location_order_index" BEFORE INSERT
 
 
 CREATE OR REPLACE TRIGGER "trigger_increment_tour_participants" AFTER INSERT ON "public"."leads" FOR EACH ROW EXECUTE FUNCTION "public"."increment_tour_participants"();
+
+
+
+CREATE OR REPLACE TRIGGER "trigger_tour_appointments_set_general_confirmation_code" BEFORE INSERT ON "public"."tour_appointments" FOR EACH ROW EXECUTE FUNCTION "public"."tour_appointments_set_general_confirmation_code"();
 
 
 
@@ -3901,6 +3958,12 @@ GRANT ALL ON FUNCTION "public"."current_user_is_super_admin"() TO "service_role"
 
 
 
+GRANT ALL ON FUNCTION "public"."generate_general_confirmation_code"() TO "anon";
+GRANT ALL ON FUNCTION "public"."generate_general_confirmation_code"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."generate_general_confirmation_code"() TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."get_school_users_with_auth"("p_school_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."get_school_users_with_auth"("p_school_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_school_users_with_auth"("p_school_id" "uuid") TO "service_role";
@@ -3958,6 +4021,12 @@ GRANT ALL ON FUNCTION "public"."signup_with_pin"("p_creation_token" "text", "p_p
 GRANT ALL ON FUNCTION "public"."sync_profiles_email_to_auth_users"() TO "anon";
 GRANT ALL ON FUNCTION "public"."sync_profiles_email_to_auth_users"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."sync_profiles_email_to_auth_users"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."tour_appointments_set_general_confirmation_code"() TO "anon";
+GRANT ALL ON FUNCTION "public"."tour_appointments_set_general_confirmation_code"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."tour_appointments_set_general_confirmation_code"() TO "service_role";
 
 
 

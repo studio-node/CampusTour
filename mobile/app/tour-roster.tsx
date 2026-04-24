@@ -25,6 +25,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Row = TourParticipant & { isAttending: boolean };
+type GeneralRow = {
+  id: string;
+  first_name: string;
+  isGeneral: true;
+  isAttending: true;
+};
+type DisplayRow = Row | GeneralRow;
 
 function sortRosterRows(participants: TourParticipant[], joinedIds: Set<string>): Row[] {
   const rows: Row[] = participants.map((p) => ({
@@ -46,6 +53,7 @@ export default function TourRosterScreen() {
   const [forbidden, setForbidden] = useState(false);
   const [noTour, setNoTour] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
+  const [generalRows, setGeneralRows] = useState<GeneralRow[]>([]);
   const [primaryColor, setPrimaryColor] = useState('#3B82F6');
 
   useEffect(() => {
@@ -86,9 +94,17 @@ export default function TourRosterScreen() {
       ]);
       const joinedSet = new Set(joinedMembers);
       setRows(sortRosterRows(participants, joinedSet));
+
+      // Keep any general members we learned via websocket, but only if still connected per joined_members.
+      setGeneralRows((prev) =>
+        prev
+          .filter((m) => joinedSet.has(m.id))
+          .sort((a, b) => a.first_name.localeCompare(b.first_name, undefined, { sensitivity: 'base' }))
+      );
     } catch (e) {
       console.error('Tour roster: failed to load', e);
       setRows([]);
+      setGeneralRows([]);
     }
   }, []);
 
@@ -100,6 +116,12 @@ export default function TourRosterScreen() {
         setLoading(true);
         try {
           await loadRoster();
+
+          // Ask backend for currently connected general members (name-only).
+          const tourId = await tourGroupSelectionService.getSelectedTourGroup();
+          if (tourId) {
+            wsManager.send('get_members_snapshot', { tourId });
+          }
         } finally {
           if (!cancelled) setLoading(false);
         }
@@ -111,14 +133,43 @@ export default function TourRosterScreen() {
   );
 
   useEffect(() => {
-    const onMemberChange = () => {
+    const onMemberJoined = (msg?: any) => {
+      const member = msg?.member;
+      if (member?.is_general && member?.id && member?.first_name) {
+        setGeneralRows((prev) => {
+          const next = prev.filter((m) => m.id !== member.id);
+          next.push({ id: member.id, first_name: member.first_name, isGeneral: true, isAttending: true });
+          next.sort((a, b) => a.first_name.localeCompare(b.first_name, undefined, { sensitivity: 'base' }));
+          return next;
+        });
+      }
       void loadRoster();
     };
-    wsManager.on('member_joined', onMemberChange);
-    wsManager.on('member_left', onMemberChange);
+    const onMemberLeft = (msg?: any) => {
+      if (msg?.is_general && msg?.leftMemberId) {
+        setGeneralRows((prev) => prev.filter((m) => m.id !== msg.leftMemberId));
+      }
+      void loadRoster();
+    };
+    wsManager.on('member_joined', onMemberJoined);
+    wsManager.on('member_left', onMemberLeft);
+    const onSnapshot = (msg?: any) => {
+      const members = msg?.payload?.generalMembers;
+      if (!Array.isArray(members)) return;
+      setGeneralRows(
+        members
+          .filter((m: any) => m?.id && m?.first_name)
+          .map(
+            (m: any): GeneralRow => ({ id: m.id, first_name: m.first_name, isGeneral: true, isAttending: true })
+          )
+          .sort((a, b) => a.first_name.localeCompare(b.first_name, undefined, { sensitivity: 'base' }))
+      );
+    };
+    wsManager.on('members_snapshot', onSnapshot);
     return () => {
-      wsManager.off('member_joined', onMemberChange);
-      wsManager.off('member_left', onMemberChange);
+      wsManager.off('member_joined', onMemberJoined);
+      wsManager.off('member_left', onMemberLeft);
+      wsManager.off('members_snapshot', onSnapshot);
     };
   }, [loadRoster]);
 
@@ -169,10 +220,12 @@ export default function TourRosterScreen() {
     );
   }
 
-  const renderItem = ({ item }: { item: Row }) => (
+  const renderItem = ({ item }: { item: DisplayRow }) => (
     <View style={styles.card}>
       <View style={styles.cardTop}>
-        <Text style={styles.name}>{formatLeadDisplayName(item)}</Text>
+        <Text style={styles.name}>
+          {'isGeneral' in item ? item.first_name : formatLeadDisplayName(item)}
+        </Text>
         <View
           style={[
             styles.badge,
@@ -184,11 +237,13 @@ export default function TourRosterScreen() {
           </Text>
         </View>
       </View>
-      {item.interests && item.interests.length > 0 ? (
+      {'isGeneral' in item ? (
+        <Text style={styles.noInterests}>General tour member (name only)</Text>
+      ) : item.interests && item.interests.length > 0 ? (
         <View style={styles.interestsBlock}>
           <Text style={styles.metaLabel}>Interests</Text>
           <View style={styles.tags}>
-            {item.interests.map((id) => (
+            {item.interests.map((id: string) => (
               <View key={id} style={[styles.tag, { borderColor: primaryColor }]}>
                 <Text style={styles.tagText}>{formatInterest(id)}</Text>
               </View>
@@ -234,10 +289,10 @@ export default function TourRosterScreen() {
         </View>
       ) : (
         <FlatList
-          data={rows}
+          data={[...generalRows, ...rows]}
           keyExtractor={(item, index) => item.id ?? `row-${index}`}
           renderItem={renderItem}
-          contentContainerStyle={rows.length === 0 ? styles.emptyList : styles.listPad}
+          contentContainerStyle={generalRows.length + rows.length === 0 ? styles.emptyList : styles.listPad}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

@@ -4,6 +4,7 @@ import { clearAllTourData } from '@/services/stateCleanup';
 import { useRouter } from 'expo-router';
 import { 
   leadsService, 
+  generalMemberService,
   locationService, 
   schoolService,
   authService,
@@ -223,10 +224,12 @@ export function useResumeTour(): UseResumeTourReturn {
       // Ensure websocket is connected and join session
       wsManager.connect();
       const leadId = await leadsService.getStoredLeadId();
-      if (leadId) {
+      const generalMember = leadId ? null : await generalMemberService.get();
+      if (leadId || generalMember) {
         // Wait for websocket to open, then join session
         const joinSession = () => {
-          wsManager.send('join_session', { tourId, leadId });
+          if (leadId) wsManager.send('join_session', { tourId, leadId });
+          else if (generalMember) wsManager.send('join_session', { tourId, member: generalMember });
         };
         
         if (wsManager.getStatus() === 'open') {

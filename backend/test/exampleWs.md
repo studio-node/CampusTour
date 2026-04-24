@@ -10,6 +10,19 @@
 }
 // jhlglj: dd4f832d-794d-4452-bb08-1e0e0211a35a
 
+// General Member
+{
+  "type": "join_session",
+  "payload": {
+    "tourId": "cdb9d53f-89de-4a57-8735-a052bfeb3dbc",
+    "member": { "id": "9ce6d936-3f67-4b22-b2a7-fd8ccccb4488", "first_name": "Pp" }
+  }
+}
+
+{
+  "type": "ambassador:ping",
+  "payload": { "tourId": "cdb9d53f-89de-4a57-8735-a052bfeb3dbc" }
+}
 ```
 
 # Ambassador

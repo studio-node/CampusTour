@@ -260,6 +260,13 @@ const SELECTED_SCHOOL_KEY = 'SELECTED_SCHOOL_ID';
 const AUTH_USER_KEY = 'AUTHENTICATED_USER';
 const AUTH_SESSION_KEY = 'AUTH_SESSION_DATA';
 const LEAD_ID_KEY = 'LEAD_ID';
+const GENERAL_MEMBER_ID_KEY = 'GENERAL_MEMBER_ID';
+const GENERAL_MEMBER_FIRST_NAME_KEY = 'GENERAL_MEMBER_FIRST_NAME';
+
+export type GeneralMember = {
+  id: string;
+  first_name: string;
+};
 
 // Region interface for map coordinates
 export interface Region {
@@ -1161,6 +1168,7 @@ export interface TourAppointment {
   max_participants: number;
   participants_signed_up: number;
   qr_code_token?: string;
+  general_confirmation_code?: string | null;
   created_at?: string;
   updated_at?: string;
   profiles?: {
@@ -1283,6 +1291,40 @@ export const tourAppointmentsService = {
   },
 
   /**
+   * Verify whether a provided code matches the appointment's general confirmation code.
+   */
+  async verifyGeneralConfirmationCode(
+    tourAppointmentId: string,
+    code: string
+  ): Promise<{ success: boolean; isGeneralCode?: boolean; error?: string }> {
+    try {
+      const trimmed = (code || '').trim().toUpperCase();
+      if (!trimmed || trimmed.length !== 6) {
+        return { success: false, error: 'Invalid confirmation code' };
+      }
+
+      const { data, error } = await supabase
+        .from('tour_appointments')
+        .select('general_confirmation_code')
+        .eq('id', tourAppointmentId)
+        .single();
+
+      if (error) {
+        console.error('Error verifying general confirmation code:', error);
+        return { success: false, error: 'Failed to verify confirmation code' };
+      }
+
+      const isGeneralCode =
+        (data?.general_confirmation_code || '').toString().trim().toUpperCase() === trimmed;
+
+      return { success: true, isGeneralCode };
+    } catch (e) {
+      console.error('Exception verifying general confirmation code:', e);
+      return { success: false, error: 'Failed to verify confirmation code' };
+    }
+  },
+
+  /**
    * Check if tour appointment has available spots
    * @param appointment - The tour appointment object
    * @returns boolean
@@ -1346,6 +1388,40 @@ export const tourAppointmentsService = {
       };
     }
   }
+};
+
+export const generalMemberService = {
+  async save(member: GeneralMember): Promise<void> {
+    try {
+      await AsyncStorage.setItem(GENERAL_MEMBER_ID_KEY, member.id);
+      await AsyncStorage.setItem(GENERAL_MEMBER_FIRST_NAME_KEY, member.first_name);
+    } catch (e) {
+      console.error('Error saving general member:', e);
+    }
+  },
+  async get(): Promise<GeneralMember | null> {
+    try {
+      const [id, first_name] = await Promise.all([
+        AsyncStorage.getItem(GENERAL_MEMBER_ID_KEY),
+        AsyncStorage.getItem(GENERAL_MEMBER_FIRST_NAME_KEY),
+      ]);
+      if (!id || !first_name) return null;
+      return { id, first_name };
+    } catch (e) {
+      console.error('Error reading general member:', e);
+      return null;
+    }
+  },
+  async clear(): Promise<void> {
+    try {
+      await Promise.all([
+        AsyncStorage.removeItem(GENERAL_MEMBER_ID_KEY),
+        AsyncStorage.removeItem(GENERAL_MEMBER_FIRST_NAME_KEY),
+      ]);
+    } catch (e) {
+      console.error('Error clearing general member:', e);
+    }
+  },
 };
 
 // Storage key for selected tour group

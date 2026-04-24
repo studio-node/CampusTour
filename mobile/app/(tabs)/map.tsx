@@ -4,6 +4,7 @@ import {
   Region,
   analyticsService,
   leadsService,
+  generalMemberService,
   locationService,
   schoolService,
   tourGroupSelectionService,
@@ -377,7 +378,8 @@ export default function MapScreen() {
       const tourId = await tourGroupSelectionService.getSelectedTourGroup();
       if (!tourId) return;
       const leadId = await leadsService.getStoredLeadId();
-      if (!leadId) return;
+      const generalMember = leadId ? null : await generalMemberService.get();
+      if (!leadId && !generalMember) return;
       wsManager.connect();
       const onMessage = (msg: { type?: string; state?: { current_location_id?: string; visited_locations?: string[] } }) => {
         if (msg?.type === 'tour_state_updated' && msg?.state) {
@@ -387,7 +389,8 @@ export default function MapScreen() {
         }
       };
       wsManager.on('message', onMessage);
-      wsManager.send('join_session', { tourId, leadId });
+      if (leadId) wsManager.send('join_session', { tourId, leadId });
+      else if (generalMember) wsManager.send('join_session', { tourId, member: generalMember });
       cleanup = () => {
         wsManager.off('message', onMessage);
       };

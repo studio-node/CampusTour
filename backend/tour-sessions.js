@@ -21,6 +21,7 @@ export function sessionManager(ws, supabase, tourSessions) {
     'tour:media:push-takeover': (payload, session) => handleTourMediaPushTakeover(session, payload),
     'tour:end': (payload, session) => handleTourEnd(ws, supabase, tourSessions, payload.tourId, session),
     'ambassador:ping': async (payload, session) => handleAmbassadorPing(ws, supabase, session, payload),
+    'get_members_snapshot': (payload) => handleGetMembersSnapshot(ws, tourSessions, payload),
   };
 
   ws.on('message', async (message) => {
@@ -70,6 +71,29 @@ export function sessionManager(ws, supabase, tourSessions) {
   });
 
   ws.on('close', () => handleDisconnect(ws, supabase, tourSessions));
+}
+
+function handleGetMembersSnapshot(ws, tourSessions, payload) {
+  const { tourId } = payload || {};
+  if (!tourId) {
+    ws.send(JSON.stringify({ type: 'error', message: 'tourId is required.' }));
+    return;
+  }
+
+  const session = tourSessions.get(tourId);
+  if (!session) {
+    ws.send(JSON.stringify({ type: 'members_snapshot', payload: { tourId, generalMembers: [] } }));
+    return;
+  }
+
+  // Snapshot currently connected general members (name-only).
+  const generalMembers = Array.from(session.members || [])
+    .map((m) => ({ id: m.generalMemberId, first_name: m.generalFirstName }))
+    .filter((m) => !!m.id && !!m.first_name)
+    .map((m) => ({ id: m.id, first_name: m.first_name }))
+    .sort((a, b) => a.first_name.localeCompare(b.first_name, undefined, { sensitivity: 'base' }));
+
+  ws.send(JSON.stringify({ type: 'members_snapshot', payload: { tourId, generalMembers } }));
 }
 
 // --- Helper Functions ---

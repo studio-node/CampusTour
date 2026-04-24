@@ -1,7 +1,6 @@
-- Web app tab thing
-- Restarting app after closing out for self-guided isn't working correctly
-
-
+- It should increment the group members signed up number on the tour appointment
+- Maybe add an event to track when members sign up for appoitnments that aren't students
+- Add form skip to webapp and mobile
 
 
 

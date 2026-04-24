@@ -23,7 +23,8 @@ import {
   locationService,
   Location,
   leadsService,
-  TourParticipant
+  TourParticipant,
+  generalMemberService
 } from '@/services/supabase';
 import { wsManager } from '@/services/ws';
 import { appStateManager } from '@/services/appStateManager';
@@ -142,10 +143,16 @@ export default function TourDetailsScreen() {
               // Ensure websocket is connected and join session before navigating
               wsManager.connect();
               const leadId = await leadsService.getStoredLeadId();
-              if (leadId) {
+              const generalMember = leadId ? null : await generalMemberService.get();
+
+              if (leadId || generalMember) {
                 // Wait for websocket to open, then join session
                 const joinSession = () => {
-                  wsManager.send('join_session', { tourId, leadId });
+                  if (leadId) {
+                    wsManager.send('join_session', { tourId, leadId });
+                  } else if (generalMember) {
+                    wsManager.send('join_session', { tourId, member: generalMember });
+                  }
                 };
                 
                 if (wsManager.getStatus() === 'open') {
@@ -321,30 +328,41 @@ export default function TourDetailsScreen() {
         }
         router.replace('/map');
       }
-      if (userType === 'ambassador' && message?.type === 'member_joined' && message?.lead) {
-        // Add new member to joined set and update participants list
-        const newLead = message.lead;
-        setJoinedMemberIds(prev => new Set([...prev, newLead.id]));
-        
-        // Check if this participant is already in the list
-        setParticipants(prev => {
-          const exists = prev.some(p => p.id === newLead.id);
-          if (exists) {
-            // Update existing participant
-            return prev.map(p => p.id === newLead.id ? { ...p, ...newLead } : p);
-          } else {
-            // Add new participant
-            return [...prev, { ...newLead, interests: [] } as TourParticipant];
-          }
-        });
+      if (userType === 'ambassador' && message?.type === 'member_joined') {
+        const joined = message?.lead || message?.member;
+        if (joined?.id) {
+          setJoinedMemberIds(prev => new Set([...prev, joined.id]));
+
+          // Keep the participant list updated for in-session display
+          setParticipants(prev => {
+            const exists = prev.some(p => p.id === joined.id);
+            const asParticipant: TourParticipant = {
+              id: joined.id,
+              first_name: joined.first_name || joined.name || 'Member',
+              last_name: joined.last_name || '',
+              email: joined.email || '',
+              identity: joined.identity || '',
+              expected_attendance: joined.expected_attendance || null,
+              date_of_birth: joined.date_of_birth || null,
+              interests: [],
+            };
+
+            if (exists) {
+              return prev.map(p => (p.id === joined.id ? { ...p, ...asParticipant } : p));
+            }
+            return [...prev, asParticipant];
+          });
+        }
       }
-      if (userType === 'ambassador' && message?.type === 'member_left' && message?.leadId) {
-        // Remove member from joined set
-        setJoinedMemberIds(prev => {
-          const updated = new Set(prev);
-          updated.delete(message.leadId);
-          return updated;
-        });
+      if (userType === 'ambassador' && message?.type === 'member_left') {
+        const leftId = message?.leadId || message?.leftMemberId;
+        if (leftId) {
+          setJoinedMemberIds(prev => {
+            const updated = new Set(prev);
+            updated.delete(leftId);
+            return updated;
+          });
+        }
       }
       if (userType === 'ambassador-led' && message?.type === 'tour_structure_updated') {
         // Save tour ID and user type when tour starts
@@ -436,20 +454,27 @@ export default function TourDetailsScreen() {
       const tId = await tourGroupSelectionService.getSelectedTourGroup();
       if (userType === 'ambassador-led' && tId) {
         const leadId = await leadsService.getStoredLeadId();
-        if (leadId) {
+        const generalMember = leadId ? null : await generalMemberService.get();
+
+        if (leadId || generalMember) {
+          const join = () => {
+            if (leadId) wsManager.send('join_session', { tourId: tId, leadId });
+            else if (generalMember) wsManager.send('join_session', { tourId: tId, member: generalMember });
+          };
+
           // Wait for websocket to be open before sending
           if (wsManager.getStatus() === 'open') {
-            wsManager.send('join_session', { tourId: tId, leadId });
+            join();
           } else {
             // Wait for connection to open
             const onOpenForJoin = () => {
-              wsManager.send('join_session', { tourId: tId, leadId });
+              join();
               wsManager.off('open', onOpenForJoin);
             };
             wsManager.on('open', onOpenForJoin);
           }
         } else {
-          console.error('No leadId found. Cannot join session.');
+          console.error('No leadId or general member found. Cannot join session.');
         }
       }
     })();

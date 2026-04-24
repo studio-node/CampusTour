@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { schoolService } from '../services/schoolService.js'
 import { leadsService } from '../services/leadsService.js'
+import { tourAppointmentsService } from '../services/tourAppointmentsService.js'
 import { getExpectedAttendanceOptions } from '../utils/expectedAttendance.js'
 
 const router = useRouter()
@@ -208,6 +209,15 @@ const handleSubmit = async () => {
       const query = {}
       if (tourAppointmentId.value) {
         query.tour_appointment_id = tourAppointmentId.value
+        try {
+          const appt = await tourAppointmentsService.getTourAppointmentById(tourAppointmentId.value)
+          if (appt?.general_confirmation_code) {
+            query.confirmation_code = appt.general_confirmation_code
+          }
+        } catch (e) {
+          // Non-prospective users don't create leads; failing to fetch the code shouldn't block them.
+          console.warn('Failed to load general confirmation code:', e)
+        }
       }
       await router.push({ path: '/select-interests', query })
       return

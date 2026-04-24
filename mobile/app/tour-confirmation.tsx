@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import {
   tourAppointmentsService,
@@ -18,9 +19,19 @@ import {
   schoolService,
   School,
   leadsService,
+  generalMemberService,
 } from '@/services/supabase';
 import ConfirmationCodeInput from '@/components/ConfirmationCodeInput';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+
+function uuidv4(): string {
+  // Good-enough UUID v4 for session identity (not cryptographic).
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 export default function TourConfirmationScreen() {
   const router = useRouter();
@@ -29,6 +40,9 @@ export default function TourConfirmationScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [verificationError, setVerificationError] = useState('');
+  const [isGeneralCode, setIsGeneralCode] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [pendingCode, setPendingCode] = useState<string | null>(null);
 
   useEffect(() => {
     const initialize = async () => {
@@ -63,23 +77,53 @@ export default function TourConfirmationScreen() {
 
   const handleConfirmationCodeComplete = async (code: string) => {
     if (!tour) return;
+    setVerificationError('');
+    setIsGeneralCode(false);
+    setPendingCode(null);
     
     try {
-      const result = await leadsService.verifyConfirmationCode(code, tour.id);
+      const normalized = (code || '').trim().toUpperCase();
+      const result = await leadsService.verifyConfirmationCode(normalized, tour.id);
       
       if (result.success && result.lead) {
         // Successfully verified, store the verified lead ID and proceed
         await leadsService.saveLeadId(result.lead.id as string);
+        await generalMemberService.clear();
         
         // Navigate to tour details screen (Join Tour screen)
         router.replace('/tour-details');
       } else {
-        setVerificationError(result.error || 'Invalid confirmation code');
+        // If not a lead confirmation, see if it's the appointment's general confirmation code.
+        const generalCheck = await tourAppointmentsService.verifyGeneralConfirmationCode(tour.id, normalized);
+        if (generalCheck.success && generalCheck.isGeneralCode) {
+          setIsGeneralCode(true);
+          setPendingCode(normalized);
+          setVerificationError('');
+          return;
+        }
+        setVerificationError(result.error || generalCheck.error || 'Invalid confirmation code');
       }
     } catch (error) {
       console.error('Error verifying confirmation code:', error);
       setVerificationError('An error occurred during verification');
     }
+  };
+
+  const handleGeneralMemberContinue = async () => {
+    if (!tour || !pendingCode) return;
+    const trimmed = firstName.trim();
+    if (!trimmed) {
+      setVerificationError('Please enter your first name');
+      return;
+    }
+
+    // Clear any stored lead id; this is a general (non-lead) join.
+    await leadsService.clearStoredLeadId();
+
+    const member = { id: uuidv4(), first_name: trimmed };
+    await generalMemberService.save(member);
+
+    router.replace('/tour-details');
   };
 
   const handleCancelConfirmation = () => {
@@ -144,6 +188,29 @@ export default function TourConfirmationScreen() {
           onCancel={handleCancelConfirmation}
           error={verificationError}
         />
+
+        {isGeneralCode && (
+          <View style={styles.generalMemberSection}>
+            <Text style={styles.generalMemberTitle}>One more thing</Text>
+            <Text style={styles.generalMemberSubtitle}>
+              Enter your first name so the ambassador can identify you on the tour roster.
+            </Text>
+            <TextInput
+              value={firstName}
+              onChangeText={setFirstName}
+              placeholder="First name"
+              placeholderTextColor="#9CA3AF"
+              autoCapitalize="words"
+              autoCorrect={false}
+              style={styles.firstNameInput}
+              returnKeyType="done"
+              onSubmitEditing={handleGeneralMemberContinue}
+            />
+            <TouchableOpacity style={styles.continueButton} onPress={handleGeneralMemberContinue}>
+              <Text style={styles.continueButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -232,5 +299,45 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: 20,
+  },
+  generalMemberSection: {
+    marginTop: 24,
+    paddingHorizontal: 20,
+  },
+  generalMemberTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  generalMemberSubtitle: {
+    fontSize: 14,
+    color: '#ccc',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  firstNameInput: {
+    backgroundColor: '#1F2937',
+    borderColor: '#374151',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    color: '#fff',
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  continueButton: {
+    backgroundColor: '#3B82F6',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  continueButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

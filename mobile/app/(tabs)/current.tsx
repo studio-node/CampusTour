@@ -1,5 +1,5 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { analyticsService, Location, locationService, schoolService, userTypeService, tourGroupSelectionService, leadsService } from '@/services/supabase';
+import { analyticsService, Location, locationService, schoolService, userTypeService, tourGroupSelectionService, leadsService, generalMemberService } from '@/services/supabase';
 import { findNearestLocation } from '@/services/tourOrderUtils';
 import { wsManager } from '@/services/ws';
 import { appStateManager } from '@/services/appStateManager';
@@ -150,8 +150,9 @@ export default function CurrentLocationScreen() {
       const tourId = await tourGroupSelectionService.getSelectedTourGroup();
       if (!tourId) return;
       const leadId = await leadsService.getStoredLeadId();
-      if (!leadId) {
-        console.warn('Current tab: join_session skipped — no leadId for this tour member');
+      const generalMember = leadId ? null : await generalMemberService.get();
+      if (!leadId && !generalMember) {
+        console.warn('Current tab: join_session skipped — no member identity found');
         return;
       }
       wsManager.connect();
@@ -163,7 +164,8 @@ export default function CurrentLocationScreen() {
         }
       };
       wsManager.on('message', onMessage);
-      wsManager.send('join_session', { tourId, leadId });
+      if (leadId) wsManager.send('join_session', { tourId, leadId });
+      else if (generalMember) wsManager.send('join_session', { tourId, member: generalMember });
       cleanup = () => {
         wsManager.off('message', onMessage);
       };
