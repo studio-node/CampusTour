@@ -239,16 +239,34 @@ async function handleCreateSession(ws, supabase, tourSessions, payload) {
 
 
 async function handleJoinSession(ws, supabase, tourSessions, payload) {
-  const { tourId, leadId } = payload;
+  const { tourId, leadId, member } = payload;
   
   if (!tourId) {
     ws.send(JSON.stringify({ type: 'error', message: 'tourId is required to join session.' }));
     return;
   }
 
-  if (!leadId) {
-    ws.send(JSON.stringify({ type: 'error', message: 'leadId is required to join session.' }));
+  const isLeadJoin = !!leadId;
+  const isGeneralJoin = !!member && !leadId;
+
+  if (!isLeadJoin && !isGeneralJoin) {
+    ws.send(JSON.stringify({ type: 'error', message: 'leadId or member is required to join session.' }));
     return;
+  }
+
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const generalMemberId = isGeneralJoin ? member?.id : null;
+  const generalFirstName = isGeneralJoin ? (member?.first_name || '').toString().trim() : '';
+
+  if (isGeneralJoin) {
+    if (!generalMemberId || !uuidRegex.test(generalMemberId)) {
+      ws.send(JSON.stringify({ type: 'error', message: 'Invalid member.id.' }));
+      return;
+    }
+    if (!generalFirstName) {
+      ws.send(JSON.stringify({ type: 'error', message: 'member.first_name is required.' }));
+      return;
+    }
   }
 
   // Ensure session exists (creates if it doesn't) - first person to join creates it
@@ -283,25 +301,27 @@ async function handleJoinSession(ws, supabase, tourSessions, payload) {
     return;
   }
 
-  // Fetch full lead information from database
+  // For leads, fetch full information from database. For general members, we only have the provided name.
   let leadInfo = null;
-  try {
-    const { data: lead, error: leadError } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('id', leadId)
-      .single();
-    
-    if (leadError || !lead) {
-      console.error('Error fetching lead:', leadError);
-      ws.send(JSON.stringify({ type: 'error', message: 'Invalid leadId.' }));
+  if (isLeadJoin) {
+    try {
+      const { data: lead, error: leadError } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', leadId)
+        .single();
+      
+      if (leadError || !lead) {
+        console.error('Error fetching lead:', leadError);
+        ws.send(JSON.stringify({ type: 'error', message: 'Invalid leadId.' }));
+        return;
+      }
+      leadInfo = lead;
+    } catch (error) {
+      console.error('Exception fetching lead:', error);
+      ws.send(JSON.stringify({ type: 'error', message: 'Failed to fetch lead information.' }));
       return;
     }
-    leadInfo = lead;
-  } catch (error) {
-    console.error('Exception fetching lead:', error);
-    ws.send(JSON.stringify({ type: 'error', message: 'Failed to fetch lead information.' }));
-    return;
   }
 
   // Update joined_members array in database (row may be missing if deleted manually while WS session lives on)
@@ -311,13 +331,14 @@ async function handleJoinSession(ws, supabase, tourSessions, payload) {
       console.error('Could not ensure live_tour_sessions row for join; joined_members not persisted');
     } else {
       const currentJoined = row.joined_members || [];
-      if (!currentJoined.includes(leadId)) {
-        const updatedJoined = [...currentJoined, leadId];
+      const idToPersist = isLeadJoin ? leadId : generalMemberId;
+      if (idToPersist && !currentJoined.includes(idToPersist)) {
+        const updatedJoined = [...currentJoined, idToPersist];
         const updated = await updateLiveTourSession(supabase, tourId, { joined_members: updatedJoined });
         if (!updated) {
           console.error('Error updating joined_members after ensure');
         } else {
-          console.log(`Added leadId ${leadId} to joined_members for tour ${tourId}`);
+          console.log(`Added member ${idToPersist} to joined_members for tour ${tourId}`);
         }
       }
     }
@@ -326,34 +347,54 @@ async function handleJoinSession(ws, supabase, tourSessions, payload) {
     // Continue even if update fails - we still want to add them to the session
   }
 
-  // Store leadId on websocket for disconnect handling
-  ws.leadId = leadId;
+  // Store identifiers on websocket for disconnect + ping handling
+  if (isLeadJoin) {
+    ws.leadId = leadId;
+    ws.generalMemberId = null;
+    ws.generalFirstName = null;
+  } else {
+    ws.leadId = null;
+    ws.generalMemberId = generalMemberId;
+    ws.generalFirstName = generalFirstName;
+  }
 
   // Add this websocket as a member (ambassador will be set later on start)
   session.members.add(ws);
   ws.tourId = tourId;
-  console.log(`Client ${ws.id} (leadId: ${leadId}) joined tour: ${tourId}`);
+  console.log(`Client ${ws.id} joined tour: ${tourId} (${isLeadJoin ? `leadId: ${leadId}` : `generalMemberId: ${generalMemberId}`})`);
   ws.send(JSON.stringify({ type: 'session_joined', tourId }));
   
-  // Notify ambassador with full lead information
+  // Notify ambassador with full lead/member information
   if (session.ambassador && session.ambassador.readyState === 1) {
-    const displayName = [leadInfo.first_name, leadInfo.last_name]
-      .filter(Boolean)
-      .join(' ')
-      .trim() || 'Member';
-    session.ambassador.send(JSON.stringify({ 
-      type: 'member_joined', 
-      lead: {
-        id: leadInfo.id,
-        name: displayName,
-        first_name: leadInfo.first_name,
-        last_name: leadInfo.last_name,
-        email: leadInfo.email,
-        identity: leadInfo.identity,
-        date_of_birth: leadInfo.date_of_birth,
-        expected_attendance: leadInfo.expected_attendance,
-      }
-    }));
+    if (isLeadJoin && leadInfo) {
+      const displayName = [leadInfo.first_name, leadInfo.last_name]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || 'Member';
+      session.ambassador.send(JSON.stringify({ 
+        type: 'member_joined', 
+        lead: {
+          id: leadInfo.id,
+          name: displayName,
+          first_name: leadInfo.first_name,
+          last_name: leadInfo.last_name,
+          email: leadInfo.email,
+          identity: leadInfo.identity,
+          date_of_birth: leadInfo.date_of_birth,
+          expected_attendance: leadInfo.expected_attendance,
+        }
+      }));
+    } else {
+      session.ambassador.send(JSON.stringify({
+        type: 'member_joined',
+        member: {
+          id: generalMemberId,
+          name: generalFirstName,
+          first_name: generalFirstName,
+          is_general: true,
+        }
+      }));
+    }
   }
 }
 
@@ -555,13 +596,17 @@ function handleTourMediaPushTakeover(session, payload) {
 }
 
 async function handleAmbassadorPing(ws, supabase, session, payload) {
-  console.log(`Member ${ws.id} is pinging the ambassador for tour ${session.ambassador.tourId}`);
+  console.log(`Member ${ws.id} is pinging the ambassador`);
   
   // Fetch lead information to get the member's name
   let memberName = 'A member';
   const leadId = ws.leadId;
+  const generalFirstName = ws.generalFirstName;
+  const generalMemberId = ws.generalMemberId;
   
-  if (leadId) {
+  if (generalFirstName) {
+    memberName = generalFirstName;
+  } else if (leadId) {
     try {
       const { data: lead, error: leadError } = await supabase
         .from('leads')
@@ -586,6 +631,7 @@ async function handleAmbassadorPing(ws, supabase, session, payload) {
       payload: {
         memberId: ws.id,
         leadId: leadId || null,
+        generalMemberId: generalMemberId || null,
         memberName: memberName,
         message: payload.message || `${memberName} needs your attention.`
       }
@@ -596,6 +642,7 @@ async function handleAmbassadorPing(ws, supabase, session, payload) {
 async function handleDisconnect(ws, supabase, tourSessions) {
   console.log(`Client ${ws.id} disconnected`);
   const { tourId, leadId } = ws;
+  const generalMemberId = ws.generalMemberId;
   if (tourId) {
     const session = tourSessions.get(tourId);
     if (session) {
@@ -620,19 +667,20 @@ async function handleDisconnect(ws, supabase, tourSessions) {
         // - Delete the session
       } else if (session.members.has(ws)) {
         session.members.delete(ws);
-        console.log(`Member ${ws.id} (leadId: ${leadId}) left tour ${tourId}.`);
+        console.log(`Member ${ws.id} left tour ${tourId}.`);
         
-        // Remove leadId from joined_members array in database
-        if (leadId) {
+        // Remove member id from joined_members array in database
+        const idToRemove = leadId || generalMemberId;
+        if (idToRemove) {
           try {
             const row = await ensureLiveTourSessionRow(supabase, tourId, {});
             if (row?.joined_members?.length) {
-              const updatedJoined = row.joined_members.filter(id => id !== leadId);
+              const updatedJoined = row.joined_members.filter(id => id !== idToRemove);
               const updated = await updateLiveTourSession(supabase, tourId, { joined_members: updatedJoined });
               if (!updated) {
                 console.error('Error removing leadId from joined_members after ensure');
               } else {
-                console.log(`Removed leadId ${leadId} from joined_members for tour ${tourId}`);
+                console.log(`Removed member ${idToRemove} from joined_members for tour ${tourId}`);
               }
             }
           } catch (error) {
@@ -645,7 +693,9 @@ async function handleDisconnect(ws, supabase, tourSessions) {
           session.ambassador.send(JSON.stringify({ 
             type: 'member_left', 
             leadId: leadId || null,
-            memberId: ws.id 
+            leftMemberId: idToRemove || null,
+            is_general: !!(generalMemberId && !leadId),
+            socketMemberId: ws.id 
           }));
         }
       }
