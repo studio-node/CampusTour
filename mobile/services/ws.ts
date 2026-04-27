@@ -8,12 +8,16 @@ type WebSocketMessage = {
 
 type ConnectionStatus = 'idle' | 'connecting' | 'open' | 'closed' | 'error';
 
+const DEFAULT_WS_URL =
+  process.env.EXPO_PUBLIC_WS_URL ||
+  'wss://campustourbackend.onrender.com';
+
 class WebSocketManager {
   private static instance: WebSocketManager;
   private socket: WebSocket | null = null;
   private emitter = new EventEmitter();
   private status: ConnectionStatus = 'idle';
-  private url = 'wss://campustourbackend.onrender.com';
+  private url = DEFAULT_WS_URL;
   private ambassadorId: string | null = null;
 
   static getInstance(): WebSocketManager {
