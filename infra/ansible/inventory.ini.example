@@ -1,3 +1,0 @@
-[staging]
-staging1 ansible_host=REPLACE_ME ansible_user=ubuntu
-
