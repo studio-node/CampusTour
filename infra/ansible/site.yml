@@ -1,0 +1,159 @@
+---
+- name: Provision CampusTour staging app host
+  hosts: staging
+  become: true
+  vars:
+    node_major: "20"
+    web_root: "/var/www/campustour"
+    env_dir: "/etc/campustour"
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install base packages
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - git
+          - nginx
+          - build-essential
+        state: present
+
+    - name: Add NodeSource apt repo (Node.js {{ node_major }})
+      ansible.builtin.shell: |
+        set -euo pipefail
+        curl -fsSL https://deb.nodesource.com/setup_{{ node_major }}.x | bash -
+      args:
+        creates: "/etc/apt/sources.list.d/nodesource.list"
+
+    - name: Install Node.js
+      ansible.builtin.apt:
+        name: nodejs
+        state: present
+
+    - name: Create campustour system user
+      ansible.builtin.user:
+        name: campustour
+        system: true
+        create_home: true
+        shell: /bin/bash
+
+    - name: Ensure env directory exists
+      ansible.builtin.file:
+        path: "{{ env_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Write backend env file
+      ansible.builtin.template:
+        src: "templates/backend_env.j2"
+        dest: "{{ env_dir }}/backend.env"
+        owner: root
+        group: root
+        mode: "0640"
+
+    - name: Ensure app dir exists
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: campustour
+        group: campustour
+        mode: "0755"
+
+    - name: Clone repo
+      ansible.builtin.git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        version: "{{ repo_ref }}"
+        force: true
+      become_user: campustour
+
+    - name: Install backend dependencies (npm ci)
+      ansible.builtin.command: npm ci
+      args:
+        chdir: "{{ app_dir }}/backend"
+      become_user: campustour
+
+    - name: Install webapp dependencies (npm ci)
+      ansible.builtin.command: npm ci
+      args:
+        chdir: "{{ app_dir }}/webapp"
+      become_user: campustour
+
+    - name: Build webapp (Vite)
+      ansible.builtin.command: npm run build
+      args:
+        chdir: "{{ app_dir }}/webapp"
+      environment:
+        VITE_SUPABASE_URL: "{{ vite_supabase_url }}"
+        VITE_SUPABASE_ANON_KEY: "{{ vite_supabase_anon_key }}"
+      become_user: campustour
+
+    - name: Ensure web root exists
+      ansible.builtin.file:
+        path: "{{ web_root }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Sync webapp dist -> web root
+      ansible.builtin.copy:
+        src: "{{ app_dir }}/webapp/dist/"
+        dest: "{{ web_root }}/"
+        owner: root
+        group: root
+        mode: "0644"
+        remote_src: true
+
+    - name: Install systemd service for backend
+      ansible.builtin.template:
+        src: "templates/campustour-backend.service.j2"
+        dest: "/etc/systemd/system/campustour-backend.service"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Enable and restart backend service
+      ansible.builtin.systemd:
+        name: campustour-backend
+        enabled: true
+        state: restarted
+
+    - name: Configure nginx site
+      ansible.builtin.template:
+        src: "templates/nginx-campustour.conf.j2"
+        dest: "/etc/nginx/sites-available/campustour"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Enable nginx site
+      ansible.builtin.file:
+        src: "/etc/nginx/sites-available/campustour"
+        dest: "/etc/nginx/sites-enabled/campustour"
+        state: link
+        force: true
+
+    - name: Disable default nginx site if present
+      ansible.builtin.file:
+        path: "/etc/nginx/sites-enabled/default"
+        state: absent
+
+    - name: Test nginx config
+      ansible.builtin.command: nginx -t
+
+    - name: Restart nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: restarted
+

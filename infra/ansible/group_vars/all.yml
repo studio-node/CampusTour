@@ -1,0 +1,16 @@
+repo_url: "https://github.com/CHANGEME/CHANGEME.git"
+repo_ref: "main"
+
+app_dir: "/opt/campus-tour"
+
+backend_port: 3000
+
+# Backend runtime env (written to /etc/campustour/backend.env)
+supabase_url: "CHANGEME"
+supabase_service_role_key: "CHANGEME"
+node_env: "DEV"
+
+# Webapp build-time env (used during `npm run build` in webapp/)
+vite_supabase_url: "CHANGEME"
+vite_supabase_anon_key: "CHANGEME"
+
