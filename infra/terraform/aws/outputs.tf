@@ -10,6 +10,6 @@ output "ssh_command" {
 
 output "ansible_inventory_snippet" {
   description = "Convenience inventory line for infra/ansible/inventory.ini"
-  value       = "staging ansible_host=${aws_instance.staging.public_ip} ansible_user=ubuntu ansible_ssh_private_key_file=<path_to_private_key>"
+  value       = "staging ansible_host=${aws_instance.staging.public_ip} ansible_user=ubuntu"
 }
 

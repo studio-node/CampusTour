@@ -1,6 +1,6 @@
 ---
 - name: Provision CampusTour staging app host
-  hosts: campustour_staging
+  hosts: staging
   become: true
   vars:
     node_major: "20"
@@ -27,7 +27,6 @@
         set -euo pipefail
         curl -fsSL https://deb.nodesource.com/setup_{{ node_major }}.x | bash -
       args:
-        executable: /bin/bash
         creates: "/etc/apt/sources.list.d/nodesource.list"
 
     - name: Install Node.js
@@ -47,7 +46,7 @@
         path: "{{ env_dir }}"
         state: directory
         owner: root
-        group: campustour
+        group: root
         mode: "0750"
 
     - name: Write backend env file
@@ -55,7 +54,7 @@
         src: "templates/backend_env.j2"
         dest: "{{ env_dir }}/backend.env"
         owner: root
-        group: campustour
+        group: root
         mode: "0640"
 
     - name: Ensure app dir exists
@@ -66,64 +65,25 @@
         group: campustour
         mode: "0755"
 
-    # Git refuses to run as root in a repo owned by another user unless explicitly allowed.
-    - name: Allow git safe.directory for app checkout (root running Ansible git module)
-      ansible.builtin.shell: |
-        set -euo pipefail
-        if git config --system --get-all safe.directory | grep -Fxq "{{ app_dir }}"; then
-          exit 0
-        fi
-        git config --system --add safe.directory "{{ app_dir }}"
-      args:
-        executable: /bin/bash
-      changed_when: false
-
-    - name: Check existing git origin (if any)
-      ansible.builtin.command: git -C "{{ app_dir }}" remote get-url origin
-      register: campustour_existing_git_origin
-      changed_when: false
-      failed_when: false
-
-    - name: Remove invalid git metadata (missing origin / wrong remote)
-      ansible.builtin.file:
-        path: "{{ app_dir }}/.git"
-        state: absent
-      when: >
-        campustour_existing_git_origin.rc != 0
-        or (campustour_existing_git_origin.stdout | default('') | trim) != (repo_url | trim)
-
     - name: Clone repo
       ansible.builtin.git:
         repo: "{{ repo_url }}"
         dest: "{{ app_dir }}"
         version: "{{ repo_ref }}"
         force: true
-
-    - name: Ensure repo checkout is owned by campustour
-      ansible.builtin.file:
-        path: "{{ app_dir }}"
-        state: directory
-        owner: campustour
-        group: campustour
-        recurse: true
+      become_user: campustour
 
     - name: Install backend dependencies (npm ci)
       ansible.builtin.command: npm ci
       args:
         chdir: "{{ app_dir }}/backend"
-
-    - name: Ensure backend files are owned by campustour
-      ansible.builtin.file:
-        path: "{{ app_dir }}/backend"
-        state: directory
-        owner: campustour
-        group: campustour
-        recurse: true
+      become_user: campustour
 
     - name: Install webapp dependencies (npm ci)
       ansible.builtin.command: npm ci
       args:
         chdir: "{{ app_dir }}/webapp"
+      become_user: campustour
 
     - name: Build webapp (Vite)
       ansible.builtin.command: npm run build
@@ -132,14 +92,7 @@
       environment:
         VITE_SUPABASE_URL: "{{ vite_supabase_url }}"
         VITE_SUPABASE_ANON_KEY: "{{ vite_supabase_anon_key }}"
-
-    - name: Ensure webapp files are owned by campustour
-      ansible.builtin.file:
-        path: "{{ app_dir }}/webapp"
-        state: directory
-        owner: campustour
-        group: campustour
-        recurse: true
+      become_user: campustour
 
     - name: Ensure web root exists
       ansible.builtin.file:
@@ -157,22 +110,6 @@
         group: root
         mode: "0644"
         remote_src: true
-
-    - name: Ensure nginx can traverse /var/www to reach docroot
-      ansible.builtin.file:
-        path: /var/www
-        state: directory
-        owner: root
-        group: root
-        mode: "0755"
-
-    - name: Ensure nginx can read static site files
-      ansible.builtin.shell: |
-        set -euo pipefail
-        find "{{ web_root }}" -type d -exec chmod 755 {} +
-        find "{{ web_root }}" -type f -exec chmod 644 {} +
-      args:
-        executable: /bin/bash
 
     - name: Install systemd service for backend
       ansible.builtin.template:
