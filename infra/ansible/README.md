@@ -4,6 +4,8 @@ This playbook configures an Ubuntu EC2 host to run:
 - `backend/` as a systemd service on localhost (`{{ backend_port }}`) and proxied via Nginx at `/api/*`
 - `webapp/` built via Vite and served as static files at `/`
 
+The inventory group is `campustour_staging` (host name can still be `staging`).
+
 ## Prereqs (your machine)
 - Ansible installed
 - SSH access to the EC2 instance (`ubuntu` user + your private key)

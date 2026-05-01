@@ -6,8 +6,8 @@ After=network.target
 Type=simple
 User=campustour
 WorkingDirectory={{ app_dir }}/backend
-EnvironmentFile=/etc/campustour/backend.env
-ExecStart=/usr/bin/npm start
+# Bypass `npm start` so we don't depend on ./backend/.env existing (repo uses `node --env-file=.env`).
+ExecStart=/usr/bin/node --env-file={{ env_dir }}/backend.env index.js
 Restart=always
 RestartSec=3
 
