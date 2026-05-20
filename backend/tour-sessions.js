@@ -1,6 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { createLiveTourSession, updateLiveTourSession, getLocations, ensureLiveTourSessionRow } from './supabase.mjs';
-import GeminiCaller from './gemini_caller.mjs';
+import { createLiveTourSession, updateLiveTourSession, ensureLiveTourSessionRow } from './supabase.mjs';
 
 // --- Main Session Manager ---
 
@@ -13,7 +12,7 @@ export function sessionManager(ws, supabase, tourSessions) {
     'auth': async (payload) => handleAuth(ws, supabase, payload),
     'create_session': (payload) => handleCreateSession(ws, supabase, tourSessions, payload),
     'join_session': (payload) => handleJoinSession(ws, supabase, tourSessions, payload),
-    'tour:start': (payload, session) => handleTourStart(ws, supabase, tourSessions, payload.tourId, session),
+    'tour:start': (payload, session) => handleTourStart(ws, supabase, payload, session),
     'tour:state_update': (payload, session) => handleTourStateUpdate(supabase, session, payload),
     'tour:structure_update': (payload, session) => handleTourStructureUpdate(supabase, session, payload),
     'tour:tour-list-changed': (payload, session) => handleTourListChanged(supabase, session, payload),
@@ -422,66 +421,101 @@ async function handleJoinSession(ws, supabase, tourSessions, payload) {
   }
 }
 
-async function handleTourStart(ws, supabase, tourSessions, tourId, session) {
+function extractLocationIdsFromTemplateStops(stopsJson) {
+  if (!Array.isArray(stopsJson)) {
+    return [];
+  }
+  const ids = [];
+  for (const stop of stopsJson) {
+    let id = null;
+    if (typeof stop === 'string') {
+      id = stop;
+    } else if (stop && typeof stop === 'object') {
+      id = stop.location_id || stop.id || null;
+    }
+    if (isValidUuid(id) && !ids.includes(id)) {
+      ids.push(id);
+    }
+  }
+  return ids;
+}
+
+async function handleTourStart(ws, supabase, payload, session) {
+  const tourId = payload?.tourId;
+  const payloadTemplateId = payload?.preconfiguredTourId || null;
+  if (!tourId) {
+    ws.send(JSON.stringify({ type: 'error', message: 'tourId is required.' }));
+    return;
+  }
   console.log(`Starting tour ${tourId}`);
   // Bind ambassador to this session if not set yet
   if (!session.ambassador) {
     session.ambassador = ws;
   }
-  // Aggregate interests and generate tour ordering now
+
+  let selectedTemplate = null;
   let generatedOrder = [];
-  let interestsUsed = [];
   try {
     const { data: tourAppt, error: tourApptError } = await supabase
       .from('tour_appointments')
-      .select('school_id')
+      .select(`
+        school_id,
+        preconfigured_tour_id,
+        preconfigured_tours (
+          id,
+          name,
+          stops_json
+        )
+      `)
       .eq('id', tourId)
       .single();
-    if (!tourApptError && tourAppt?.school_id) {
-      const schoolId = tourAppt.school_id;
-      const { data: interestEvents } = await supabase
-        .from('analytics_events')
-        .select('metadata')
-        .eq('event_type', 'interests-chosen')
-        .eq('tour_appointment_id', tourId);
-      if (Array.isArray(interestEvents) && interestEvents.length > 0) {
-        const allInterests = interestEvents
-          .map(evt => Array.isArray(evt?.metadata?.selected_interests) ? evt.metadata.selected_interests : [])
-          .flat()
-          .filter(Boolean);
-        interestsUsed = Array.from(new Set(allInterests));
-      }
-      const locations = await getLocations(schoolId, supabase);
-      const locsArray = Array.isArray(locations) ? locations.map(location => ({
-        id: location.id,
-        name: location.name,
-        description: location.description,
-        interests: location.interests,
-      })) : [];
-      if (interestsUsed.length > 0) {
-        try {
-          generatedOrder = await GeminiCaller.generateTour(locsArray, interestsUsed);
-        } catch (e) {
-          console.error('Tour generation on start failed:', e);
-        }
+    if (tourApptError || !tourAppt?.school_id) {
+      throw new Error('Failed to load tour appointment for start.');
+    }
+
+    selectedTemplate = tourAppt.preconfigured_tours || null;
+
+    // Allow explicit payload override for impromptu flow edge-cases where relation is stale.
+    if ((!selectedTemplate || selectedTemplate.id !== payloadTemplateId) && payloadTemplateId) {
+      const { data: overrideTemplate, error: templateError } = await supabase
+        .from('preconfigured_tours')
+        .select('id, name, stops_json, school_id, is_active')
+        .eq('id', payloadTemplateId)
+        .eq('school_id', tourAppt.school_id)
+        .eq('is_active', true)
+        .single();
+      if (!templateError && overrideTemplate) {
+        selectedTemplate = overrideTemplate;
       }
     }
+
+    generatedOrder = extractLocationIdsFromTemplateStops(selectedTemplate?.stops_json || []);
+    if (!generatedOrder.length) {
+      throw new Error('Selected preconfigured tour does not contain valid location IDs.');
+    }
   } catch (e) {
-    console.error('Error generating tour on start:', e);
+    console.error('Error loading preconfigured tour on start:', e);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Unable to start tour. This tour needs a valid preconfigured template.'
+    }));
+    return;
   }
 
-  // Persist session as active and save generated structure (just location IDs)
+  // Persist session as active and save template snapshot (location IDs only).
   await updateLiveTourSession(supabase, tourId, {
     status: 'active',
-    live_tour_structure: generatedOrder, // Just the array of location IDs
+    live_tour_structure: generatedOrder,
   });
 
-  // Return generated tour to ambassador (just the array of location IDs)
+  // Return selected template snapshot to ambassador.
   ws.send(JSON.stringify({
     type: 'tour_started',
     payload: {
       tourId,
-      generated_tour_order: generatedOrder, // Array of location IDs
+      generated_tour_order: generatedOrder,
+      preconfigured_tour_id: selectedTemplate?.id || null,
+      preconfigured_tour_name: selectedTemplate?.name || null,
     }
   }));
 
@@ -489,7 +523,7 @@ async function handleTourStart(ws, supabase, tourSessions, tourId, session) {
   if (session && session.members) {
     broadcastToMembers(session, {
       type: 'tour_structure_updated',
-      changes: { new_structure: generatedOrder } // Just the array of location IDs
+      changes: { new_structure: generatedOrder }
     });
   }
 }

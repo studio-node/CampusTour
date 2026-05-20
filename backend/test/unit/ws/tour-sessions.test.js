@@ -22,7 +22,7 @@ test('join_session requires tourId and leadId', async () => {
   assert.equal(ws.sentMessages[0].type, 'error');
   assert.match(ws.sentMessages[0].message, /tourId is required/i);
   assert.equal(ws.sentMessages[1].type, 'error');
-  assert.match(ws.sentMessages[1].message, /leadId is required/i);
+  assert.match(ws.sentMessages[1].message, /leadId or member is required/i);
 });
 
 test('non-ambassador cannot send tour mutation events', async () => {
@@ -46,7 +46,19 @@ test('tour:start sent by ambassador broadcasts structure update to members', asy
   const tourSessions = new Map();
 
   supabase.setSingleResponse('tour_appointments', tourId, {
-    data: { school_id: 'school-1', ambassador_id: 'amb-1' },
+    data: {
+      school_id: 'school-1',
+      ambassador_id: 'amb-1',
+      preconfigured_tour_id: 'template-1',
+      preconfigured_tours: {
+        id: 'template-1',
+        name: 'Campus Highlights',
+        stops_json: [
+          { location_id: '11111111-1111-4111-8111-111111111111' },
+          { location_id: '22222222-2222-4222-8222-222222222222' },
+        ],
+      },
+    },
     error: null,
   });
 
