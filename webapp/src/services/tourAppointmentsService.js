@@ -24,6 +24,10 @@ export async function listAppointmentsForSchool({ schoolId, startIso, endIso } =
         id,
         full_name,
         email
+      ),
+      preconfigured_tours (
+        id,
+        name
       )
     `)
     .eq('school_id', schoolId)
@@ -52,6 +56,10 @@ export async function createAppointment(payload) {
         id,
         full_name,
         email
+      ),
+      preconfigured_tours (
+        id,
+        name
       )
     `)
     .maybeSingle()
@@ -80,6 +88,10 @@ export async function updateAppointment(appointmentId, patch) {
         id,
         full_name,
         email
+      ),
+      preconfigured_tours (
+        id,
+        name
       )
     `)
     .maybeSingle()
@@ -142,6 +154,10 @@ export async function listMyScheduledAppointments({ startIso } = {}) {
         id,
         full_name,
         email
+      ),
+      preconfigured_tours (
+        id,
+        name
       )
     `)
     .eq('status', 'scheduled')
@@ -167,6 +183,10 @@ export async function getAvailableTourGroups(schoolId) {
         *,
         profiles (
           full_name
+        ),
+        preconfigured_tours (
+          id,
+          name
         )
       `)
       .eq('school_id', schoolId)
@@ -199,6 +219,10 @@ export async function getTourAppointmentById(appointmentId) {
         profiles (
           id,
           full_name
+        ),
+        preconfigured_tours (
+          id,
+          name
         )
       `)
       .eq('id', appointmentId)
@@ -281,6 +305,74 @@ export function formatTourDateTime(scheduledDate) {
   }
 }
 
+/**
+ * List preconfigured tours for a school.
+ * @param {string} schoolId
+ * @returns {Promise<Array>}
+ */
+export async function listPreconfiguredToursForSchool(schoolId) {
+  if (!schoolId) throw new Error('schoolId is required')
+
+  const { data, error } = await supabase
+    .from('preconfigured_tours')
+    .select('*')
+    .eq('school_id', schoolId)
+    .order('name', { ascending: true })
+
+  if (error) throw error
+  return data || []
+}
+
+/**
+ * Create a preconfigured tour template (admin).
+ * @param {Object} payload
+ * @returns {Promise<Object>}
+ */
+export async function createPreconfiguredTour(payload) {
+  const { data, error } = await supabase
+    .from('preconfigured_tours')
+    .insert([payload])
+    .select('*')
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) throw new Error('Preconfigured tour was not created.')
+  return data
+}
+
+/**
+ * Update a preconfigured tour template (admin).
+ * @param {string} templateId
+ * @param {Object} patch
+ * @returns {Promise<Object>}
+ */
+export async function updatePreconfiguredTour(templateId, patch) {
+  const { data, error } = await supabase
+    .from('preconfigured_tours')
+    .update(patch)
+    .eq('id', templateId)
+    .select('*')
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) throw new Error('Preconfigured tour was not updated.')
+  return data
+}
+
+/**
+ * Delete a preconfigured tour template (admin).
+ * @param {string} templateId
+ * @returns {Promise<void>}
+ */
+export async function deletePreconfiguredTour(templateId) {
+  const { error } = await supabase
+    .from('preconfigured_tours')
+    .delete()
+    .eq('id', templateId)
+
+  if (error) throw error
+}
+
 export const tourAppointmentsService = {
   listAppointmentsForSchool,
   listMyScheduledAppointments,
@@ -292,5 +384,9 @@ export const tourAppointmentsService = {
   getTourAppointmentById,
   joinTourGroup,
   hasAvailableSpots,
-  formatTourDateTime
+  formatTourDateTime,
+  listPreconfiguredToursForSchool,
+  createPreconfiguredTour,
+  updatePreconfiguredTour,
+  deletePreconfiguredTour
 } 

@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { DateTime } from 'luxon'
 import { useAuth } from '../composables/useAuth.js'
-import { getUserSchoolId } from '../services/locationsService.js'
+import { getLocationsBySchool, getUserSchoolId } from '../services/locationsService.js'
 import { schoolService } from '../services/schoolService.js'
 import { supabase } from '../supabase.js'
 import {
@@ -11,7 +11,11 @@ import {
   listMyScheduledAppointments,
   createAppointment,
   updateAppointment,
-  deleteAppointment
+  deleteAppointment,
+  listPreconfiguredToursForSchool,
+  createPreconfiguredTour,
+  updatePreconfiguredTour,
+  deletePreconfiguredTour
 } from '../services/tourAppointmentsService.js'
 
 const { user } = useAuth()
@@ -36,6 +40,8 @@ const isAdmin = computed(() => {
 
 const ambassadors = ref([])
 const appointments = ref([])
+const preconfiguredTours = ref([])
+const schoolLocations = ref([])
 
 const calendarMonth = ref(DateTime.local().startOf('month'))
 const selectedCalendarDate = ref(null) // DateTime (school tz) or null
@@ -49,7 +55,18 @@ const form = ref({
   date: '',
   time: '',
   ambassadorId: '',
+  preconfiguredTourId: '',
   status: 'scheduled'
+})
+
+const templateModalOpen = ref(false)
+const templateModalMode = ref('create') // 'create' | 'edit'
+const editingTemplateId = ref(null)
+const templateForm = ref({
+  name: '',
+  description: '',
+  is_active: true,
+  stops_json_text: '[]'
 })
 
 const statusOptions = [
@@ -116,6 +133,7 @@ function appointmentToFormValues(appt) {
     date: dt.toFormat('yyyy-LL-dd'),
     time: dt.toFormat('HH:mm'),
     ambassadorId: appt.ambassador_id || '',
+    preconfiguredTourId: appt.preconfigured_tour_id || '',
     status: appt.status || 'scheduled'
   }
 }
@@ -129,6 +147,7 @@ function openCreateModal() {
     date: DateTime.local().toFormat('yyyy-LL-dd'),
     time: '09:00',
     ambassadorId: '',
+    preconfiguredTourId: '',
     status: 'scheduled'
   }
   modalOpen.value = true
@@ -146,8 +165,47 @@ function closeModal() {
   modalOpen.value = false
 }
 
+function openCreateTemplateModal() {
+  clearMessages()
+  templateModalMode.value = 'create'
+  editingTemplateId.value = null
+  templateForm.value = {
+    name: '',
+    description: '',
+    is_active: true,
+    stops_json_text: '[]'
+  }
+  templateModalOpen.value = true
+}
+
+function openEditTemplateModal(template) {
+  clearMessages()
+  templateModalMode.value = 'edit'
+  editingTemplateId.value = template.id
+  templateForm.value = {
+    name: template.name || '',
+    description: template.description || '',
+    is_active: template.is_active !== false,
+    stops_json_text: JSON.stringify(template.stops_json || [], null, 2)
+  }
+  templateModalOpen.value = true
+}
+
+function closeTemplateModal() {
+  templateModalOpen.value = false
+}
+
 const formIsValid = computed(() => {
-  return !!form.value.title.trim() && !!form.value.date && !!form.value.time
+  return (
+    !!form.value.title.trim() &&
+    !!form.value.date &&
+    !!form.value.time &&
+    !!form.value.preconfiguredTourId
+  )
+})
+
+const templateFormIsValid = computed(() => {
+  return !!templateForm.value.name.trim()
 })
 
 async function loadSchoolContext() {
@@ -191,6 +249,22 @@ async function loadAmbassadors() {
   ambassadors.value = await listAmbassadorsForSchool(schoolId.value)
 }
 
+async function loadPreconfiguredTours() {
+  if (!schoolId.value) {
+    preconfiguredTours.value = []
+    return
+  }
+  preconfiguredTours.value = await listPreconfiguredToursForSchool(schoolId.value)
+}
+
+async function loadSchoolLocationsForTemplates() {
+  if (!schoolId.value) {
+    schoolLocations.value = []
+    return
+  }
+  schoolLocations.value = await getLocationsBySchool(schoolId.value)
+}
+
 async function loadAppointmentsForMonth() {
   if (!isAdmin.value) {
     // Ambassador read-only view: just show their scheduled upcoming appointments.
@@ -218,7 +292,12 @@ async function refreshAll() {
   error.value = ''
   try {
     await loadSchoolContext()
-    await Promise.all([loadAmbassadors(), loadAppointmentsForMonth()])
+    await Promise.all([
+      loadAmbassadors(),
+      loadAppointmentsForMonth(),
+      loadPreconfiguredTours(),
+      loadSchoolLocationsForTemplates()
+    ])
   } catch (e) {
     console.error(e)
     error.value = e?.message || 'Failed to load tour appointments.'
@@ -243,11 +322,15 @@ async function handleSave() {
     if (!localDateTime.isValid) throw new Error('Invalid date/time.')
 
     const scheduled_date = localDateTime.toUTC().toISO()
+    if (!form.value.preconfiguredTourId) {
+      throw new Error('Select a preconfigured tour before saving the appointment.')
+    }
 
     const payload = {
       title: form.value.title.trim(),
       ambassador_id: form.value.ambassadorId || null,
       school_id: schoolId.value,
+      preconfigured_tour_id: form.value.preconfiguredTourId,
       scheduled_date,
       status: form.value.status || 'scheduled'
     }
@@ -283,6 +366,102 @@ async function handleDelete(appt) {
   } catch (e) {
     console.error(e)
     error.value = e?.message || 'Failed to delete appointment.'
+  }
+}
+
+function buildStopsFromDefaultLocations() {
+  const defaults = (schoolLocations.value || []).filter((loc) => loc.default_stop)
+  if (!defaults.length) {
+    throw new Error('No default tour stops are configured for this school.')
+  }
+  const sorted = [...defaults].sort((a, b) => {
+    const ao = Number.isFinite(a.order_index) ? a.order_index : Number.MAX_SAFE_INTEGER
+    const bo = Number.isFinite(b.order_index) ? b.order_index : Number.MAX_SAFE_INTEGER
+    if (ao !== bo) return ao - bo
+    return String(a.name || '').localeCompare(String(b.name || ''))
+  })
+  return sorted.map((loc, index) => ({
+    location_id: loc.id,
+    name: loc.name,
+    description: loc.description || null,
+    latitude: loc.latitude,
+    longitude: loc.longitude,
+    order_index: Number.isFinite(loc.order_index) ? loc.order_index : index
+  }))
+}
+
+function applyDefaultStopsToTemplate() {
+  try {
+    const stops = buildStopsFromDefaultLocations()
+    templateForm.value.stops_json_text = JSON.stringify(stops, null, 2)
+    clearMessages()
+    success.value = `Loaded ${stops.length} default stops.`
+  } catch (e) {
+    error.value = e?.message || 'Failed to build stops from default locations.'
+  }
+}
+
+async function handleSaveTemplate() {
+  if (!isAdmin.value) return
+  if (saving.value) return
+  clearMessages()
+  saving.value = true
+
+  try {
+    const parsedStops = JSON.parse(templateForm.value.stops_json_text || '[]')
+    if (!Array.isArray(parsedStops)) {
+      throw new Error('Stops JSON must be an array.')
+    }
+    if (templateForm.value.is_active && parsedStops.length === 0) {
+      throw new Error('Active templates must include at least one stop.')
+    }
+
+    const payload = {
+      school_id: schoolId.value,
+      name: templateForm.value.name.trim(),
+      description: templateForm.value.description.trim() || null,
+      is_active: !!templateForm.value.is_active,
+      stops_json: parsedStops
+    }
+
+    if (!payload.name) {
+      throw new Error('Template name is required.')
+    }
+
+    if (templateModalMode.value === 'create') {
+      await createPreconfiguredTour(payload)
+      success.value = 'Preconfigured tour created.'
+    } else {
+      await updatePreconfiguredTour(editingTemplateId.value, payload)
+      success.value = 'Preconfigured tour updated.'
+    }
+
+    await loadPreconfiguredTours()
+    templateModalOpen.value = false
+  } catch (e) {
+    console.error(e)
+    error.value = e?.message || 'Failed to save preconfigured tour.'
+  } finally {
+    saving.value = false
+  }
+}
+
+async function handleDeleteTemplate(template) {
+  if (!isAdmin.value) return
+  clearMessages()
+  const ok = window.confirm(`Delete "${template.name}"? This cannot be undone.`)
+  if (!ok) return
+
+  try {
+    await deletePreconfiguredTour(template.id)
+    success.value = 'Preconfigured tour deleted.'
+    if (form.value.preconfiguredTourId === template.id) {
+      form.value.preconfiguredTourId = ''
+    }
+    await loadPreconfiguredTours()
+  } catch (e) {
+    console.error(e)
+    error.value = e?.message || 'Failed to delete preconfigured tour.'
   }
 }
 
@@ -424,6 +603,62 @@ onMounted(async () => {
         <p class="text-red-200">{{ error }}</p>
       </div>
 
+      <div v-if="isAdmin" class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 overflow-hidden">
+        <div class="p-4 border-b border-gray-700 flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-white">Preconfigured Tours</h2>
+            <p class="text-sm text-gray-400">Create named templates ambassadors can choose when starting tours.</p>
+          </div>
+          <button
+            type="button"
+            class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+            @click="openCreateTemplateModal"
+          >
+            New Template
+          </button>
+        </div>
+        <div v-if="preconfiguredTours.length === 0" class="p-6 text-sm text-gray-400">
+          No templates yet. Create one to enable ambassador-led tour start.
+        </div>
+        <div v-else class="divide-y divide-gray-700">
+          <div
+            v-for="template in preconfiguredTours"
+            :key="template.id"
+            class="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+          >
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-white font-medium">{{ template.name }}</h3>
+                <span
+                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                  :class="template.is_active ? 'bg-green-900 text-green-200' : 'bg-gray-700 text-gray-200'"
+                >
+                  {{ template.is_active ? 'active' : 'inactive' }}
+                </span>
+              </div>
+              <p class="text-sm text-gray-400 mt-1">{{ template.description || 'No description' }}</p>
+              <p class="text-xs text-gray-500 mt-1">Stops: {{ Array.isArray(template.stops_json) ? template.stops_json.length : 0 }}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="px-3 py-1 rounded bg-gray-700 text-gray-200 hover:bg-gray-600"
+                @click="openEditTemplateModal(template)"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                class="px-3 py-1 rounded bg-red-700 text-white hover:bg-red-600"
+                @click="handleDeleteTemplate(template)"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- List view -->
       <div v-if="viewMode === 'list'" class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 overflow-hidden">
         <div class="p-4 border-b border-gray-700 flex items-center justify-between">
@@ -447,6 +682,7 @@ onMounted(async () => {
               <tr>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">When</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Title</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Template</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Ambassador</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
@@ -464,6 +700,9 @@ onMounted(async () => {
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-200">
                   <span class="text-white font-medium">{{ appt.title || '(Untitled)' }}</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-200">
+                  <span class="text-gray-200">{{ appt.preconfigured_tours?.name || 'Unassigned' }}</span>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-200">
                   <span class="text-gray-200">{{ appt.profiles?.full_name || 'TBA' }}</span>
@@ -587,7 +826,7 @@ onMounted(async () => {
                   <div>
                     <div class="text-white font-medium truncate">{{ appt.title || '(Untitled)' }}</div>
                     <div class="text-gray-400 text-sm">
-                      {{ formatInSchoolTz(appt.scheduled_date).toFormat('h:mm a') }} · {{ appt.profiles?.full_name || 'TBA' }}
+                      {{ formatInSchoolTz(appt.scheduled_date).toFormat('h:mm a') }} · {{ appt.profiles?.full_name || 'TBA' }} · {{ appt.preconfigured_tours?.name || 'No template' }}
                     </div>
                   </div>
                   <div class="flex gap-2 shrink-0" v-if="isAdmin">
@@ -680,6 +919,25 @@ onMounted(async () => {
             </div>
 
             <div>
+              <label class="block text-sm font-medium text-gray-300 mb-2">Preconfigured Tour *</label>
+              <select
+                v-model="form.preconfiguredTourId"
+                @change="clearMessages"
+                class="w-full border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="" disabled>Select a template</option>
+                <option
+                  v-for="template in preconfiguredTours.filter((item) => item.is_active)"
+                  :key="template.id"
+                  :value="template.id"
+                >
+                  {{ template.name }}
+                </option>
+              </select>
+              <p class="text-xs text-gray-400 mt-1">Ambassadors will start tours from this template.</p>
+            </div>
+
+            <div>
               <label class="block text-sm font-medium text-gray-300 mb-2">Status</label>
               <select
                 v-model="form.status"
@@ -712,6 +970,89 @@ onMounted(async () => {
           >
             <span v-if="saving">{{ modalMode === 'create' ? 'Creating…' : 'Saving…' }}</span>
             <span v-else>{{ modalMode === 'create' ? 'Create' : 'Save' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Template Modal -->
+    <div v-if="templateModalOpen && isAdmin" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50" @click="closeTemplateModal" />
+
+      <div class="relative w-full max-w-3xl bg-gray-800 border border-gray-700 rounded-lg shadow-xl">
+        <div class="p-5 border-b border-gray-700 flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-white">
+            {{ templateModalMode === 'create' ? 'Create Preconfigured Tour' : 'Edit Preconfigured Tour' }}
+          </h3>
+          <button type="button" class="text-gray-300 hover:text-white" @click="closeTemplateModal" title="Close">✕</button>
+        </div>
+
+        <div class="p-5 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Name *</label>
+            <input
+              v-model="templateForm.name"
+              @input="clearMessages"
+              type="text"
+              placeholder="e.g., STEM Tour"
+              class="w-full border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Description</label>
+            <textarea
+              v-model="templateForm.description"
+              @input="clearMessages"
+              rows="2"
+              class="w-full border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div class="flex items-center justify-between gap-3">
+            <label class="inline-flex items-center gap-2 text-sm text-gray-300">
+              <input v-model="templateForm.is_active" type="checkbox" class="rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
+              Template is active
+            </label>
+            <button
+              type="button"
+              class="px-3 py-1 rounded bg-gray-700 text-gray-200 hover:bg-gray-600 text-sm"
+              @click="applyDefaultStopsToTemplate"
+            >
+              Load school default stops
+            </button>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Stops JSON *</label>
+            <textarea
+              v-model="templateForm.stops_json_text"
+              @input="clearMessages"
+              rows="12"
+              class="w-full border border-gray-600 bg-gray-900 text-gray-100 rounded-lg px-3 py-2 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <p class="text-xs text-gray-400 mt-1">
+              Provide an ordered JSON array. Each item should include at least a `location_id`.
+            </p>
+          </div>
+        </div>
+
+        <div class="p-5 border-t border-gray-700 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            class="px-4 py-2 rounded-lg bg-gray-700 text-gray-200 hover:bg-gray-600"
+            @click="closeTemplateModal"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
+            :disabled="!templateFormIsValid || saving"
+            @click="handleSaveTemplate"
+          >
+            <span v-if="saving">{{ templateModalMode === 'create' ? 'Creating…' : 'Saving…' }}</span>
+            <span v-else>{{ templateModalMode === 'create' ? 'Create Template' : 'Save Template' }}</span>
           </button>
         </div>
       </div>

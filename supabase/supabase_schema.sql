@@ -999,70 +999,6 @@ $$;
 ALTER FUNCTION "storage"."can_insert_object"("bucketid" "text", "name" "text", "owner" "uuid", "metadata" "jsonb") OWNER TO "supabase_storage_admin";
 
 
-CREATE OR REPLACE FUNCTION "storage"."delete_leaf_prefixes"("bucket_ids" "text"[], "names" "text"[]) RETURNS "void"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    AS $$
-DECLARE
-    v_rows_deleted integer;
-BEGIN
-    LOOP
-        WITH candidates AS (
-            SELECT DISTINCT
-                t.bucket_id,
-                unnest(storage.get_prefixes(t.name)) AS name
-            FROM unnest(bucket_ids, names) AS t(bucket_id, name)
-        ),
-        uniq AS (
-             SELECT
-                 bucket_id,
-                 name,
-                 storage.get_level(name) AS level
-             FROM candidates
-             WHERE name <> ''
-             GROUP BY bucket_id, name
-        ),
-        leaf AS (
-             SELECT
-                 p.bucket_id,
-                 p.name,
-                 p.level
-             FROM storage.prefixes AS p
-                  JOIN uniq AS u
-                       ON u.bucket_id = p.bucket_id
-                           AND u.name = p.name
-                           AND u.level = p.level
-             WHERE NOT EXISTS (
-                 SELECT 1
-                 FROM storage.objects AS o
-                 WHERE o.bucket_id = p.bucket_id
-                   AND o.level = p.level + 1
-                   AND o.name COLLATE "C" LIKE p.name || '/%'
-             )
-             AND NOT EXISTS (
-                 SELECT 1
-                 FROM storage.prefixes AS c
-                 WHERE c.bucket_id = p.bucket_id
-                   AND c.level = p.level + 1
-                   AND c.name COLLATE "C" LIKE p.name || '/%'
-             )
-        )
-        DELETE
-        FROM storage.prefixes AS p
-            USING leaf AS l
-        WHERE p.bucket_id = l.bucket_id
-          AND p.name = l.name
-          AND p.level = l.level;
-
-        GET DIAGNOSTICS v_rows_deleted = ROW_COUNT;
-        EXIT WHEN v_rows_deleted = 0;
-    END LOOP;
-END;
-$$;
-
-
-ALTER FUNCTION "storage"."delete_leaf_prefixes"("bucket_ids" "text"[], "names" "text"[]) OWNER TO "supabase_storage_admin";
-
-
 CREATE OR REPLACE FUNCTION "storage"."enforce_bucket_name_length"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -1085,8 +1021,11 @@ DECLARE
     _parts text[];
     _filename text;
 BEGIN
+    -- Split on "/" to get path segments
     SELECT string_to_array(name, '/') INTO _parts;
-    SELECT _parts[array_length(_parts,1)] INTO _filename;
+    -- Get the last path segment (the actual filename)
+    SELECT _parts[array_length(_parts, 1)] INTO _filename;
+    -- Extract extension: reverse, split on '.', then reverse again
     RETURN reverse(split_part(reverse(_filename), '.', 1));
 END
 $$;
@@ -1141,63 +1080,12 @@ $$;
 ALTER FUNCTION "storage"."get_common_prefix"("p_key" "text", "p_prefix" "text", "p_delimiter" "text") OWNER TO "supabase_storage_admin";
 
 
-CREATE OR REPLACE FUNCTION "storage"."get_level"("name" "text") RETURNS integer
-    LANGUAGE "sql" IMMUTABLE STRICT
-    AS $$
-SELECT array_length(string_to_array("name", '/'), 1);
-$$;
-
-
-ALTER FUNCTION "storage"."get_level"("name" "text") OWNER TO "supabase_storage_admin";
-
-
-CREATE OR REPLACE FUNCTION "storage"."get_prefix"("name" "text") RETURNS "text"
-    LANGUAGE "sql" IMMUTABLE STRICT
-    AS $_$
-SELECT
-    CASE WHEN strpos("name", '/') > 0 THEN
-             regexp_replace("name", '[\/]{1}[^\/]+\/?$', '')
-         ELSE
-             ''
-        END;
-$_$;
-
-
-ALTER FUNCTION "storage"."get_prefix"("name" "text") OWNER TO "supabase_storage_admin";
-
-
-CREATE OR REPLACE FUNCTION "storage"."get_prefixes"("name" "text") RETURNS "text"[]
-    LANGUAGE "plpgsql" IMMUTABLE STRICT
-    AS $$
-DECLARE
-    parts text[];
-    prefixes text[];
-    prefix text;
-BEGIN
-    -- Split the name into parts by '/'
-    parts := string_to_array("name", '/');
-    prefixes := '{}';
-
-    -- Construct the prefixes, stopping one level below the last part
-    FOR i IN 1..array_length(parts, 1) - 1 LOOP
-            prefix := array_to_string(parts[1:i], '/');
-            prefixes := array_append(prefixes, prefix);
-    END LOOP;
-
-    RETURN prefixes;
-END;
-$$;
-
-
-ALTER FUNCTION "storage"."get_prefixes"("name" "text") OWNER TO "supabase_storage_admin";
-
-
 CREATE OR REPLACE FUNCTION "storage"."get_size_by_bucket"() RETURNS TABLE("size" bigint, "bucket_id" "text")
     LANGUAGE "plpgsql" STABLE
     AS $$
 BEGIN
     return query
-        select sum((metadata->>'size')::bigint) as size, obj.bucket_id
+        select sum((metadata->>'size')::bigint)::bigint as size, obj.bucket_id
         from "storage".objects as obj
         group by obj.bucket_id;
 END
@@ -1853,74 +1741,6 @@ $_$;
 
 
 ALTER FUNCTION "storage"."search_by_timestamp"("p_prefix" "text", "p_bucket_id" "text", "p_limit" integer, "p_level" integer, "p_start_after" "text", "p_sort_order" "text", "p_sort_column" "text", "p_sort_column_after" "text") OWNER TO "supabase_storage_admin";
-
-
-CREATE OR REPLACE FUNCTION "storage"."search_legacy_v1"("prefix" "text", "bucketname" "text", "limits" integer DEFAULT 100, "levels" integer DEFAULT 1, "offsets" integer DEFAULT 0, "search" "text" DEFAULT ''::"text", "sortcolumn" "text" DEFAULT 'name'::"text", "sortorder" "text" DEFAULT 'asc'::"text") RETURNS TABLE("name" "text", "id" "uuid", "updated_at" timestamp with time zone, "created_at" timestamp with time zone, "last_accessed_at" timestamp with time zone, "metadata" "jsonb")
-    LANGUAGE "plpgsql" STABLE
-    AS $_$
-declare
-    v_order_by text;
-    v_sort_order text;
-begin
-    case
-        when sortcolumn = 'name' then
-            v_order_by = 'name';
-        when sortcolumn = 'updated_at' then
-            v_order_by = 'updated_at';
-        when sortcolumn = 'created_at' then
-            v_order_by = 'created_at';
-        when sortcolumn = 'last_accessed_at' then
-            v_order_by = 'last_accessed_at';
-        else
-            v_order_by = 'name';
-        end case;
-
-    case
-        when sortorder = 'asc' then
-            v_sort_order = 'asc';
-        when sortorder = 'desc' then
-            v_sort_order = 'desc';
-        else
-            v_sort_order = 'asc';
-        end case;
-
-    v_order_by = v_order_by || ' ' || v_sort_order;
-
-    return query execute
-        'with folders as (
-           select path_tokens[$1] as folder
-           from storage.objects
-             where objects.name ilike $2 || $3 || ''%''
-               and bucket_id = $4
-               and array_length(objects.path_tokens, 1) <> $1
-           group by folder
-           order by folder ' || v_sort_order || '
-     )
-     (select folder as "name",
-            null as id,
-            null as updated_at,
-            null as created_at,
-            null as last_accessed_at,
-            null as metadata from folders)
-     union all
-     (select path_tokens[$1] as "name",
-            id,
-            updated_at,
-            created_at,
-            last_accessed_at,
-            metadata
-     from storage.objects
-     where objects.name ilike $2 || $3 || ''%''
-       and bucket_id = $4
-       and array_length(objects.path_tokens, 1) = $1
-     order by ' || v_order_by || ')
-     limit $5
-     offset $6' using levels, prefix, search, bucketname, limits, offsets;
-end;
-$_$;
-
-
-ALTER FUNCTION "storage"."search_legacy_v1"("prefix" "text", "bucketname" "text", "limits" integer, "levels" integer, "offsets" integer, "search" "text", "sortcolumn" "text", "sortorder" "text") OWNER TO "supabase_storage_admin";
 
 
 CREATE OR REPLACE FUNCTION "storage"."search_v2"("prefix" "text", "bucket_name" "text", "limits" integer DEFAULT 100, "levels" integer DEFAULT 1, "start_after" "text" DEFAULT ''::"text", "sort_order" "text" DEFAULT 'asc'::"text", "sort_column" "text" DEFAULT 'name'::"text", "sort_column_after" "text" DEFAULT ''::"text") RETURNS TABLE("key" "text", "name" "text", "id" "uuid", "updated_at" timestamp with time zone, "created_at" timestamp with time zone, "last_accessed_at" timestamp with time zone, "metadata" "jsonb")
@@ -2701,6 +2521,24 @@ COMMENT ON COLUMN "public"."locations"."builder_passcode_updated_at" IS 'Timesta
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."preconfigured_tours" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "school_id" "uuid" NOT NULL,
+    "name" "text" NOT NULL,
+    "description" "text",
+    "stops_json" "jsonb" NOT NULL,
+    "is_active" boolean DEFAULT true NOT NULL,
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "preconfigured_tours_non_empty_when_active_check" CHECK (((NOT "is_active") OR ("jsonb_array_length"("stops_json") > 0))),
+    CONSTRAINT "preconfigured_tours_stops_json_array_check" CHECK (("jsonb_typeof"("stops_json") = 'array'::"text"))
+);
+
+
+ALTER TABLE "public"."preconfigured_tours" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "id" "uuid" NOT NULL,
     "full_name" "text" NOT NULL,
@@ -2735,6 +2573,7 @@ CREATE TABLE IF NOT EXISTS "public"."tour_appointments" (
     "participants_signed_up" smallint DEFAULT '0'::smallint NOT NULL,
     "max_participants" smallint DEFAULT '30'::smallint,
     "general_confirmation_code" "text",
+    "preconfigured_tour_id" "uuid",
     CONSTRAINT "tour_appointments_status_check" CHECK (("status" = ANY (ARRAY['scheduled'::"text", 'active'::"text", 'completed'::"text", 'cancelled'::"text"])))
 );
 
@@ -3077,6 +2916,16 @@ ALTER TABLE ONLY "public"."locations"
 
 
 
+ALTER TABLE ONLY "public"."preconfigured_tours"
+    ADD CONSTRAINT "preconfigured_tours_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."preconfigured_tours"
+    ADD CONSTRAINT "preconfigured_tours_school_id_name_key" UNIQUE ("school_id", "name");
+
+
+
 ALTER TABLE ONLY "public"."profiles"
     ADD CONSTRAINT "profiles_creation_token_key" UNIQUE ("creation_token");
 
@@ -3416,6 +3265,10 @@ CREATE OR REPLACE TRIGGER "on_live_tour_sessions_updated" BEFORE UPDATE ON "publ
 
 
 
+CREATE OR REPLACE TRIGGER "on_preconfigured_tours_updated" BEFORE UPDATE ON "public"."preconfigured_tours" FOR EACH ROW EXECUTE FUNCTION "public"."handle_updated_at"();
+
+
+
 CREATE OR REPLACE TRIGGER "profiles_sync_email_to_auth" AFTER UPDATE OF "email" ON "public"."profiles" FOR EACH ROW EXECUTE FUNCTION "public"."sync_profiles_email_to_auth_users"();
 
 
@@ -3601,6 +3454,16 @@ ALTER TABLE ONLY "public"."locations"
 
 
 
+ALTER TABLE ONLY "public"."preconfigured_tours"
+    ADD CONSTRAINT "preconfigured_tours_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."preconfigured_tours"
+    ADD CONSTRAINT "preconfigured_tours_school_id_fkey" FOREIGN KEY ("school_id") REFERENCES "public"."schools"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."profiles"
     ADD CONSTRAINT "profiles_id_fkey" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON UPDATE CASCADE ON DELETE CASCADE;
 
@@ -3613,6 +3476,11 @@ ALTER TABLE ONLY "public"."profiles"
 
 ALTER TABLE ONLY "public"."tour_appointments"
     ADD CONSTRAINT "tour_appointments_ambassador_id_fkey" FOREIGN KEY ("ambassador_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."tour_appointments"
+    ADD CONSTRAINT "tour_appointments_preconfigured_tour_id_fkey" FOREIGN KEY ("preconfigured_tour_id") REFERENCES "public"."preconfigured_tours"("id") ON DELETE SET NULL;
 
 
 
@@ -3790,6 +3658,35 @@ CREATE POLICY "locations_update_admin_in_school" ON "public"."locations" FOR UPD
 
 
 
+ALTER TABLE "public"."preconfigured_tours" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "preconfigured_tours_delete_admin_school" ON "public"."preconfigured_tours" FOR DELETE TO "authenticated" USING ("public"."current_user_can_admin_school"("school_id"));
+
+
+
+CREATE POLICY "preconfigured_tours_insert_admin_school" ON "public"."preconfigured_tours" FOR INSERT TO "authenticated" WITH CHECK ("public"."current_user_can_admin_school"("school_id"));
+
+
+
+CREATE POLICY "preconfigured_tours_select_admin_school" ON "public"."preconfigured_tours" FOR SELECT TO "authenticated" USING ("public"."current_user_can_admin_school"("school_id"));
+
+
+
+CREATE POLICY "preconfigured_tours_select_ambassador_school_active" ON "public"."preconfigured_tours" FOR SELECT TO "authenticated" USING (("is_active" AND (EXISTS ( SELECT 1
+   FROM "public"."profiles" "p"
+  WHERE (("p"."id" = "auth"."uid"()) AND ("p"."school_id" = "preconfigured_tours"."school_id") AND ("lower"("p"."role") = 'ambassador'::"text"))))));
+
+
+
+CREATE POLICY "preconfigured_tours_select_public_active" ON "public"."preconfigured_tours" FOR SELECT TO "authenticated", "anon" USING ("is_active");
+
+
+
+CREATE POLICY "preconfigured_tours_update_admin_school" ON "public"."preconfigured_tours" FOR UPDATE TO "authenticated" USING ("public"."current_user_can_admin_school"("school_id")) WITH CHECK ("public"."current_user_can_admin_school"("school_id"));
+
+
+
 ALTER TABLE "public"."profiles" ENABLE ROW LEVEL SECURITY;
 
 
@@ -3830,6 +3727,12 @@ CREATE POLICY "tour_appointments_delete_admin_school" ON "public"."tour_appointm
 
 
 CREATE POLICY "tour_appointments_insert_admin_school" ON "public"."tour_appointments" FOR INSERT TO "authenticated" WITH CHECK ("public"."current_user_can_admin_school"("school_id"));
+
+
+
+CREATE POLICY "tour_appointments_insert_ambassador_impromptu" ON "public"."tour_appointments" FOR INSERT TO "authenticated" WITH CHECK ((("ambassador_id" = "auth"."uid"()) AND ("preconfigured_tour_id" IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM "public"."profiles" "p"
+  WHERE (("p"."id" = "auth"."uid"()) AND ("p"."school_id" = "tour_appointments"."school_id") AND ("lower"("p"."role") = 'ambassador'::"text"))))));
 
 
 
@@ -4231,6 +4134,12 @@ GRANT ALL ON TABLE "public"."location_media" TO "service_role";
 GRANT ALL ON TABLE "public"."locations" TO "anon";
 GRANT ALL ON TABLE "public"."locations" TO "authenticated";
 GRANT ALL ON TABLE "public"."locations" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."preconfigured_tours" TO "anon";
+GRANT ALL ON TABLE "public"."preconfigured_tours" TO "authenticated";
+GRANT ALL ON TABLE "public"."preconfigured_tours" TO "service_role";
 
 
 

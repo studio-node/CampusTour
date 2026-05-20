@@ -30,8 +30,6 @@ import { wsManager } from '@/services/ws';
 import { appStateManager } from '@/services/appStateManager';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Image } from 'expo-image';
-import * as ExpoLocation from 'expo-location';
-import { orderTourStopsByNearestFirst } from '@/services/tourOrderUtils';
 
 export default function TourDetailsScreen() {
   const router = useRouter();
@@ -206,19 +204,24 @@ export default function TourDetailsScreen() {
     wsManager.connect();
     const onOpen = async () => {
       const u = await authService.getStoredUser();
+      const currentUserType = await userTypeService.getUserType();
       if (u?.id) {
         wsManager.authenticate(u.id);
       }
-        // Create or attach to the live tour session on socket open
-        const tId = await tourGroupSelectionService.getSelectedTourGroup();
-        if (tId) {
-          wsManager.send('create_session', {
-            tourId: tId,
-            initial_structure: {},
-            ambassador_id: u?.id || null,
-          });
-          // joined_members will be loaded from the session_created message response
-        }
+      // Create or attach to the live tour session on socket open (ambassador only)
+      if (currentUserType !== 'ambassador') {
+        return;
+      }
+      // Create or attach to the live tour session on socket open
+      const tId = await tourGroupSelectionService.getSelectedTourGroup();
+      if (tId) {
+        wsManager.send('create_session', {
+          tourId: tId,
+          initial_structure: {},
+          ambassador_id: u?.id || null,
+        });
+        // joined_members will be loaded from the session_created message response
+      }
     };
     wsManager.on('open', onOpen);
     
@@ -263,25 +266,9 @@ export default function TourDetailsScreen() {
           
           if (schoolId && Array.isArray(message?.payload?.generated_tour_order)) {
             const allLocations = await locationService.getTourStops(schoolId);
-            let ordered: Location[] = message.payload.generated_tour_order
+            const ordered: Location[] = message.payload.generated_tour_order
               .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
               .filter((loc: Location | undefined): loc is Location => Boolean(loc));
-            // Reorder to start at nearest location to ambassador
-            let coords: { latitude: number; longitude: number } | null = null;
-            try {
-              let { status } = await ExpoLocation.getForegroundPermissionsAsync();
-              if (status !== 'granted') {
-                const result = await ExpoLocation.requestForegroundPermissionsAsync();
-                status = result.status;
-              }
-              if (status === 'granted') {
-                const loc = await ExpoLocation.getCurrentPositionAsync({});
-                coords = loc.coords;
-              }
-            } catch (e) {
-              console.warn('Could not get location for tour ordering:', e);
-            }
-            ordered = orderTourStopsByNearestFirst(ordered, coords);
             const orderedIds = ordered.map((l) => l.id);
 
             // Persist ambassador-visible ordering into Supabase so members can fetch it
@@ -487,6 +474,10 @@ export default function TourDetailsScreen() {
 
   const handleStartTour = async () => {
     if (!tour) return;
+    if (!tour.preconfigured_tour_id) {
+      Alert.alert('Template Required', 'This tour does not have a preconfigured tour template assigned.');
+      return;
+    }
     const user = await authService.getStoredUser();
     if (!user) {
       Alert.alert("Error", "You must be logged in to start a tour.");
@@ -499,7 +490,10 @@ export default function TourDetailsScreen() {
     }
 
     // Only start the tour; server generates structure and returns it in 'tour_started'
-    wsManager.send('tour:start', { tourId: tour.id });
+    wsManager.send('tour:start', {
+      tourId: tour.id,
+      preconfiguredTourId: tour.preconfigured_tour_id,
+    });
     // Navigate after 'tour_started' message
   };
 
@@ -534,6 +528,9 @@ export default function TourDetailsScreen() {
           <View style={styles.header}>
             {/* <Image source={{ uri: school?.logo_url }} style={styles.schoolLogo} /> */}
             <Text style={styles.title}>{tour.title || 'Tour Details'}</Text>
+            <Text style={styles.templateBadge}>
+              Template: {tour.preconfigured_tours?.name || 'Unassigned'}
+            </Text>
             {/* <Text style={styles.subtitle}>
               Led by {tour.profiles?.full_name || 'TBA'}
             </Text> */}
@@ -692,6 +689,16 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 18,
     color: '#ccc',
+  },
+  templateBadge: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#d1d5db',
+    backgroundColor: '#1f2937',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    overflow: 'hidden',
   },
   content: {
     alignItems: 'center',

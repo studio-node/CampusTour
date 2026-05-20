@@ -349,7 +349,12 @@ export default function AmbassadorToursScreen() {
 
       {/* Content */}
       <View style={styles.content}>
-        <Text style={styles.title}>Your Upcoming Tours</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Your Upcoming Tours</Text>
+          <TouchableOpacity style={styles.impromptuButton} onPress={() => router.push('/impromptu-tour')}>
+            <Text style={styles.impromptuButtonText}>Impromptu</Text>
+          </TouchableOpacity>
+        </View>
         
         {tours.length === 0 ? (
           <View style={styles.emptyState}>
@@ -462,6 +467,22 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 20,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  impromptuButton: {
+    backgroundColor: '#2563eb',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 20,
+  },
+  impromptuButtonText: {
+    color: '#fff',
+    fontWeight: '600',
   },
   toursList: {
     paddingBottom: 20,

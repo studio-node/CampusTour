@@ -1161,6 +1161,7 @@ export interface TourAppointment {
   id: string;
   school_id: string;
   ambassador_id: string;
+  preconfigured_tour_id?: string | null;
   title?: string;
   description?: string;
   scheduled_date: string;
@@ -1174,11 +1175,28 @@ export interface TourAppointment {
   profiles?: {
     full_name: string;
   };
+  preconfigured_tours?: {
+    id: string;
+    name: string;
+    description?: string | null;
+    stops_json?: any[] | null;
+  } | null;
   schools?: {
     name: string;
     city: string;
     state: string;
   };
+}
+
+export interface PreconfiguredTour {
+  id: string;
+  school_id: string;
+  name: string;
+  description?: string | null;
+  stops_json: any[];
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Tour appointments service
@@ -1200,6 +1218,12 @@ export const tourAppointmentsService = {
           *,
           profiles (
             full_name
+          ),
+          preconfigured_tours (
+            id,
+            name,
+            description,
+            stops_json
           ),
           schools (
             name,
@@ -1243,6 +1267,12 @@ export const tourAppointmentsService = {
           *,
           profiles (
             full_name
+          ),
+          preconfigured_tours (
+            id,
+            name,
+            description,
+            stops_json
           )
         `)
         .eq('school_id', schoolId)
@@ -1274,6 +1304,12 @@ export const tourAppointmentsService = {
           *,
           profiles (
             full_name
+          ),
+          preconfigured_tours (
+            id,
+            name,
+            description,
+            stops_json
           )
         `)
         .eq('id', appointmentId)
@@ -1386,6 +1422,79 @@ export const tourAppointmentsService = {
         success: false,
         error: 'Failed to join tour group. Please try again.'
       };
+    }
+  },
+  /**
+   * Returns active preconfigured tours for a school.
+   */
+  async getPreconfiguredTours(schoolId: string): Promise<PreconfiguredTour[]> {
+    try {
+      const { data, error } = await supabase
+        .from('preconfigured_tours')
+        .select('*')
+        .eq('school_id', schoolId)
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching preconfigured tours:', error);
+        return [];
+      }
+
+      return (data || []) as PreconfiguredTour[];
+    } catch (error) {
+      console.error('Exception fetching preconfigured tours:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Creates an impromptu ambassador-led appointment from a selected template.
+   */
+  async createImpromptuAppointment(input: {
+    schoolId: string;
+    ambassadorId: string;
+    preconfiguredTourId: string;
+    title?: string;
+    description?: string;
+  }): Promise<{ success: boolean; appointment?: TourAppointment; error?: string }> {
+    try {
+      const payload = {
+        school_id: input.schoolId,
+        ambassador_id: input.ambassadorId,
+        preconfigured_tour_id: input.preconfiguredTourId,
+        title: input.title?.trim() || 'Impromptu Campus Tour',
+        description: input.description?.trim() || null,
+        scheduled_date: new Date().toISOString(),
+        status: 'scheduled',
+      };
+
+      const { data, error } = await supabase
+        .from('tour_appointments')
+        .insert([payload])
+        .select(`
+          *,
+          profiles (
+            full_name
+          ),
+          preconfigured_tours (
+            id,
+            name,
+            description,
+            stops_json
+          )
+        `)
+        .single();
+
+      if (error) {
+        console.error('Error creating impromptu appointment:', error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, appointment: data as TourAppointment };
+    } catch (error) {
+      console.error('Exception creating impromptu appointment:', error);
+      return { success: false, error: 'Failed to create impromptu tour.' };
     }
   }
 };
