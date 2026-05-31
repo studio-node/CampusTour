@@ -41,3 +41,7 @@ yarn-error.*
 coverage/
 
 app-example
+
+
+# ios build
+ios/
