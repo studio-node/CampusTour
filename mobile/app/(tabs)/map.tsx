@@ -410,7 +410,13 @@ export default function MapScreen() {
 
   // Fetch walking route when in Directions view with user location and a destination
   useEffect(() => {
+    console.log('[Map] directions effect fired', {
+      mapViewMode,
+      hasUserLocation: !!userLocation,
+      routeDestinationId: routeDestination?.id ?? null,
+    });
     if (mapViewMode !== 'directions' || !userLocation || !routeDestination) {
+      console.log('[Map] directions effect: early-exit', { mapViewMode, hasUserLocation: !!userLocation, hasDestination: !!routeDestination });
       return;
     }
     let cancelled = false;
@@ -418,7 +424,9 @@ export default function MapScreen() {
     setRouteCoordinates(null);
     const origin = { latitude: userLocation.latitude, longitude: userLocation.longitude };
     const destination = routeDestination.coordinates;
+    console.log('[Map] fetching route from', origin, 'to', destination);
     fetchWalkingRoute(origin, destination, { deadzonePolygons: schoolDeadzones }).then((result) => {
+      console.log('[Map] fetchWalkingRoute result', result ? `${result.coordinates.length} points` : 'null', { cancelled });
       if (cancelled) return;
       setRouteLoading(false);
       if (result?.coordinates?.length) {
@@ -426,6 +434,7 @@ export default function MapScreen() {
       }
     });
     return () => {
+      console.log('[Map] directions effect cleanup (cancelled)');
       cancelled = true;
     };
   }, [mapViewMode, userLocation?.latitude, userLocation?.longitude, routeDestination?.id, schoolDeadzones]);
@@ -729,15 +738,20 @@ export default function MapScreen() {
               mapViewMode === 'map' && [styles.viewToggleButtonActive, dynamicStyles.viewToggleButtonActive],
             ]}
             onPress={() => {
-              // Clear the polyline first so it unmounts on this render, then
-              // flip the mode on the next tick. Unmounting Polyline + Polygons
-              // in the same frame as a mode switch has been the source of a
-              // native iOS crash (react-native-maps 1.20 on iOS 17+ tears down
-              // MKOverlays unsafely when multiple change at once). Deferring
-              // the mode flip lets the polyline detach cleanly first.
+              console.log('[Map] Map button pressed', {
+                mapViewMode,
+                routeCoordinatesLength: routeCoordinates?.length ?? null,
+                explicitTarget: explicitDirectionsTarget?.name ?? null,
+                nextStop: nextStop?.name ?? null,
+                schoolDeadzonesCount: schoolDeadzones.length,
+              });
+              // Clear all overlays (Polyline + Polygons both gated on routeCoordinates) in one
+              // render, then flip mode on the next tick so the native map layer has a full frame
+              // to tear down the overlays before transitioning.
               setRouteCoordinates(null);
               setExplicitDirectionsTarget(null);
               setTimeout(() => {
+                console.log('[Map] setTimeout fired — setting mapViewMode to map');
                 setMapViewMode('map');
               }, 0);
             }}
@@ -801,8 +815,13 @@ export default function MapScreen() {
                 zIndex={9999}
               />
             )}
-            {/* Debug: translucent red deadzones (only in Directions view) */}
-            {mapViewMode === 'directions' &&
+            {/* Deadzones are debug-only overlays: the __DEV__ guard keeps them out of production
+                builds. In production (TestFlight / App Store), directions can fail before a route
+                is ever loaded, leaving these Polygons mounted. When the user then switches back to
+                map view, react-native-maps 1.20 on iOS 17+ crashes if any MKPolygon overlays are
+                present during the mode transition. Removing them from production eliminates that
+                crash path. In dev/Expo Go they remain visible for deadzone debugging. */}
+            {__DEV__ && mapViewMode === 'directions' &&
               schoolDeadzones.map((polygon, idx) => (
                 <Polygon
                   key={`deadzone-${idx}`}

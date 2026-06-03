@@ -29,14 +29,23 @@ export async function fetchWalkingRoute(
     return null;
   }
 
+  console.log('[directionsService] fetchWalkingRoute called', { backendUrl, origin, destination });
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.log('[directionsService] fetch timed out after 10s, aborting');
+      controller.abort();
+    }, 10000);
     const res = await fetch(`${backendUrl}/walking-route`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ origin, destination }),
-    });
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeoutId));
 
+    console.log('[directionsService] fetch response status', res.status);
     if (!res.ok) {
+      console.log('[directionsService] non-OK response, returning null');
       return null;
     }
 
@@ -67,7 +76,8 @@ export async function fetchWalkingRoute(
       if (coordinates.length > 0) return { coordinates };
     }
     return null;
-  } catch {
+  } catch (err) {
+    console.log('[directionsService] fetch threw', err);
     return null;
   }
 }
