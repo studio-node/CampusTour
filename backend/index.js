@@ -3,7 +3,7 @@ import GeminiCaller from './gemini_caller.mjs';
 import { createClient } from '@supabase/supabase-js';
 import { getLocations, closeInactiveSessions } from './supabase.mjs';
 import { sessionManager } from './tour-sessions.js';
-import { createApp, createIpRateLimiter, RATE_LIMIT_WINDOW_MS } from './app.js';
+import { createApp, createIpRateLimiter, RATE_LIMIT_WINDOW_MS, ROUTES_RATE_LIMIT_WINDOW_MS, ROUTES_RATE_LIMIT_MAX_REQUESTS } from './app.js';
 
 const port = process.env.PORT || 3000;
 
@@ -13,11 +13,17 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 const tourSessions = new Map();
 const rateLimiter = createIpRateLimiter();
+const routesRateLimiter = createIpRateLimiter({
+  windowMs: ROUTES_RATE_LIMIT_WINDOW_MS,
+  maxRequests: ROUTES_RATE_LIMIT_MAX_REQUESTS,
+});
 const serverApp = createApp({
   supabase,
   getLocationsFn: getLocations,
   generateTourFn: GeminiCaller.generateTour.bind(GeminiCaller),
   rateLimiter,
+  routesRateLimiter,
+  routesApiKey: process.env.GOOGLE_ROUTES_API_KEY ?? '',
 });
 
 const server = serverApp.listen(port, () => {
@@ -47,5 +53,9 @@ console.log(`Session timeout checker initialized: checking every ${INACTIVE_SESS
 setInterval(() => {
   rateLimiter.cleanupExpiredEntries();
 }, RATE_LIMIT_WINDOW_MS);
+
+setInterval(() => {
+  routesRateLimiter.cleanupExpiredEntries();
+}, ROUTES_RATE_LIMIT_WINDOW_MS);
 
 
