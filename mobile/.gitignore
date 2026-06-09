@@ -39,9 +39,11 @@ yarn-error.*
 
 # tests
 coverage/
-
 app-example
 
+# Crash logs from ios console thing
+mobile/crash_report.log
 
 # ios build
 ios/
+
