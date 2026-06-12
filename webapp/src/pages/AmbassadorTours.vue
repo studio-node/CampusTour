@@ -116,8 +116,11 @@ const createTour = async () => {
   successMessage.value = ''
   
   try {
-    // Combine date and time
-    const scheduledDateTime = `${newTour.value.scheduledDate}T${newTour.value.scheduledTime}:00`
+    // Combine date and time, interpreted in the admin's local timezone, and store as UTC.
+    // (A bare "YYYY-MM-DDTHH:MM:SS" string would be read as UTC by Postgres, shifting the tour.)
+    const scheduledDateTime = new Date(
+      `${newTour.value.scheduledDate}T${newTour.value.scheduledTime}:00`
+    ).toISOString()
     
     const { data, error } = await supabase
       .from('tour_appointments')

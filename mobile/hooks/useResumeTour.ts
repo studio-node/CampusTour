@@ -139,13 +139,13 @@ export function useResumeTour(): UseResumeTourReturn {
       const user = await authService.getStoredUser();
       if (user?.id) {
         // Wait for websocket to open, then authenticate and create/attach to session
-        const authenticateAndCreateSession = () => {
-          wsManager.authenticate(user.id);
+        const authenticateAndCreateSession = async () => {
+          // Await so the auth token reaches the server before create_session below.
+          await wsManager.authenticate();
           // Create or attach to the live tour session
           wsManager.send('create_session', {
             tourId: tourId,
             initial_structure: {},
-            ambassador_id: user.id,
           });
         };
         

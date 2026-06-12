@@ -302,7 +302,7 @@ export default function TourScreen() {
       // Establish WS and authenticate if logged in
       wsManager.connect();
       const u = await authService.getStoredUser();
-      if (u?.id) wsManager.authenticate(u.id);
+      if (u?.id) await wsManager.authenticate();
     };
 
     getSelectedSchool();

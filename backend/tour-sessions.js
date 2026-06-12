@@ -1,6 +1,22 @@
 import { v4 as uuidv4 } from 'uuid';
 import { createLiveTourSession, updateLiveTourSession, ensureLiveTourSessionRow } from './supabase.mjs';
 
+// Simple UUID v4 regex so we don't write non-UUIDs (e.g. "0") to uuid columns
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function isValidUuid(s) {
+  return typeof s === 'string' && UUID_REGEX.test(s);
+}
+
+// Events only the session's ambassador may send.
+const AMBASSADOR_ONLY_EVENTS = new Set([
+  'tour:start',
+  'tour:state_update',
+  'tour:tour-list-changed',
+  'tour:end',
+  'tour:media:add-to-detail',
+  'tour:media:push-takeover',
+]);
+
 // --- Main Session Manager ---
 
 export function sessionManager(ws, supabase, tourSessions) {
@@ -8,46 +24,52 @@ export function sessionManager(ws, supabase, tourSessions) {
   console.log(`Client connected with ID: ${ws.id}`);
 
   const messageHandlers = {
-    // Optional auth bootstrap if mobile sends a token or user id
-    'auth': async (payload) => handleAuth(ws, supabase, payload),
+    'auth': (payload) => handleAuth(ws, supabase, payload),
     'create_session': (payload) => handleCreateSession(ws, supabase, tourSessions, payload),
     'join_session': (payload) => handleJoinSession(ws, supabase, tourSessions, payload),
     'tour:start': (payload, session) => handleTourStart(ws, supabase, payload, session),
-    'tour:state_update': (payload, session) => handleTourStateUpdate(supabase, session, payload),
-    'tour:structure_update': (payload, session) => handleTourStructureUpdate(supabase, session, payload),
+    'tour:state_update': (payload, session) => handleTourStateUpdate(ws, supabase, session, payload),
     'tour:tour-list-changed': (payload, session) => handleTourListChanged(supabase, session, payload),
     'tour:media:add-to-detail': (payload, session) => handleTourMediaAddToDetail(session, payload),
     'tour:media:push-takeover': (payload, session) => handleTourMediaPushTakeover(session, payload),
-    'tour:end': (payload, session) => handleTourEnd(ws, supabase, tourSessions, payload.tourId, session),
-    'ambassador:ping': async (payload, session) => handleAmbassadorPing(ws, supabase, session, payload),
+    'tour:end': (payload, session) => handleTourEnd(ws, supabase, tourSessions, payload, session),
+    'ambassador:ping': (payload, session) => handleAmbassadorPing(ws, supabase, session, payload),
     'get_members_snapshot': (payload) => handleGetMembersSnapshot(ws, tourSessions, payload),
   };
 
   ws.on('message', async (message) => {
     try {
       const data = JSON.parse(message);
-      console.log('Received message:', data);
+      console.log('Received message type:', data?.type);
 
-      const { tourId } = data.payload || {};
+      // Normalize so handlers can safely destructure even when payload is missing/malformed.
+      const payload = data && data.payload && typeof data.payload === 'object' ? data.payload : {};
+      const { tourId } = payload;
       let session = tourId ? tourSessions.get(tourId) : undefined;
 
-      // If tour:start is sent before create_session (or server restarted), ensure session exists in DB and memory
+      // If tour:start is sent before create_session (or server restarted), ensure the session
+      // exists in DB and memory — but only for the verified ambassador of this appointment.
       if (data.type === 'tour:start' && tourId && !session) {
-        const created = await ensureSessionExists(ws, supabase, tourSessions, tourId, {
-          ambassador_id: (ws.user && ws.user.sub) || null,
-        });
-        if (created) {
-          session = tourSessions.get(tourId);
-          if (session && !session.ambassador) {
-            session.ambassador = ws;
+        if (await isAuthorizedAmbassador(ws, supabase, tourId)) {
+          const created = await ensureSessionExists(ws, supabase, tourSessions, tourId, {
+            ambassador_id: ws.user.sub,
+          });
+          if (created) {
+            session = tourSessions.get(tourId);
           }
+        }
+      }
+      // Rebind a verified ambassador (e.g. after a reconnect) before the authorization check.
+      if (data.type === 'tour:start' && session && !session.ambassador) {
+        if (await isAuthorizedAmbassador(ws, supabase, tourId)) {
+          session.ambassador = ws;
         }
       }
 
       const handler = messageHandlers[data.type];
 
       if (handler) {
-        if (['tour:start', 'tour:state_update', 'tour:structure_update', 'tour:end', 'tour:media:add-to-detail', 'tour:media:push-takeover'].includes(data.type)) {
+        if (AMBASSADOR_ONLY_EVENTS.has(data.type)) {
           if (!session || !session.ambassador || session.ambassador.id !== ws.id) {
             return ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized action.' }));
           }
@@ -58,22 +80,28 @@ export function sessionManager(ws, supabase, tourSessions) {
           }
         }
 
-        handler(data.payload, session);
+        await handler(payload, session);
       } else {
         console.log(`Unknown message type: ${data.type}`);
         ws.send(JSON.stringify({ type: 'error', message: `Unknown message type: ${data.type}` }));
       }
     } catch (error) {
       console.error('Failed to parse message or handle event:', error);
-      ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format.' }));
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format.' }));
+      }
     }
   });
 
-  ws.on('close', () => handleDisconnect(ws, supabase, tourSessions));
+  ws.on('close', () => {
+    handleDisconnect(ws, supabase, tourSessions).catch((error) => {
+      console.error('Error handling disconnect:', error);
+    });
+  });
 }
 
 function handleGetMembersSnapshot(ws, tourSessions, payload) {
-  const { tourId } = payload || {};
+  const { tourId } = payload;
   if (!tourId) {
     ws.send(JSON.stringify({ type: 'error', message: 'tourId is required.' }));
     return;
@@ -89,7 +117,6 @@ function handleGetMembersSnapshot(ws, tourSessions, payload) {
   const generalMembers = Array.from(session.members || [])
     .map((m) => ({ id: m.generalMemberId, first_name: m.generalFirstName }))
     .filter((m) => !!m.id && !!m.first_name)
-    .map((m) => ({ id: m.id, first_name: m.first_name }))
     .sort((a, b) => a.first_name.localeCompare(b.first_name, undefined, { sensitivity: 'base' }));
 
   ws.send(JSON.stringify({ type: 'members_snapshot', payload: { tourId, generalMembers } }));
@@ -103,6 +130,24 @@ function broadcastToMembers(session, message) {
       member.send(JSON.stringify(message));
     }
   });
+}
+
+// True only when this socket has authenticated as the ambassador assigned to the appointment.
+async function isAuthorizedAmbassador(ws, supabase, tourId) {
+  if (!ws.user || !ws.user.sub) {
+    return false;
+  }
+  try {
+    const { data: appt, error } = await supabase
+      .from('tour_appointments')
+      .select('ambassador_id')
+      .eq('id', tourId)
+      .single();
+    return !error && !!appt && appt.ambassador_id === ws.user.sub;
+  } catch (error) {
+    console.error('Error verifying ambassador for tour:', error);
+    return false;
+  }
 }
 
 // Ensures a session exists in memory and database. Creates it if it doesn't exist.
@@ -121,11 +166,16 @@ async function ensureSessionExists(ws, supabase, tourSessions, tourId, options =
       .select('*')
       .eq('tour_appointment_id', tourId)
       .single();
-    
+
     if (!fetchError && existingSession) {
-      // Session exists in DB but not in memory - restore it
+      // Session exists in DB but not in memory (e.g. server restart) - restore it.
+      // Nobody from the old process is still connected, so clear stale joined_members;
+      // connected clients re-add themselves when they rejoin.
       session = { ambassador: null, members: new Set() };
       tourSessions.set(tourId, session);
+      if (Array.isArray(existingSession.joined_members) && existingSession.joined_members.length > 0) {
+        await updateLiveTourSession(supabase, tourId, { joined_members: [] });
+      }
       console.log(`Restored session ${tourId} from database`);
       return session;
     }
@@ -135,7 +185,7 @@ async function ensureSessionExists(ws, supabase, tourSessions, tourId, options =
 
   // Session doesn't exist - create it
   console.log(`No session found for ${tourId}. Creating new session.`);
-  
+
   // Fetch ambassador_id from tour_appointments if not provided
   let ambassadorId = options.ambassador_id || (ws.user && ws.user.sub) || null;
   if (!ambassadorId) {
@@ -145,7 +195,7 @@ async function ensureSessionExists(ws, supabase, tourSessions, tourId, options =
         .select('ambassador_id')
         .eq('id', tourId)
         .single();
-      
+
       if (!tourApptError && tourAppt?.ambassador_id) {
         ambassadorId = tourAppt.ambassador_id;
         console.log(`Fetched ambassador_id ${ambassadorId} from tour appointment ${tourId}`);
@@ -156,7 +206,7 @@ async function ensureSessionExists(ws, supabase, tourSessions, tourId, options =
       console.error('Exception fetching tour appointment:', error);
     }
   }
-  
+
   // ambassador_id is required by the database schema
   // It should always be available from tour_appointments
   if (!ambassadorId) {
@@ -180,7 +230,7 @@ async function ensureSessionExists(ws, supabase, tourSessions, tourId, options =
         .select('*')
         .eq('tour_appointment_id', tourId)
         .single();
-      
+
       if (!fetchError && existingSession) {
         // Session was created by another process - restore it
         session = { ambassador: null, members: new Set() };
@@ -191,7 +241,7 @@ async function ensureSessionExists(ws, supabase, tourSessions, tourId, options =
     } catch (error) {
       console.error('Error fetching session after creation failure:', error);
     }
-    
+
     console.error(`Failed to create session in database for tour ${tourId}`);
     return null;
   }
@@ -202,16 +252,22 @@ async function ensureSessionExists(ws, supabase, tourSessions, tourId, options =
   return session;
 }
 
-// Basic auth handler to attach a minimal user object to the websocket connection.
-// In production, validate a real JWT and fetch the user from Supabase.
-async function handleAuth(ws, _supabase, payload) {
+// Validates the Supabase access token and attaches the verified user to the connection.
+async function handleAuth(ws, supabase, payload) {
   try {
-    const ambassadorId = payload?.sub || payload?.ambassador_id || payload?.userId || null;
-    if (!ambassadorId) {
-      ws.send(JSON.stringify({ type: 'error', message: 'Missing ambassador id for auth.' }));
+    const token = typeof payload.token === 'string' ? payload.token.trim() : '';
+    if (!token) {
+      ws.send(JSON.stringify({ type: 'error', message: 'Missing auth token.' }));
       return;
     }
-    ws.user = { sub: ambassadorId };
+
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data?.user?.id) {
+      ws.send(JSON.stringify({ type: 'error', message: 'Invalid auth token.' }));
+      return;
+    }
+
+    ws.user = { sub: data.user.id };
     ws.send(JSON.stringify({ type: 'auth_ok' }));
   } catch (e) {
     console.error('Auth error:', e);
@@ -228,9 +284,19 @@ async function handleCreateSession(ws, supabase, tourSessions, payload) {
     return;
   }
 
+  // Only the verified ambassador assigned to the appointment may run the session.
+  if (!ws.user || !ws.user.sub) {
+    ws.send(JSON.stringify({ type: 'error', message: 'Authentication required to create a session.' }));
+    return;
+  }
+  if (!(await isAuthorizedAmbassador(ws, supabase, tourId))) {
+    ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized action.' }));
+    return;
+  }
+
   // Ensure session exists (creates if it doesn't)
   const session = await ensureSessionExists(ws, supabase, tourSessions, tourId, {
-    ambassador_id: (ws.user && ws.user.sub) || payload.ambassador_id || null,
+    ambassador_id: ws.user.sub,
     initial_structure: initial_structure || {},
   });
 
@@ -239,14 +305,12 @@ async function handleCreateSession(ws, supabase, tourSessions, payload) {
     return;
   }
 
-  // Set ambassador if not already set
-  if (!session.ambassador) {
-    session.ambassador = ws;
-  }
+  // Bind (or rebind after a reconnect) the verified ambassador to this socket.
+  session.ambassador = ws;
 
   ws.tourId = tourId;
   console.log(`Ambassador ${ws.id} created/joined session: ${tourId}`);
-  
+
   // Fetch the session data from DB to send back
   try {
     const { data: sessionData } = await supabase
@@ -263,7 +327,7 @@ async function handleCreateSession(ws, supabase, tourSessions, payload) {
 
 async function handleJoinSession(ws, supabase, tourSessions, payload) {
   const { tourId, leadId, member } = payload;
-  
+
   if (!tourId) {
     ws.send(JSON.stringify({ type: 'error', message: 'tourId is required to join session.' }));
     return;
@@ -277,12 +341,11 @@ async function handleJoinSession(ws, supabase, tourSessions, payload) {
     return;
   }
 
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const generalMemberId = isGeneralJoin ? member?.id : null;
   const generalFirstName = isGeneralJoin ? (member?.first_name || '').toString().trim() : '';
 
   if (isGeneralJoin) {
-    if (!generalMemberId || !uuidRegex.test(generalMemberId)) {
+    if (!generalMemberId || !isValidUuid(generalMemberId)) {
       ws.send(JSON.stringify({ type: 'error', message: 'Invalid member.id.' }));
       return;
     }
@@ -302,7 +365,7 @@ async function handleJoinSession(ws, supabase, tourSessions, payload) {
         .select('ambassador_id')
         .eq('id', tourId)
         .single();
-      
+
       if (!tourApptError && tourAppt?.ambassador_id) {
         ambassadorId = tourAppt.ambassador_id;
         console.log(`Fetched ambassador_id ${ambassadorId} from tour appointment for join_session`);
@@ -324,16 +387,18 @@ async function handleJoinSession(ws, supabase, tourSessions, payload) {
     return;
   }
 
-  // For leads, fetch full information from database. For general members, we only have the provided name.
+  // For leads, fetch their information from the database. The lead must belong to this tour —
+  // otherwise anyone with a lead UUID could pull that lead's PII into a session they control.
   let leadInfo = null;
   if (isLeadJoin) {
     try {
       const { data: lead, error: leadError } = await supabase
         .from('leads')
-        .select('*')
+        .select('id, first_name, last_name, email, identity, date_of_birth, expected_attendance')
+        .eq('tour_appointment_id', tourId)
         .eq('id', leadId)
         .single();
-      
+
       if (leadError || !lead) {
         console.error('Error fetching lead:', leadError);
         ws.send(JSON.stringify({ type: 'error', message: 'Invalid leadId.' }));
@@ -386,7 +451,7 @@ async function handleJoinSession(ws, supabase, tourSessions, payload) {
   ws.tourId = tourId;
   console.log(`Client ${ws.id} joined tour: ${tourId} (${isLeadJoin ? `leadId: ${leadId}` : `generalMemberId: ${generalMemberId}`})`);
   ws.send(JSON.stringify({ type: 'session_joined', tourId }));
-  
+
   // Notify ambassador with full lead/member information
   if (session.ambassador && session.ambassador.readyState === 1) {
     if (isLeadJoin && leadInfo) {
@@ -394,8 +459,8 @@ async function handleJoinSession(ws, supabase, tourSessions, payload) {
         .filter(Boolean)
         .join(' ')
         .trim() || 'Member';
-      session.ambassador.send(JSON.stringify({ 
-        type: 'member_joined', 
+      session.ambassador.send(JSON.stringify({
+        type: 'member_joined',
         lead: {
           id: leadInfo.id,
           name: displayName,
@@ -441,17 +506,13 @@ function extractLocationIdsFromTemplateStops(stopsJson) {
 }
 
 async function handleTourStart(ws, supabase, payload, session) {
-  const tourId = payload?.tourId;
-  const payloadTemplateId = payload?.preconfiguredTourId || null;
+  const tourId = payload.tourId;
+  const payloadTemplateId = payload.preconfiguredTourId || null;
   if (!tourId) {
     ws.send(JSON.stringify({ type: 'error', message: 'tourId is required.' }));
     return;
   }
   console.log(`Starting tour ${tourId}`);
-  // Bind ambassador to this session if not set yet
-  if (!session.ambassador) {
-    session.ambassador = ws;
-  }
 
   let selectedTemplate = null;
   let generatedOrder = [];
@@ -508,6 +569,16 @@ async function handleTourStart(ws, supabase, payload, session) {
     live_tour_structure: generatedOrder,
   });
 
+  // Keep the appointment's status in sync with the live session.
+  try {
+    await supabase
+      .from('tour_appointments')
+      .update({ status: 'active', updated_at: new Date().toISOString() })
+      .eq('id', tourId);
+  } catch (error) {
+    console.error('Error marking tour appointment active:', error);
+  }
+
   // Return selected template snapshot to ambassador.
   ws.send(JSON.stringify({
     type: 'tour_started',
@@ -528,14 +599,12 @@ async function handleTourStart(ws, supabase, payload, session) {
   }
 }
 
-// Simple UUID v4 regex so we don't write non-UUIDs (e.g. "0") to uuid columns
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-function isValidUuid(s) {
-  return typeof s === 'string' && UUID_REGEX.test(s);
-}
-
-async function handleTourStateUpdate(supabase, session, payload) {
+async function handleTourStateUpdate(ws, supabase, session, payload) {
   const { tourId, state } = payload;
+  if (!tourId || !state || typeof state !== 'object') {
+    ws.send(JSON.stringify({ type: 'error', message: 'tourId and state are required.' }));
+    return;
+  }
   console.log(`Broadcasting and persisting state update for tour ${tourId}:`, state);
 
   const current_location_id = isValidUuid(state.current_location_id) ? state.current_location_id : null;
@@ -548,44 +617,32 @@ async function handleTourStateUpdate(supabase, session, payload) {
     visited_locations,
   });
 
-  broadcastToMembers(session, { type: 'tour_state_updated', state });
+  // Broadcast the same sanitized state we persisted so members and DB never diverge.
+  broadcastToMembers(session, {
+    type: 'tour_state_updated',
+    state: { ...state, current_location_id, visited_locations },
+  });
 }
 
-async function handleTourStructureUpdate(supabase, session, payload) {
-  const { tourId, changes } = payload;
-  console.log(`Broadcasting and persisting structure update for tour ${tourId}:`, changes);
-
-  // Extract location IDs - handle both array format and object format for backward compatibility
-  let locationIds = [];
-  if (Array.isArray(changes.new_structure)) {
-    // Already in simple array format
-    locationIds = changes.new_structure;
-  } else if (changes.new_structure.generated_tour_order && Array.isArray(changes.new_structure.generated_tour_order)) {
-    // Object format with generated_tour_order
-    locationIds = changes.new_structure.generated_tour_order;
-  } else if (changes.new_structure.tour_stops && Array.isArray(changes.new_structure.tour_stops)) {
-    // Extract location IDs from full objects
-    locationIds = changes.new_structure.tour_stops.map(stop => 
-      typeof stop === 'string' ? stop : stop.id
-    );
+async function handleTourEnd(ws, supabase, tourSessions, payload, session) {
+  const { tourId } = payload;
+  if (!tourId) {
+    ws.send(JSON.stringify({ type: 'error', message: 'tourId is required.' }));
+    return;
   }
-
-  // Store just the array of location IDs
-  await updateLiveTourSession(supabase, tourId, {
-    live_tour_structure: locationIds,
-  });
-
-  // Broadcast just the array of location IDs
-  broadcastToMembers(session, { 
-    type: 'tour_structure_updated', 
-    changes: { new_structure: locationIds } 
-  });
-}
-
-async function handleTourEnd(ws, supabase, tourSessions, tourId, session) {
   console.log(`Ending tour ${tourId}`);
 
   await updateLiveTourSession(supabase, tourId, { status: 'ended' });
+
+  // Keep the appointment's status in sync with the live session.
+  try {
+    await supabase
+      .from('tour_appointments')
+      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .eq('id', tourId);
+  } catch (error) {
+    console.error('Error marking tour appointment completed:', error);
+  }
 
   broadcastToMembers(session, { type: 'session_ended', message: 'The ambassador has ended the tour.' });
   session.members.forEach(member => member.close());
@@ -603,12 +660,12 @@ async function handleTourListChanged(supabase, session, payload) {
     if (Array.isArray(newTourStructure)) {
       // Already in simple array format
       locationIds = newTourStructure;
-    } else if (newTourStructure.generated_tour_order && Array.isArray(newTourStructure.generated_tour_order)) {
+    } else if (newTourStructure?.generated_tour_order && Array.isArray(newTourStructure.generated_tour_order)) {
       // Object format with generated_tour_order
       locationIds = newTourStructure.generated_tour_order;
-    } else if (newTourStructure.tour_stops && Array.isArray(newTourStructure.tour_stops)) {
+    } else if (newTourStructure?.tour_stops && Array.isArray(newTourStructure.tour_stops)) {
       // Extract location IDs from full objects
-      locationIds = newTourStructure.tour_stops.map(stop => 
+      locationIds = newTourStructure.tour_stops.map(stop =>
         typeof stop === 'string' ? stop : stop.id
       );
     }
@@ -619,8 +676,8 @@ async function handleTourListChanged(supabase, session, payload) {
     });
 
     // Broadcast just the array of location IDs
-    broadcastToMembers(session, { 
-      type: 'tour_list_changed', 
+    broadcastToMembers(session, {
+      type: 'tour_list_changed',
       payload: {
         tourId,
         newTourStructure: locationIds, // Just the array of location IDs
@@ -655,13 +712,13 @@ function handleTourMediaPushTakeover(session, payload) {
 
 async function handleAmbassadorPing(ws, supabase, session, payload) {
   console.log(`Member ${ws.id} is pinging the ambassador`);
-  
+
   // Fetch lead information to get the member's name
   let memberName = 'A member';
   const leadId = ws.leadId;
   const generalFirstName = ws.generalFirstName;
   const generalMemberId = ws.generalMemberId;
-  
+
   if (generalFirstName) {
     memberName = generalFirstName;
   } else if (leadId) {
@@ -671,7 +728,7 @@ async function handleAmbassadorPing(ws, supabase, session, payload) {
         .select('first_name, last_name')
         .eq('id', leadId)
         .single();
-      
+
       if (!leadError && lead) {
         const n = [lead.first_name, lead.last_name].filter(Boolean).join(' ').trim();
         if (n) memberName = n;
@@ -681,7 +738,7 @@ async function handleAmbassadorPing(ws, supabase, session, payload) {
       // Continue with default name if fetch fails
     }
   }
-  
+
   // Send ping notification to ambassador
   if (session.ambassador && session.ambassador.readyState === 1) {
     session.ambassador.send(JSON.stringify({
@@ -708,25 +765,13 @@ async function handleDisconnect(ws, supabase, tourSessions) {
         // Ambassador disconnected - don't end the tour, just remove ambassador reference
         // This allows the ambassador to rejoin later
         console.log(`Ambassador for tour ${tourId} disconnected. Tour continues, ambassador can rejoin.`);
-        
+
         // Clear the ambassador reference but keep the session active
         session.ambassador = null;
-        
-        // Optionally notify members that ambassador disconnected (but tour continues)
-        // Uncomment if you want to notify members:
-        // broadcastToMembers(session, { 
-        //   type: 'ambassador_disconnected', 
-        //   message: 'The ambassador has disconnected. The tour will continue when they rejoin.' 
-        // });
-        
-        // Do NOT:
-        // - Update status to 'ended' (keep it 'active')
-        // - Close member connections
-        // - Delete the session
       } else if (session.members.has(ws)) {
         session.members.delete(ws);
         console.log(`Member ${ws.id} left tour ${tourId}.`);
-        
+
         // Remove member id from joined_members array in database
         const idToRemove = leadId || generalMemberId;
         if (idToRemove) {
@@ -745,18 +790,38 @@ async function handleDisconnect(ws, supabase, tourSessions) {
             console.error('Exception removing leadId from joined_members:', error);
           }
         }
-        
+
         // Notify ambassador
         if (session.ambassador && session.ambassador.readyState === 1) {
-          session.ambassador.send(JSON.stringify({ 
-            type: 'member_left', 
+          session.ambassador.send(JSON.stringify({
+            type: 'member_left',
             leadId: leadId || null,
             leftMemberId: idToRemove || null,
             is_general: !!(generalMemberId && !leadId),
-            socketMemberId: ws.id 
+            socketMemberId: ws.id
           }));
         }
       }
     }
   }
+}
+
+// Evicts in-memory sessions whose DB rows were closed by the inactivity sweep.
+export function evictSessions(tourSessions, tourIds) {
+  let evicted = 0;
+  for (const tourId of tourIds || []) {
+    const session = tourSessions.get(tourId);
+    if (!session) continue;
+    broadcastToMembers(session, { type: 'session_ended', message: 'The tour has ended due to inactivity.' });
+    session.members.forEach(member => member.close());
+    if (session.ambassador && session.ambassador.readyState === 1) {
+      session.ambassador.send(JSON.stringify({ type: 'session_ended', message: 'The tour has ended due to inactivity.' }));
+    }
+    tourSessions.delete(tourId);
+    evicted++;
+  }
+  if (evicted > 0) {
+    console.log(`Evicted ${evicted} inactive session(s) from memory.`);
+  }
+  return evicted;
 }

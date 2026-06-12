@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Vibration } from 'react-native';
 import { wsManager } from '@/services/ws';
-import { userTypeService } from '@/services/supabase';
+import { authService, userTypeService } from '@/services/supabase';
 
 interface RaiseHandContextType {
   showModal: boolean;
@@ -16,7 +16,8 @@ export function RaiseHandProvider({ children }: { children: ReactNode }) {
   const [memberName, setMemberName] = useState('');
   const [isAmbassador, setIsAmbassador] = useState(false);
 
-  // Check if user is an ambassador
+  // Check if user is an ambassador, and re-check whenever auth state changes
+  // (the provider mounts at the root, before an ambassador signs in).
   useEffect(() => {
     const checkUserType = async () => {
       const ambassadorStatus = await userTypeService.isAmbassador();
@@ -24,6 +25,13 @@ export function RaiseHandProvider({ children }: { children: ReactNode }) {
     };
 
     checkUserType();
+
+    const { data: subscription } = authService.onAuthStateChange(() => {
+      void checkUserType();
+    });
+    return () => {
+      subscription?.subscription?.unsubscribe?.();
+    };
   }, []);
 
   // Listen for WebSocket events (for ambassadors to receive raise hand notifications)

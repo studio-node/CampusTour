@@ -164,6 +164,35 @@ export async function updateLiveTourSession(supabase, tour_appointment_id, updat
 }
 
 /**
+ * Returns the subset of the given tour appointment ids whose live session rows are 'ended'.
+ * Used to evict in-memory sessions after the inactivity sweep closes their DB rows.
+ * @param {Object} supabase - Supabase client instance
+ * @param {string[]} tourIds - Tour appointment ids currently held in memory
+ * @returns {Promise<string[]>}
+ */
+export async function getEndedSessionIds(supabase, tourIds) {
+  if (!Array.isArray(tourIds) || tourIds.length === 0) {
+    return [];
+  }
+  try {
+    const { data, error } = await supabase
+      .from('live_tour_sessions')
+      .select('tour_appointment_id')
+      .in('tour_appointment_id', tourIds)
+      .eq('status', 'ended');
+
+    if (error) {
+      console.error('Error fetching ended sessions:', error);
+      return [];
+    }
+    return (data || []).map((row) => row.tour_appointment_id);
+  } catch (error) {
+    console.error('Exception fetching ended sessions:', error);
+    return [];
+  }
+}
+
+/**
  * Closes inactive sessions that haven't been updated in the last hour.
  * Sessions with status 'ended' are excluded from this check.
  * @param {Object} supabase - Supabase client instance

@@ -48,6 +48,7 @@ export function createSupabaseMock() {
     singleByTableAndEq: new Map(),
     lastUpdatePayload: null,
     lastInsertPayload: null,
+    authUsersByToken: new Map(),
   };
 
   return {
@@ -57,6 +58,17 @@ export function createSupabaseMock() {
         state.singleByTableAndEq.set(table, new Map());
       }
       state.singleByTableAndEq.get(table).set(eqValue, response);
+    },
+    setAuthUser(token, userId) {
+      state.authUsersByToken.set(token, userId);
+    },
+    auth: {
+      getUser: async (token) => {
+        if (state.authUsersByToken.has(token)) {
+          return { data: { user: { id: state.authUsersByToken.get(token) } }, error: null };
+        }
+        return { data: { user: null }, error: { message: 'Invalid token' } };
+      },
     },
     from(table) {
       state.currentTable = table;

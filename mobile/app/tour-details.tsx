@@ -206,7 +206,8 @@ export default function TourDetailsScreen() {
       const u = await authService.getStoredUser();
       const currentUserType = await userTypeService.getUserType();
       if (u?.id) {
-        wsManager.authenticate(u.id);
+        // Await so the auth token reaches the server before create_session below.
+        await wsManager.authenticate();
       }
       // Create or attach to the live tour session on socket open (ambassador only)
       if (currentUserType !== 'ambassador') {
@@ -218,7 +219,6 @@ export default function TourDetailsScreen() {
         wsManager.send('create_session', {
           tourId: tId,
           initial_structure: {},
-          ambassador_id: u?.id || null,
         });
         // joined_members will be loaded from the session_created message response
       }

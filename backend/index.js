@@ -1,8 +1,8 @@
 import { WebSocketServer } from 'ws';
 import GeminiCaller from './gemini_caller.mjs';
 import { createClient } from '@supabase/supabase-js';
-import { getLocations, closeInactiveSessions } from './supabase.mjs';
-import { sessionManager } from './tour-sessions.js';
+import { getLocations, closeInactiveSessions, getEndedSessionIds } from './supabase.mjs';
+import { sessionManager, evictSessions } from './tour-sessions.js';
 import { createApp, createIpRateLimiter, RATE_LIMIT_WINDOW_MS, ROUTES_RATE_LIMIT_WINDOW_MS, ROUTES_RATE_LIMIT_MAX_REQUESTS } from './app.js';
 
 const port = process.env.PORT || 3000;
@@ -34,7 +34,26 @@ const server = serverApp.listen(port, () => {
 const wss = new WebSocketServer({ server });
 
 // Pass the Supabase client into the session manager so handlers can auth and persist
-wss.on('connection', ws => sessionManager(ws, supabase, tourSessions));
+wss.on('connection', ws => {
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+  sessionManager(ws, supabase, tourSessions);
+});
+
+// Heartbeat: terminate sockets that miss a ping/pong round so dead phones don't
+// linger in session member lists (terminate fires 'close' → normal disconnect cleanup).
+const HEARTBEAT_INTERVAL_MS = 30 * 1000;
+
+setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (ws.isAlive === false) {
+      console.log(`Terminating unresponsive client ${ws.id}`);
+      return ws.terminate();
+    }
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, HEARTBEAT_INTERVAL_MS);
 
 // Set up interval to check for inactive sessions every 10 minutes
 const INACTIVE_SESSION_CHECK_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
@@ -44,6 +63,11 @@ setInterval(async () => {
   const closedCount = await closeInactiveSessions(supabase);
   if (closedCount > 0) {
     console.log(`Session timeout check completed: ${closedCount} session(s) closed.`);
+  }
+  // Evict in-memory sessions whose DB rows are now ended, so they don't leak forever.
+  if (tourSessions.size > 0) {
+    const endedIds = await getEndedSessionIds(supabase, Array.from(tourSessions.keys()));
+    evictSessions(tourSessions, endedIds);
   }
 }, INACTIVE_SESSION_CHECK_INTERVAL_MS);
 

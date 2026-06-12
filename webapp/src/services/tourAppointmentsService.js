@@ -240,44 +240,6 @@ export async function getTourAppointmentById(appointmentId) {
 }
 
 /**
- * Join a tour group (for now, just return success - could track participants later)
- * @param {string} appointmentId - The appointment ID to join
- * @param {Object} userInfo - User information
- * @returns {Promise<{success: boolean, error?: string}>}
- */
-export async function joinTourGroup(appointmentId, userInfo) {
-  try {
-    // For now, we'll just return success
-    // In the future, this could:
-    // 1. Add the user to a tour_participants table
-    // 2. Check if tour is full
-    // 3. Send confirmation emails
-    // 4. Generate QR codes for check-in
-    
-    return {
-      success: true,
-      message: 'Successfully joined tour group!'
-    }
-  } catch (error) {
-    console.error('Error joining tour group:', error)
-    return {
-      success: false,
-      error: 'Failed to join tour group. Please try again.'
-    }
-  }
-}
-
-/**
- * Check if a tour has available spots
- * @param {Object} tour - The tour appointment object
- * @param {number} currentParticipants - Current number of participants (for future use)
- * @returns {boolean}
- */
-export function hasAvailableSpots(tour, currentParticipants = 0) {
-  return currentParticipants < tour.max_participants
-}
-
-/**
  * Format tour date and time for display
  * @param {string} scheduledDate - ISO date string
  * @returns {Object} - Formatted date and time
@@ -382,8 +344,6 @@ export const tourAppointmentsService = {
   listAmbassadorsForSchool,
   getAvailableTourGroups,
   getTourAppointmentById,
-  joinTourGroup,
-  hasAvailableSpots,
   formatTourDateTime,
   listPreconfiguredToursForSchool,
   createPreconfiguredTour,

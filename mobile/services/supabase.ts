@@ -1339,34 +1339,22 @@ export const tourAppointmentsService = {
         return { success: false, error: 'Invalid confirmation code' };
       }
 
-      const { data, error } = await supabase
-        .from('tour_appointments')
-        .select('general_confirmation_code')
-        .eq('id', tourAppointmentId)
-        .single();
+      // Verified server-side so the code itself is never exposed to the client.
+      const { data, error } = await supabase.rpc('verify_general_confirmation_code', {
+        p_tour_appointment_id: tourAppointmentId,
+        p_code: trimmed,
+      });
 
       if (error) {
         console.error('Error verifying general confirmation code:', error);
         return { success: false, error: 'Failed to verify confirmation code' };
       }
 
-      const isGeneralCode =
-        (data?.general_confirmation_code || '').toString().trim().toUpperCase() === trimmed;
-
-      return { success: true, isGeneralCode };
+      return { success: true, isGeneralCode: data === true };
     } catch (e) {
       console.error('Exception verifying general confirmation code:', e);
       return { success: false, error: 'Failed to verify confirmation code' };
     }
-  },
-
-  /**
-   * Check if tour appointment has available spots
-   * @param appointment - The tour appointment object
-   * @returns boolean
-   */
-  hasAvailableSpots(appointment: TourAppointment): boolean {
-    return appointment.participants_signed_up < appointment.max_participants;
   },
 
   /**
@@ -1397,33 +1385,6 @@ export const tourAppointmentsService = {
     };
   },
 
-  /**
-   * Join a tour group (for now, just return success - could track participants later)
-   * @param appointmentId - The appointment ID to join
-   * @param userInfo - User information
-   * @returns Promise with success status
-   */
-  async joinTourGroup(appointmentId: string, userInfo: any): Promise<{success: boolean, error?: string, message?: string}> {
-    try {
-      // For now, we'll just return success
-      // In the future, this could:
-      // 1. Add the user to a tour_participants table
-      // 2. Check if tour is full
-      // 3. Send confirmation emails
-      // 4. Generate QR codes for check-in
-      
-      return {
-        success: true,
-        message: 'Successfully joined tour group!'
-      };
-    } catch (error) {
-      console.error('Error joining tour group:', error);
-      return {
-        success: false,
-        error: 'Failed to join tour group. Please try again.'
-      };
-    }
-  },
   /**
    * Returns active preconfigured tours for a school.
    */
