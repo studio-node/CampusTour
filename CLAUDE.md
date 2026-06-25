@@ -22,7 +22,7 @@ This project is for a campus tour app and supporting services that I am building
         - ambassador-led tour session handling and managment (websockets) 
 - **SupaBase**
     - This is where a lot of our backend/server type funcionality is at
-    - If you need to see our entire schema, read supabase/supabase_schema.sql
+    - If you need to see our entire schema, read @supabase/supabase_schema.sql
     - List of what all is here:
         - User Auth
         - All database stuff

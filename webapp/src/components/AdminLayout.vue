@@ -36,6 +36,7 @@ const navigation = [
   // { name: 'Tour Management', href: '/admin/tours', icon: '🗺️' },
   { name: 'Location Management', href: '/admin/locations', icon: '📍' },
   { name: 'Tour Appointments', href: '/admin/appointments', icon: '🗓️' },
+  { name: 'Tour Templates', href: '/admin/preconfigured-tours', icon: '🗺️' },
   // { name: 'Ambassador Tours', href: '/admin/ambassador-tours', icon: '🎓' },
   // { name: 'Profile & Settings', href: '/admin/profile', icon: '⚙️' }
 ]

@@ -155,6 +155,15 @@ const routes = [
     }
   },
   {
+    path: '/admin/preconfigured-tours',
+    name: 'PreconfiguredTours',
+    component: () => import('../pages/PreconfiguredTours.vue'),
+    meta: {
+      layout: 'admin',
+      title: 'Tour Templates'
+    }
+  },
+  {
     path: '/admin/locations/deadzones',
     name: 'NoGoZones',
     component: () => import('../pages/NoGoZones.vue'),
