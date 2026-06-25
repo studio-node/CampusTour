@@ -623,15 +623,35 @@ COMMENT ON FUNCTION "public"."increment_location_order_index"() IS 'Automaticall
 CREATE OR REPLACE FUNCTION "public"."increment_tour_participants"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
+DECLARE
+  appt record;
 BEGIN
   -- Only increment if the lead has a tour_appointment_id
   IF NEW.tour_appointment_id IS NOT NULL THEN
-    UPDATE public.tour_appointments 
+    SELECT status, participants_signed_up, max_participants
+    INTO appt
+    FROM public.tour_appointments
+    WHERE id = NEW.tour_appointment_id
+    FOR UPDATE;  -- serializes concurrent signups for the same appointment
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Tour appointment % does not exist.', NEW.tour_appointment_id;
+    END IF;
+
+    IF appt.status NOT IN ('scheduled', 'active') THEN
+      RAISE EXCEPTION 'Tour appointment % is not open for signups.', NEW.tour_appointment_id;
+    END IF;
+
+    IF appt.max_participants IS NOT NULL AND appt.participants_signed_up >= appt.max_participants THEN
+      RAISE EXCEPTION 'Tour appointment % is full.', NEW.tour_appointment_id;
+    END IF;
+
+    UPDATE public.tour_appointments
     SET participants_signed_up = participants_signed_up + 1,
         updated_at = now()
     WHERE id = NEW.tour_appointment_id;
   END IF;
-  
+
   RETURN NEW;
 END;
 $$;
@@ -922,6 +942,22 @@ ALTER FUNCTION "public"."validate_pin"("p_creation_token" "text") OWNER TO "post
 
 COMMENT ON FUNCTION "public"."validate_pin"("p_creation_token" "text") IS 'Validates a creation_token PIN and returns user info if valid. Allows anonymous access.';
 
+
+
+CREATE OR REPLACE FUNCTION "public"."verify_general_confirmation_code"("p_tour_appointment_id" "uuid", "p_code" "text") RETURNS boolean
+    LANGUAGE "sql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.tour_appointments ta
+    WHERE ta.id = p_tour_appointment_id
+      AND upper(trim(ta.general_confirmation_code)) = upper(trim(coalesce(p_code, '')))
+  );
+$$;
+
+
+ALTER FUNCTION "public"."verify_general_confirmation_code"("p_tour_appointment_id" "uuid", "p_code" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "storage"."allow_any_operation"("expected_operations" "text"[]) RETURNS boolean
@@ -2574,11 +2610,21 @@ CREATE TABLE IF NOT EXISTS "public"."tour_appointments" (
     "max_participants" smallint DEFAULT '30'::smallint,
     "general_confirmation_code" "text",
     "preconfigured_tour_id" "uuid",
+    "duration_minutes" smallint,
+    "meeting_location" "text",
     CONSTRAINT "tour_appointments_status_check" CHECK (("status" = ANY (ARRAY['scheduled'::"text", 'active'::"text", 'completed'::"text", 'cancelled'::"text"])))
 );
 
 
 ALTER TABLE "public"."tour_appointments" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."tour_appointments"."duration_minutes" IS 'Planned tour length in minutes.';
+
+
+
+COMMENT ON COLUMN "public"."tour_appointments"."meeting_location" IS 'Where the tour group meets on campus.';
+
 
 
 CREATE TABLE IF NOT EXISTS "storage"."buckets" (
@@ -3578,10 +3624,6 @@ CREATE POLICY "Enable read access for all users" ON "public"."leads" FOR SELECT 
 
 
 
-CREATE POLICY "Enable read access for all users" ON "public"."live_tour_sessions" FOR SELECT USING (true);
-
-
-
 CREATE POLICY "Enable read access for all users" ON "public"."location_media" FOR SELECT USING (true);
 
 
@@ -3601,6 +3643,10 @@ ALTER TABLE "public"."leads" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."live_tour_sessions" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "live_tour_sessions_select_not_ended" ON "public"."live_tour_sessions" FOR SELECT USING (("status" <> 'ended'::"text"));
+
 
 
 ALTER TABLE "public"."location_media" ENABLE ROW LEVEL SECURITY;
@@ -3749,6 +3795,10 @@ CREATE POLICY "tour_appointments_select_public_scheduled" ON "public"."tour_appo
 
 
 CREATE POLICY "tour_appointments_update_admin_school" ON "public"."tour_appointments" FOR UPDATE TO "authenticated" USING ("public"."current_user_can_admin_school"("school_id")) WITH CHECK ("public"."current_user_can_admin_school"("school_id"));
+
+
+
+CREATE POLICY "tour_appointments_update_ambassador_own" ON "public"."tour_appointments" FOR UPDATE TO "authenticated" USING (("ambassador_id" = "auth"."uid"())) WITH CHECK (("ambassador_id" = "auth"."uid"()));
 
 
 
@@ -3942,6 +3992,13 @@ GRANT ALL ON FUNCTION "public"."update_school_user_profile"("p_target_id" "uuid"
 GRANT ALL ON FUNCTION "public"."validate_pin"("p_creation_token" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."validate_pin"("p_creation_token" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."validate_pin"("p_creation_token" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."verify_general_confirmation_code"("p_tour_appointment_id" "uuid", "p_code" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."verify_general_confirmation_code"("p_tour_appointment_id" "uuid", "p_code" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."verify_general_confirmation_code"("p_tour_appointment_id" "uuid", "p_code" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."verify_general_confirmation_code"("p_tour_appointment_id" "uuid", "p_code" "text") TO "service_role";
 
 
 
