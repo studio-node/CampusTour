@@ -1410,6 +1410,20 @@ export const tourAppointmentsService = {
   },
 
   /**
+   * Updates the preconfigured tour assigned to an appointment.
+   * Called when an ambassador selects a tour template at start time.
+   */
+  async updatePreconfiguredTourId(appointmentId: string, preconfiguredTourId: string): Promise<void> {
+    const { error } = await supabase
+      .from('tour_appointments')
+      .update({ preconfigured_tour_id: preconfiguredTourId })
+      .eq('id', appointmentId);
+    if (error) {
+      console.error('Error updating preconfigured_tour_id:', error);
+    }
+  },
+
+  /**
    * Creates an impromptu ambassador-led appointment from a selected template.
    */
   async createImpromptuAppointment(input: {

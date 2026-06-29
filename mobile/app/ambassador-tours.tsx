@@ -115,8 +115,7 @@ export default function AmbassadorToursScreen() {
         await schoolService.setSelectedSchool(selectedTour.school_id);
       }
 
-      // Navigate to tour details screen
-      router.push('/tour-details');
+      router.push('/preconfigured-tour-select');
     } catch (error) {
       console.error('Error selecting tour:', error);
       Alert.alert('Error', 'Failed to select tour. Please try again.');

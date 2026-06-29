@@ -1,6 +1,6 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -41,6 +41,7 @@ export default function TourDetailsScreen() {
   const [participants, setParticipants] = useState<TourParticipant[]>([]);
   const [joinedMemberIds, setJoinedMemberIds] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  const sessionInitiatedRef = useRef(false);
 
   // Function to fetch joined members
   const fetchJoinedMembers = async (tourId: string) => {
@@ -190,6 +191,7 @@ export default function TourDetailsScreen() {
             setParticipants([]);
             setJoinedMemberIds(new Set());
           }
+
         }
       } catch (err) {
         setError('Failed to load tour details.');
@@ -204,27 +206,31 @@ export default function TourDetailsScreen() {
     wsManager.connect();
     const onOpen = async () => {
       const u = await authService.getStoredUser();
-      const currentUserType = await userTypeService.getUserType();
       if (u?.id) {
-        // Await so the auth token reaches the server before create_session below.
         await wsManager.authenticate();
       }
-      // Create or attach to the live tour session on socket open (ambassador only)
-      if (currentUserType !== 'ambassador') {
-        return;
-      }
-      // Create or attach to the live tour session on socket open
-      const tId = await tourGroupSelectionService.getSelectedTourGroup();
-      if (tId) {
-        wsManager.send('create_session', {
-          tourId: tId,
-          initial_structure: {},
-        });
-        // joined_members will be loaded from the session_created message response
-      }
+      // create_session is sent from onAuthOk after the server confirms authentication
     };
     wsManager.on('open', onOpen);
-    
+
+    // Send create_session only after the server acknowledges auth (auth_ok).
+    // This prevents the race condition where create_session arrives before handleAuth
+    // finishes its async supabase.auth.getUser() call on the backend.
+    // The ref guard prevents duplicate sends when the [userType] effect re-runs.
+    const onAuthOk = async () => {
+      if (sessionInitiatedRef.current) return;
+      const currentUserType = await userTypeService.getUserType();
+      if (currentUserType !== 'ambassador') return;
+      const tId = await tourGroupSelectionService.getSelectedTourGroup();
+      if (!tId) return;
+      sessionInitiatedRef.current = true;
+      wsManager.send('create_session', {
+        tourId: tId,
+        initial_structure: {},
+      });
+    };
+    wsManager.on('auth_ok', onAuthOk);
+
     // If websocket is already open, trigger onOpen immediately
     if (wsManager.getStatus() === 'open') {
       onOpen();
@@ -468,6 +474,7 @@ export default function TourDetailsScreen() {
 
     return () => {
       wsManager.off('open', onOpen);
+      wsManager.off('auth_ok', onAuthOk);
       wsManager.off('message', onMessage);
     }
   }, [userType]);
@@ -475,7 +482,7 @@ export default function TourDetailsScreen() {
   const handleStartTour = async () => {
     if (!tour) return;
     if (!tour.preconfigured_tour_id) {
-      Alert.alert('Template Required', 'This tour does not have a preconfigured tour template assigned.');
+      Alert.alert('Template Required', 'Please go back and select a tour template.');
       return;
     }
     const user = await authService.getStoredUser();
@@ -485,7 +492,6 @@ export default function TourDetailsScreen() {
     }
 
     if (wsManager.getStatus() !== 'open') {
-      // Try to connect; wsManager will queue the send
       wsManager.connect();
     }
 
@@ -529,7 +535,7 @@ export default function TourDetailsScreen() {
             {/* <Image source={{ uri: school?.logo_url }} style={styles.schoolLogo} /> */}
             <Text style={styles.title}>{tour.title || 'Tour Details'}</Text>
             <Text style={styles.templateBadge}>
-              Template: {tour.preconfigured_tours?.name || 'Unassigned'}
+              Template: {tour.preconfigured_tours?.name || 'Not set'}
             </Text>
             {/* <Text style={styles.subtitle}>
               Led by {tour.profiles?.full_name || 'TBA'}
@@ -629,7 +635,6 @@ export default function TourDetailsScreen() {
           </View>
         </>
       )}
-
 
     </View>
   );
