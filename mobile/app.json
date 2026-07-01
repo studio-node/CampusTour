@@ -4,7 +4,7 @@
     "slug": "CampusTour",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon_1024.png",
+    "icon": "./assets/images/icon_1024.jpeg",
     "scheme": "campustour",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -30,7 +30,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/icon_1024.png",
+          "image": "./assets/images/icon_1024.jpeg",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#000000"
