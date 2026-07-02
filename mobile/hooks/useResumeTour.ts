@@ -23,6 +23,70 @@ interface UseResumeTourReturn {
 }
 
 /**
+ * Fetches the live session for a tour, rebuilds the ordered stop list, and
+ * saves it into app state. Returns false when the session can't be restored.
+ */
+async function restoreTourSessionState(tourId: string): Promise<boolean> {
+  // Fetch latest tour state from Supabase
+  const sessionData = await leadsService.getLiveTourSession(tourId);
+  if (!sessionData || sessionData.status !== 'active') {
+    console.error('Tour session is not active');
+    return false;
+  }
+
+  const schoolId = await schoolService.getSelectedSchool();
+  if (!schoolId || !sessionData.live_tour_structure || !Array.isArray(sessionData.live_tour_structure)) {
+    console.error('Missing required data to restore tour');
+    return false;
+  }
+
+  // Fetch all locations to convert IDs to Location objects
+  const allLocations = await locationService.getTourStops(schoolId);
+  const ordered: Location[] = sessionData.live_tour_structure
+    .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
+    .filter((loc: Location | undefined): loc is Location => Boolean(loc));
+
+  // Convert visited_locations from JSONB array format
+  const visitedLocations = Array.isArray(sessionData.visited_locations)
+    ? sessionData.visited_locations
+    : [];
+
+  // Find current stop index
+  let currentStopIndex = 0;
+  if (sessionData.current_location_id) {
+    const foundIndex = ordered.findIndex(loc => loc.id === sessionData.current_location_id);
+    currentStopIndex = foundIndex >= 0 ? foundIndex : 0;
+  }
+
+  // Update app state with the current tour state
+  appStateManager.updateState({
+    tourState: {
+      stops: ordered,
+      selectedInterests: [],
+      visitedLocations: visitedLocations,
+      currentStopIndex: currentStopIndex,
+      tourStarted: true,
+      tourFinished: false,
+      isEditingTour: false,
+      tourPaused: false,
+    },
+  });
+
+  await appStateManager.saveCurrentState();
+  return true;
+}
+
+function runWhenSocketOpen(callback: () => void): void {
+  if (wsManager.getStatus() === 'open') {
+    callback();
+  } else {
+    wsManager.on('open', () => {
+      callback();
+    });
+  }
+}
+
+/**
  * Hook to manage resume tour functionality
  */
 export function useResumeTour(): UseResumeTourReturn {
@@ -83,63 +147,19 @@ export function useResumeTour(): UseResumeTourReturn {
         return;
       }
 
-      // Fetch latest tour state from Supabase
-      const sessionData = await leadsService.getLiveTourSession(tourId);
-      if (!sessionData || sessionData.status !== 'active') {
-        console.error('Tour session is not active');
+      if (!(await restoreTourSessionState(tourId))) {
         return;
       }
 
-      const schoolId = await schoolService.getSelectedSchool();
-      if (!schoolId || !sessionData.live_tour_structure || !Array.isArray(sessionData.live_tour_structure)) {
-        console.error('Missing required data to restore tour');
-        return;
-      }
-
-      // Fetch all locations to convert IDs to Location objects
-      const allLocations = await locationService.getTourStops(schoolId);
-      const ordered: Location[] = sessionData.live_tour_structure
-        .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
-        .filter((loc: Location | undefined): loc is Location => Boolean(loc));
-      
-      // Convert visited_locations from JSONB array format
-      const visitedLocations = Array.isArray(sessionData.visited_locations) 
-        ? sessionData.visited_locations 
-        : [];
-      
-      // Find current stop index
-      let currentStopIndex = 0;
-      if (sessionData.current_location_id) {
-        const foundIndex = ordered.findIndex(loc => loc.id === sessionData.current_location_id);
-        currentStopIndex = foundIndex >= 0 ? foundIndex : 0;
-      }
-      
-      // Update app state with the current tour state
-      appStateManager.updateState({
-        tourState: {
-          stops: ordered,
-          selectedInterests: [],
-          visitedLocations: visitedLocations,
-          currentStopIndex: currentStopIndex,
-          tourStarted: true,
-          tourFinished: false,
-          isEditingTour: false,
-          tourPaused: false,
-        },
-      });
-      
-      // Save state
-      await appStateManager.saveCurrentState();
-      
       // Set selected tour group so other parts of the app can access it
       await tourGroupSelectionService.setSelectedTourGroup(tourId);
-      
+
       // Ensure websocket is connected and authenticate
       wsManager.connect();
       const user = await authService.getStoredUser();
       if (user?.id) {
         // Wait for websocket to open, then authenticate and create/attach to session
-        const authenticateAndCreateSession = async () => {
+        runWhenSocketOpen(async () => {
           // Await so the auth token reaches the server before create_session below.
           await wsManager.authenticate();
           // Create or attach to the live tour session
@@ -147,17 +167,9 @@ export function useResumeTour(): UseResumeTourReturn {
             tourId: tourId,
             initial_structure: {},
           });
-        };
-        
-        if (wsManager.getStatus() === 'open') {
-          authenticateAndCreateSession();
-        } else {
-          wsManager.on('open', () => {
-            authenticateAndCreateSession();
-          });
-        }
+        });
       }
-      
+
       // Navigate to map
       router.replace('/map');
     } catch (error) {
@@ -173,74 +185,22 @@ export function useResumeTour(): UseResumeTourReturn {
         return;
       }
 
-      // Fetch latest tour state from Supabase
-      const sessionData = await leadsService.getLiveTourSession(tourId);
-      if (!sessionData || sessionData.status !== 'active') {
-        console.error('Tour session is not active');
+      if (!(await restoreTourSessionState(tourId))) {
         return;
       }
 
-      const schoolId = await schoolService.getSelectedSchool();
-      if (!schoolId || !sessionData.live_tour_structure || !Array.isArray(sessionData.live_tour_structure)) {
-        console.error('Missing required data to restore tour');
-        return;
-      }
-
-      // Fetch all locations to convert IDs to Location objects
-      const allLocations = await locationService.getTourStops(schoolId);
-      const ordered: Location[] = sessionData.live_tour_structure
-        .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
-        .filter((loc: Location | undefined): loc is Location => Boolean(loc));
-      
-      // Convert visited_locations from JSONB array format
-      const visitedLocations = Array.isArray(sessionData.visited_locations) 
-        ? sessionData.visited_locations 
-        : [];
-      
-      // Find current stop index
-      let currentStopIndex = 0;
-      if (sessionData.current_location_id) {
-        const foundIndex = ordered.findIndex(loc => loc.id === sessionData.current_location_id);
-        currentStopIndex = foundIndex >= 0 ? foundIndex : 0;
-      }
-      
-      // Update app state with the current tour state
-      appStateManager.updateState({
-        tourState: {
-          stops: ordered,
-          selectedInterests: [],
-          visitedLocations: visitedLocations,
-          currentStopIndex: currentStopIndex,
-          tourStarted: true,
-          tourFinished: false,
-          isEditingTour: false,
-          tourPaused: false,
-        },
-      });
-      
-      // Save state
-      await appStateManager.saveCurrentState();
-      
       // Ensure websocket is connected and join session
       wsManager.connect();
       const leadId = await leadsService.getStoredLeadId();
       const generalMember = leadId ? null : await generalMemberService.get();
       if (leadId || generalMember) {
         // Wait for websocket to open, then join session
-        const joinSession = () => {
+        runWhenSocketOpen(() => {
           if (leadId) wsManager.send('join_session', { tourId, leadId });
           else if (generalMember) wsManager.send('join_session', { tourId, member: generalMember });
-        };
-        
-        if (wsManager.getStatus() === 'open') {
-          joinSession();
-        } else {
-          wsManager.on('open', () => {
-            joinSession();
-          });
-        }
+        });
       }
-      
+
       // Navigate to map
       router.replace('/map');
     } catch (error) {
