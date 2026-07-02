@@ -1,16 +1,15 @@
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import BackHeader from '@/components/BackHeader';
+import LoadingScreen from '@/components/LoadingScreen';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState, useEffect } from 'react';
-import { 
-  ActivityIndicator, 
-  ScrollView, 
-  StyleSheet, 
-  Text, 
-  TouchableOpacity, 
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
   View,
-  Image,
-  Alert
+  Image
 } from 'react-native';
 import { 
   schoolService, 
@@ -130,25 +129,14 @@ export default function TourGroupSelectionScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <StatusBar style="light" />
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>Loading available tour groups...</Text>
-      </View>
-    );
+    return <LoadingScreen message="Loading available tour groups..." color="#3B82F6" />;
   }
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
-          <Text style={styles.backButtonText}>Back</Text>
-        </TouchableOpacity>
-      </View>
+
+      <BackHeader onPress={handleBack} />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.titleSection}>
@@ -295,34 +283,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#282828',
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#282828',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#ccc',
-  },
-  header: {
-    paddingTop: 60,
-    paddingHorizontal: 10,
-    paddingBottom: 10,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    padding: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   content: {
     flex: 1,

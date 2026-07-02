@@ -1,4 +1,4 @@
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import BackHeader from '@/components/BackHeader';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
@@ -87,13 +87,7 @@ export default function AmbassadorSignInScreen() {
     >
       <StatusBar style="light" />
       
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-          <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
-          <Text style={styles.backButtonText}>Back</Text>
-        </TouchableOpacity>
-      </View>
+      <BackHeader onPress={handleGoBack} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
@@ -177,23 +171,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#282828',
-  },
-  header: {
-    paddingTop: 60,
-    paddingHorizontal: 10,
-    paddingBottom: 10,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    padding: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   scrollContainer: {
     flexGrow: 1,

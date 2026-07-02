@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import LoadingScreen from '@/components/LoadingScreen';
 import {
   tourAppointmentsService,
   tourGroupSelectionService,
@@ -91,13 +91,7 @@ export default function PreconfiguredTourSelectScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <StatusBar style="light" />
-        <ActivityIndicator size="large" color="#fff" />
-        <Text style={styles.loadingText}>Loading tours...</Text>
-      </View>
-    );
+    return <LoadingScreen message="Loading tours..." />;
   }
 
   return (
@@ -196,17 +190,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#282828',
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#282828',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#fff',
-    marginTop: 12,
-    fontSize: 16,
   },
   header: {
     paddingTop: 56,

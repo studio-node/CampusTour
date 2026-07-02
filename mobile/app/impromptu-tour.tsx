@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import LoadingScreen from '@/components/LoadingScreen';
 import {
   authService,
   tourAppointmentsService,
@@ -96,13 +96,7 @@ export default function ImpromptuTourScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <StatusBar style="light" />
-        <ActivityIndicator size="large" color="#fff" />
-        <Text style={styles.loadingText}>Loading templates...</Text>
-      </View>
-    );
+    return <LoadingScreen message="Loading templates..." />;
   }
 
   return (
@@ -175,16 +169,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#282828',
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#282828',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#fff',
-    marginTop: 10,
   },
   header: {
     paddingTop: 56,

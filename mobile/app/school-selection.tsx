@@ -1,9 +1,10 @@
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import BackHeader from '@/components/BackHeader';
+import LoadingScreen from '@/components/LoadingScreen';
 import { School, schoolService, userTypeService } from '@/services/supabase';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 
 export default function SchoolSelectionScreen() {
   const [schools, setSchools] = useState<School[]>([]);
@@ -75,27 +76,14 @@ export default function SchoolSelectionScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text style={styles.loadingText}>Loading schools...</Text>
-      </View>
-    );
+    return <LoadingScreen message="Loading schools..." />;
   }
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => router.back()}
-        >
-          <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
-          <Text style={styles.backButtonText}>Back</Text>
-        </TouchableOpacity>
-      </View>
+
+      <BackHeader onPress={() => router.back()} />
 
       <View style={styles.content}>
         <Image  style={styles.indexHero}  source={{ uri: "https://images.pexels.com/photos/1438072/pexels-photo-1438072.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" }}/>
@@ -200,23 +188,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#282828',
-  },
-  header: {
-    paddingTop: 60,
-    paddingHorizontal: 10,
-    paddingBottom: 10,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    padding: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   content: {
     flex: 1,
@@ -356,10 +327,5 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  loadingText: {
-    marginTop: 20,
-    fontSize: 16,
-    color: '#666',
   },
 }); 

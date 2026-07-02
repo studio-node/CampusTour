@@ -30,6 +30,7 @@ import { wsManager } from '@/services/ws';
 import { appStateManager } from '@/services/appStateManager';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Image } from 'expo-image';
+import LoadingScreen from '@/components/LoadingScreen';
 
 export default function TourDetailsScreen() {
   const router = useRouter();
@@ -506,12 +507,7 @@ export default function TourDetailsScreen() {
 
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text>Loading tour details...</Text>
-      </View>
-    );
+    return <LoadingScreen message="Loading tour details..." color="#3B82F6" />;
   }
 
   if (error) {
@@ -646,11 +642,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#282828',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   errorContainer: {
     flex: 1,

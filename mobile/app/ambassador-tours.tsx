@@ -25,6 +25,7 @@ import { formatLeadDisplayName } from '@/lib/leadDisplayName';
 import { formatInterest, formatIdentity } from '@/constants/labels';
 import { useResumeTour } from '@/hooks/useResumeTour';
 import ResumeTourModal from '@/components/ResumeTourModal';
+import LoadingScreen from '@/components/LoadingScreen';
 
 export default function AmbassadorToursScreen() {
   const [tours, setTours] = useState<TourAppointment[]>([]);
@@ -322,13 +323,7 @@ export default function AmbassadorToursScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <StatusBar style="light" />
-        <ActivityIndicator size="large" color="#fff" />
-        <Text style={styles.loadingText}>Loading your tours...</Text>
-      </View>
-    );
+    return <LoadingScreen message="Loading your tours..." />;
   }
 
   return (
@@ -414,17 +409,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#282828',
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#282828',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#fff',
-    fontSize: 16,
-    marginTop: 16,
   },
   header: {
     paddingTop: 60,
