@@ -1,6 +1,8 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { appStateManager } from '@/services/appStateManager';
-import { Location, locationService, schoolService } from '@/services/supabase';
+import { Location, locationService } from '@/services/supabase';
+import { useSchoolPrimaryColor } from '@/hooks/useSchoolPrimaryColor';
+import EmptyState from '@/components/EmptyState';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { useCallback, useEffect, useState } from 'react';
@@ -33,7 +35,7 @@ export default function AddTourLocationsScreen() {
   const currentTourStopIds = parseCurrentTourStopIds(currentTourStopIdsParam);
 
   const [locations, setLocations] = useState<Location[]>([]);
-  const [primaryColor, setPrimaryColor] = useState<string>('#990000');
+  const { primaryColor } = useSchoolPrimaryColor(schoolId);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -46,17 +48,11 @@ export default function AddTourLocationsScreen() {
     }
     setError(null);
     try {
-      const [locationsData, schoolDetails] = await Promise.all([
-        locationService.getLocations(schoolId),
-        schoolService.getSchoolById(schoolId),
-      ]);
+      const locationsData = await locationService.getLocations(schoolId);
       const notInTour = locationsData.filter(
         (loc) => !currentTourStopIds.includes(loc.id)
       );
       setLocations(notInTour);
-      if (schoolDetails?.primary_color) {
-        setPrimaryColor(schoolDetails.primary_color);
-      }
     } catch (e) {
       console.error('Error loading add-tour-locations:', e);
       setError('Failed to load locations.');
@@ -141,11 +137,7 @@ export default function AddTourLocationsScreen() {
       </View>
 
       {emptyList ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>
-            All locations are already in your tour.
-          </Text>
-        </View>
+        <EmptyState message="All locations are already in your tour." />
       ) : (
         <>
           <FlatList
@@ -280,17 +272,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#EE6666',
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  emptyText: {
-    color: '#999',
     fontSize: 16,
     textAlign: 'center',
   },

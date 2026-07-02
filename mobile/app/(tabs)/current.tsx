@@ -1,6 +1,7 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { analyticsService, Location, locationService, schoolService, userTypeService, tourGroupSelectionService, leadsService, generalMemberService } from '@/services/supabase';
+import { Location, locationService, userTypeService, tourGroupSelectionService, leadsService, generalMemberService } from '@/services/supabase';
 import { findNearestLocation } from '@/services/tourOrderUtils';
+import { findStopIdWithinGeofence } from '@/services/geofence';
 import { wsManager } from '@/services/ws';
 import { appStateManager } from '@/services/appStateManager';
 import * as ExpoLocation from 'expo-location';
@@ -12,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import { LocationDetailsView } from '@/components/LocationDetailsView';
 import { useTourPause } from '@/contexts/TourPauseContext';
+import { useSchoolPrimaryColor } from '@/hooks/useSchoolPrimaryColor';
 
 
 export default function CurrentLocationScreen() {
@@ -20,8 +22,7 @@ export default function CurrentLocationScreen() {
   const [building, setBuilding] = useState<Location | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [schoolId, setSchoolId] = useState<string | null>(null);
-  const [primaryColor, setPrimaryColor] = useState<string>('#990000');
+  const { schoolId, primaryColor, notFound: noSchoolSelected } = useSchoolPrimaryColor();
   const [isAmbassador, setIsAmbassador] = useState<boolean>(false);
   const [isAmbassadorLedMember, setIsAmbassadorLedMember] = useState<boolean>(false);
   const [isSelfGuided, setIsSelfGuided] = useState(false);
@@ -39,26 +40,12 @@ export default function CurrentLocationScreen() {
   const [nearestCampusLocations, setNearestCampusLocations] = useState<Location[]>([]);
   const [nearestCampusLoading, setNearestCampusLoading] = useState(false);
 
-  // Get the selected school ID and details
+  // Redirect if no school is selected
   useEffect(() => {
-    const getSelectedSchool = async () => {
-      const selectedSchoolId = await schoolService.getSelectedSchool();
-      if (!selectedSchoolId) {
-        router.replace('/');
-        return;
-      }
-      
-      setSchoolId(selectedSchoolId);
-      
-      // Get school details including primary color
-      const schoolDetails = await schoolService.getSchoolById(selectedSchoolId);
-      if (schoolDetails && schoolDetails.primary_color) {
-        setPrimaryColor(schoolDetails.primary_color);
-      }
-    };
-
-    getSelectedSchool();
-  }, [router]);
+    if (noSchoolSelected) {
+      router.replace('/');
+    }
+  }, [noSchoolSelected, router]);
 
   // Check if user is an ambassador or ambassador-led member
   useEffect(() => {
@@ -254,24 +241,9 @@ export default function CurrentLocationScreen() {
         return;
       }
 
-      let newCurrentLocationId = null;
-
-      // Check all tour stops to see if user is within any geofence
-      for (const stop of tourStops) {
-        const isWithin = analyticsService.isWithinGeofence(
-          userLocation.latitude,
-          userLocation.longitude,
-          stop.coordinates.latitude,
-          stop.coordinates.longitude
-        );
-
-        if (isWithin) {
-          newCurrentLocationId = stop.id;
-          break; // User can only be at one location at a time
-        }
-      }
-
-      setCurrentLocationId(newCurrentLocationId);
+      setCurrentLocationId(
+        findStopIdWithinGeofence(userLocation.latitude, userLocation.longitude, tourStops)
+      );
     };
 
     checkGeofences();

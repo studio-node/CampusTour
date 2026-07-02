@@ -1,6 +1,7 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { analyticsService, Location, locationService, schoolService, userTypeService, UserType, tourGroupSelectionService, authService, leadsService } from '@/services/supabase';
+import { analyticsService, Location, locationService, userTypeService, UserType, tourGroupSelectionService, authService, leadsService } from '@/services/supabase';
 import { orderTourStopsByNearestFirst } from '@/services/tourOrderUtils';
+import { findStopIdWithinGeofence } from '@/services/geofence';
 import { wsManager } from '@/services/ws';
 import { appStateManager, PersistedAppState } from '@/services/appStateManager';
 import { Image } from 'expo-image';
@@ -13,6 +14,7 @@ import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatli
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import { useTourPause } from '@/contexts/TourPauseContext';
+import { useSchoolPrimaryColor } from '@/hooks/useSchoolPrimaryColor';
 
 
 // Define the interface for a tour stop
@@ -240,8 +242,7 @@ export default function TourScreen() {
   const [visitedLocations, setVisitedLocations] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [availableInterests, setAvailableInterests] = useState<Interest[]>([]);
-  const [schoolId, setSchoolId] = useState<string | null>(null);
-  const [primaryColor, setPrimaryColor] = useState<string>('#990000'); // Utah Tech red as fallback
+  const { schoolId, primaryColor, notFound: noSchoolSelected } = useSchoolPrimaryColor();
   const [isGeneratingTour, setIsGeneratingTour] = useState<boolean>(false);
   const [userType, setUserType] = useState<UserType>(null);
   const isAmbassador: boolean = userType === 'ambassador';
@@ -274,25 +275,18 @@ export default function TourScreen() {
     tourStopsRef.current = tourStops;
   }, [tourStops]);
 
-  // Get the selected school ID and details
+  // If no school is selected, redirect to the school selection screen
   useEffect(() => {
-    const getSelectedSchool = async () => {
-      const selectedSchoolId = await schoolService.getSelectedSchool();
-      if (!selectedSchoolId) {
-        // If no school is selected, redirect to the school selection screen
-        router.replace('/');
-        return;
-      }
-      
-      setSchoolId(selectedSchoolId);
-      
-      // Get school details including primary color
-      const schoolDetails = await schoolService.getSchoolById(selectedSchoolId);
-      if (schoolDetails && schoolDetails.primary_color) {
-        setPrimaryColor(schoolDetails.primary_color);
-      }
+    if (noSchoolSelected) {
+      router.replace('/');
+    }
+  }, [noSchoolSelected, router]);
 
-      // Determine user type and set edit gating
+  // Once a school is resolved, determine user type/edit gating and connect the websocket
+  useEffect(() => {
+    if (!schoolId) return;
+
+    const setupUserTypeAndSocket = async () => {
       const currentUserType = await userTypeService.getUserType();
       setUserType(currentUserType);
       if (currentUserType === 'ambassador-led') {
@@ -305,8 +299,8 @@ export default function TourScreen() {
       if (u?.id) await wsManager.authenticate();
     };
 
-    getSelectedSchool();
-  }, [router]);
+    setupUserTypeAndSocket();
+  }, [schoolId]);
 
 
 
@@ -1085,50 +1079,41 @@ export default function TourScreen() {
       return;
     }
 
-    let userIsAtAnyLocation = false;
-    let newCurrentLocationId = null;
+    const newCurrentLocationId = findStopIdWithinGeofence(
+      userLocation.latitude,
+      userLocation.longitude,
+      tourStops
+    );
+    const userIsAtAnyLocation = newCurrentLocationId !== null;
 
-    // Check all tour stops to see if user is within any geofence
-    for (const stop of tourStops) {
-      const isWithin = analyticsService.isWithinGeofence(
-        userLocation.latitude,
-        userLocation.longitude,
-        stop.coordinates.latitude,
-        stop.coordinates.longitude
-      );
+    // Check if this is a new location entry
+    if (newCurrentLocationId !== null && currentLocationId !== newCurrentLocationId) {
+      const stop = tourStops.find(s => s.id === newCurrentLocationId);
+      if (stop) {
+        // User entered a new location
+        console.log(`User entered geofence for: ${stop.name}`);
 
-      if (isWithin) {
-        userIsAtAnyLocation = true;
-        newCurrentLocationId = stop.id;
+        // Record entry time
+        const entryTime = Date.now();
+        setLocationEntryTimes(prev => ({
+          ...prev,
+          [stop.id]: entryTime
+        }));
 
-        // Check if this is a new location entry
-        if (currentLocationId !== stop.id) {
-          // User entered a new location
-          console.log(`User entered geofence for: ${stop.name}`);
-          
-          // Record entry time
-          const entryTime = Date.now();
-          setLocationEntryTimes(prev => ({
-            ...prev,
-            [stop.id]: entryTime
-          }));
-          
-          setPreviouslyEnteredLocations(prev => new Set([...prev, stop.id]));
+        setPreviouslyEnteredLocations(prev => new Set([...prev, stop.id]));
 
-          // Export tour-start event if this is the first location and tour hasn't started
-          if (!tourStarted && !processingTourStart) {
-            setProcessingTourStart(true);
-            try {
-              await analyticsService.exportTourStart(schoolId, stop.id, stop.name);
-              setTourStarted(true);
-              console.log('Tour started event exported successfully');
-            } catch (error) {
-              console.error('Error exporting tour start event:', error);
-              setProcessingTourStart(false);
-            }
+        // Export tour-start event if this is the first location and tour hasn't started
+        if (!tourStarted && !processingTourStart) {
+          setProcessingTourStart(true);
+          try {
+            await analyticsService.exportTourStart(schoolId, stop.id, stop.name);
+            setTourStarted(true);
+            console.log('Tour started event exported successfully');
+          } catch (error) {
+            console.error('Error exporting tour start event:', error);
+            setProcessingTourStart(false);
           }
         }
-        break; // User can only be at one location at a time
       }
     }
 

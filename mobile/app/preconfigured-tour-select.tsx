@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import LoadingScreen from '@/components/LoadingScreen';
+import EmptyState from '@/components/EmptyState';
 import {
   tourAppointmentsService,
   tourGroupSelectionService,
@@ -107,11 +108,7 @@ export default function PreconfiguredTourSelectScreen() {
       </View>
 
       {tours.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>
-            No tour templates are configured for this school. Ask an administrator to create one first.
-          </Text>
-        </View>
+        <EmptyState message="No tour templates are configured for this school. Ask an administrator to create one first." />
       ) : (
         <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
           {tours.map((tour) => {
@@ -214,18 +211,6 @@ const styles = StyleSheet.create({
   subtitle: {
     color: '#9ca3af',
     fontSize: 14,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyText: {
-    color: '#9ca3af',
-    textAlign: 'center',
-    fontSize: 15,
-    lineHeight: 22,
   },
   list: {
     flex: 1,

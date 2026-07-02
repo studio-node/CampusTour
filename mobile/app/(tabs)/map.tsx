@@ -2,7 +2,6 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import {
   Location,
   Region,
-  analyticsService,
   leadsService,
   generalMemberService,
   locationService,
@@ -12,6 +11,7 @@ import {
 } from '@/services/supabase';
 import { appStateManager } from '@/services/appStateManager';
 import { getHighlightedLocationIdForCurrentTabLogic } from '@/services/currentLocationHighlight';
+import { findStopIdWithinGeofence } from '@/services/geofence';
 import { wsManager } from '@/services/ws';
 import * as ExpoLocation from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -345,20 +345,9 @@ export default function MapScreen() {
     if (!userLocation || !schoolId || tourStops.length === 0) {
       return;
     }
-    let newCurrentLocationId: string | null = null;
-    for (const stop of tourStops) {
-      const isWithin = analyticsService.isWithinGeofence(
-        userLocation.latitude,
-        userLocation.longitude,
-        stop.coordinates.latitude,
-        stop.coordinates.longitude
-      );
-      if (isWithin) {
-        newCurrentLocationId = stop.id;
-        break;
-      }
-    }
-    setCurrentLocationId(newCurrentLocationId);
+    setCurrentLocationId(
+      findStopIdWithinGeofence(userLocation.latitude, userLocation.longitude, tourStops)
+    );
   }, [
     userLocation?.latitude,
     userLocation?.longitude,

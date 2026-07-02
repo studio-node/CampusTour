@@ -4,6 +4,7 @@ import { usePushedLocationMedia } from '@/contexts/PushedLocationMediaContext';
 import { Location } from '@/services/supabase';
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import TagPillList from '@/components/TagPillList';
 
 type Props = {
   location: Location;
@@ -74,39 +75,33 @@ export function LocationDetailsView({
           {location.interests && location.interests.length > 0 && (
             <View style={styles.interestsSection}>
               <Text style={styles.sectionTitle}>Interests</Text>
-              <View style={styles.interestTags}>
-                {location.interests.map((interest, index) => (
-                  <View key={index} style={styles.interestTag}>
-                    <Text style={styles.interestTagText}>{formatInterest(interest)}</Text>
-                  </View>
-                ))}
-              </View>
+              <TagPillList
+                labels={location.interests.map(formatInterest)}
+                tagStyle={styles.interestTag}
+                textStyle={styles.interestTagText}
+              />
             </View>
           )}
 
           {location.careers && location.careers.length > 0 && (
             <View style={styles.interestsSection}>
               <Text style={styles.sectionTitle}>Career Opportunities</Text>
-              <View style={styles.interestTags}>
-                {location.careers.map((career, index) => (
-                  <View key={index} style={styles.careerTag}>
-                    <Text style={styles.interestTagText}>{career}</Text>
-                  </View>
-                ))}
-              </View>
+              <TagPillList
+                labels={location.careers}
+                tagStyle={styles.careerTag}
+                textStyle={styles.interestTagText}
+              />
             </View>
           )}
 
           {location.features && location.features.length > 0 && (
             <View style={styles.interestsSection}>
               <Text style={styles.sectionTitle}>Features & Amenities</Text>
-              <View style={styles.interestTags}>
-                {location.features.map((feature, index) => (
-                  <View key={index} style={styles.featureTag}>
-                    <Text style={styles.interestTagText}>{feature}</Text>
-                  </View>
-                ))}
-              </View>
+              <TagPillList
+                labels={location.features}
+                tagStyle={styles.featureTag}
+                textStyle={styles.interestTagText}
+              />
             </View>
           )}
 
@@ -216,16 +211,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     color: '#FFFFFF',
   },
-  interestTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
   interestTag: {
     backgroundColor: '#454545',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#555555',
   },
@@ -235,17 +222,11 @@ const styles = StyleSheet.create({
   },
   careerTag: {
     backgroundColor: '#2E7D32',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#4CAF50',
   },
   featureTag: {
     backgroundColor: '#1976D2',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#2196F3',
   },

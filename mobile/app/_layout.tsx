@@ -15,8 +15,7 @@ import MediaTakeoverModal from '@/components/MediaTakeoverModal';
 import RaiseHandNotificationModal from '@/components/RaiseHandNotificationModal';
 import { RaiseHandProvider, useRaiseHand } from '@/contexts/RaiseHandContext';
 import { PushedLocationMediaProvider, usePushedLocationMedia } from '@/contexts/PushedLocationMediaContext';
-import { useState, useEffect as useReactEffect } from 'react';
-import { schoolService } from '@/services/supabase';
+import { useSchoolPrimaryColor } from '@/hooks/useSchoolPrimaryColor';
 
 function MediaTakeoverModalWrapper() {
   const { takeoverVisible, takeoverMedia, closeTakeover } = usePushedLocationMedia();
@@ -33,29 +32,8 @@ function MediaTakeoverModalWrapper() {
 // <Modal>s aren't stacked across tabs. Previously we mounted it per-tab,
 // which left dormant native modal instances blocking touches on the tabs the
 // ambassador didn't dismiss from.
-function RaiseHandNotificationModalWrapper() {
+function RaiseHandNotificationModalWrapper({ primaryColor }: { primaryColor: string }) {
   const { showModal, memberName, dismissModal } = useRaiseHand();
-  const [primaryColor, setPrimaryColor] = useState<string>('#990000');
-
-  useReactEffect(() => {
-    let cancelled = false;
-    const loadColor = async () => {
-      try {
-        const schoolId = await schoolService.getSelectedSchool();
-        if (!schoolId) return;
-        const school = await schoolService.getSchoolById(schoolId);
-        if (!cancelled && school?.primary_color) {
-          setPrimaryColor(school.primary_color);
-        }
-      } catch (e) {
-        console.error('RaiseHand modal: failed to load school primary color', e);
-      }
-    };
-    if (showModal) loadColor();
-    return () => {
-      cancelled = true;
-    };
-  }, [showModal]);
 
   return (
     <RaiseHandNotificationModal
@@ -82,6 +60,8 @@ export default function RootLayout() {
     handleResume,
     handleStartFresh,
   } = useResumeTour();
+
+  const { primaryColor } = useSchoolPrimaryColor();
 
   // Initialize app state manager on mount
   useEffect(() => {
@@ -118,7 +98,7 @@ export default function RootLayout() {
         <RaiseHandProvider>
           <PushedLocationMediaProvider>
           <MediaTakeoverModalWrapper />
-          <RaiseHandNotificationModalWrapper />
+          <RaiseHandNotificationModalWrapper primaryColor={primaryColor} />
           <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="ambassador-signin" options={{ headerShown: false }} />
@@ -151,7 +131,7 @@ export default function RootLayout() {
         tourProgress={tourProgress}
         onResume={handleResume}
         onStartFresh={handleStartFresh}
-        primaryColor="#3B82F6" // Default blue, will be overridden by school color
+        primaryColor={primaryColor}
         tourType={tourType}
       />
       

@@ -1,7 +1,6 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import {
   leadsService,
-  schoolService,
   tourGroupSelectionService,
   userTypeService,
   TourParticipant,
@@ -9,6 +8,8 @@ import {
 import { formatInterest } from '@/constants/labels';
 import { formatLeadDisplayName } from '@/lib/leadDisplayName';
 import { wsManager } from '@/services/ws';
+import { useSchoolPrimaryColor } from '@/hooks/useSchoolPrimaryColor';
+import TagPillList from '@/components/TagPillList';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -54,22 +55,7 @@ export default function TourRosterScreen() {
   const [noTour, setNoTour] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [generalRows, setGeneralRows] = useState<GeneralRow[]>([]);
-  const [primaryColor, setPrimaryColor] = useState('#3B82F6');
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const schoolId = await schoolService.getSelectedSchool();
-      if (!schoolId || cancelled) return;
-      const school = await schoolService.getSchoolById(schoolId);
-      if (!cancelled && school?.primary_color) {
-        setPrimaryColor(school.primary_color);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { primaryColor } = useSchoolPrimaryColor();
 
   const loadRoster = useCallback(async () => {
     try {
@@ -242,13 +228,12 @@ export default function TourRosterScreen() {
       ) : item.interests && item.interests.length > 0 ? (
         <View style={styles.interestsBlock}>
           <Text style={styles.metaLabel}>Interests</Text>
-          <View style={styles.tags}>
-            {item.interests.map((id: string) => (
-              <View key={id} style={[styles.tag, { borderColor: primaryColor }]}>
-                <Text style={styles.tagText}>{formatInterest(id)}</Text>
-              </View>
-            ))}
-          </View>
+          <TagPillList
+            labels={item.interests.map(formatInterest)}
+            containerStyle={styles.tags}
+            tagStyle={[styles.tag, { borderColor: primaryColor }]}
+            textStyle={styles.tagText}
+          />
         </View>
       ) : (
         <Text style={styles.noInterests}>No interests submitted yet</Text>

@@ -26,6 +26,7 @@ import { formatInterest, formatIdentity } from '@/constants/labels';
 import { useResumeTour } from '@/hooks/useResumeTour';
 import ResumeTourModal from '@/components/ResumeTourModal';
 import LoadingScreen from '@/components/LoadingScreen';
+import TagPillList from '@/components/TagPillList';
 
 export default function AmbassadorToursScreen() {
   const [tours, setTours] = useState<TourAppointment[]>([]);
@@ -231,13 +232,12 @@ export default function AmbassadorToursScreen() {
       {participant.interests && participant.interests.length > 0 && (
         <View style={styles.interestsContainer}>
           <Text style={styles.interestsLabel}>Interests:</Text>
-          <View style={styles.interestsTags}>
-            {participant.interests.map((interest, idx) => (
-              <View key={idx} style={styles.interestTag}>
-                <Text style={styles.interestTagText}>{formatInterest(interest)}</Text>
-              </View>
-            ))}
-          </View>
+          <TagPillList
+            labels={participant.interests.map(formatInterest)}
+            containerStyle={styles.interestsTags}
+            tagStyle={styles.interestTag}
+            textStyle={styles.interestTagText}
+          />
         </View>
       )}
     </View>
