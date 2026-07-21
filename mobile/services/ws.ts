@@ -1,5 +1,6 @@
 import EventEmitter from 'eventemitter3';
 import { authService } from '@/services/supabase';
+import { WS_URL } from '@/services/config';
 
 type WebSocketMessage = {
   type: string;
@@ -9,29 +10,29 @@ type WebSocketMessage = {
 
 type ConnectionStatus = 'idle' | 'connecting' | 'open' | 'closed' | 'error';
 
-// WS endpoint from .env (EXPO_PUBLIC_WS_URL), falling back to the backend URL
-// (EXPO_PUBLIC_BACKEND_URL) with the scheme swapped to ws(s).
-function resolveWsUrl(): string {
-  const explicit = process.env.EXPO_PUBLIC_WS_URL?.trim();
-  if (explicit) return explicit;
-  const backend = process.env.EXPO_PUBLIC_BACKEND_URL?.trim();
-  if (backend) return backend.replace(/^http/, 'ws');
-  return 'wss://campustourbackend.onrender.com';
-}
-
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30000;
+
+// Heartbeat: on a phone walking across campus, a socket can go half-dead without ever
+// firing a 'close' event. We ping periodically and, if no message of any kind arrives
+// within the dead-connection window, force-close to trigger the existing reconnect path.
+const HEARTBEAT_INTERVAL_MS = 30000;
+const HEARTBEAT_DEAD_MS = 45000;
 
 class WebSocketManager {
   private static instance: WebSocketManager;
   private socket: WebSocket | null = null;
   private emitter = new EventEmitter();
   private status: ConnectionStatus = 'idle';
-  private url = resolveWsUrl();
+  private url = WS_URL;
   private shouldAuthenticate = false;
+  /** Whether an auth message was successfully sent on the current connection. */
+  private authSent = false;
   private pendingMessages: WebSocketMessage[] = [];
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private lastActivityAt = 0;
   private intentionalClose = false;
   // Last create_session / join_session sent, replayed after a reconnect so the
   // server re-adds this socket to the session (server state is per-connection).
@@ -53,7 +54,12 @@ class WebSocketManager {
       return;
     }
     if (url) this.url = url;
+    if (!this.url) {
+      console.error('WebSocket connect skipped: no WS URL configured (EXPO_PUBLIC_WS_URL / EXPO_PUBLIC_BACKEND_URL).');
+      return;
+    }
     this.intentionalClose = false;
+    this.authSent = false;
     this.clearReconnectTimer();
     this.status = 'connecting';
     this.socket = new WebSocket(this.url);
@@ -62,12 +68,16 @@ class WebSocketManager {
       this.status = 'open';
       const isReconnect = this.reconnectAttempts > 0;
       this.reconnectAttempts = 0;
+      this.startHeartbeat();
       void this.onSocketOpen(isReconnect);
     };
 
     this.socket.onmessage = (event) => {
+      this.recordActivity();
       try {
         const data: WebSocketMessage = JSON.parse(event.data);
+        // 'pong' is a heartbeat reply — recording activity above is enough; don't emit it.
+        if (data?.type === 'pong') return;
         console.log('WebSocket Message:', JSON.stringify(data, null, 2));
         // Emit by specific type and a generic message event
         if (data?.type) {
@@ -87,6 +97,8 @@ class WebSocketManager {
     this.socket.onclose = () => {
       this.status = 'closed';
       this.socket = null;
+      this.authSent = false;
+      this.stopHeartbeat();
       this.emitter.emit('close');
       if (!this.intentionalClose) {
         this.scheduleReconnect();
@@ -98,7 +110,14 @@ class WebSocketManager {
     // Order matters: authenticate first so the server attaches the verified user
     // before any session message is processed, then rejoin, then flush queued sends.
     if (this.shouldAuthenticate) {
-      await this.sendAuth();
+      const authed = await this.sendAuth();
+      if (!authed) {
+        // Don't replay session messages or flush pending sends as an unauthenticated
+        // socket — the server would see an unauthenticated ambassador. Surface the failure
+        // and wait; a later authenticate() (once a token exists) will retry.
+        this.emitter.emit('auth_failed');
+        return;
+      }
     }
     if (isReconnect && this.lastSessionMessage) {
       this.sendRaw(this.lastSessionMessage);
@@ -129,12 +148,44 @@ class WebSocketManager {
     }
   }
 
+  private startHeartbeat() {
+    this.stopHeartbeat();
+    this.recordActivity();
+    this.heartbeatTimer = setInterval(() => {
+      if (this.status !== 'open' || !this.socket) return;
+      // No traffic within the dead-connection window → the socket is likely half-open.
+      // Close it to trigger onclose → scheduleReconnect rather than broadcasting into a
+      // dead connection.
+      if (Date.now() - this.lastActivityAt > HEARTBEAT_DEAD_MS) {
+        console.log('WebSocket heartbeat: no activity, forcing reconnect');
+        this.socket.close();
+        return;
+      }
+      this.sendRaw({ type: 'ping' });
+    }, HEARTBEAT_INTERVAL_MS);
+    // Don't let the heartbeat keep a Node event loop alive (e.g. under Jest). No-op in RN.
+    (this.heartbeatTimer as unknown as { unref?: () => void })?.unref?.();
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  private recordActivity() {
+    this.lastActivityAt = Date.now();
+  }
+
   close() {
     this.intentionalClose = true;
     this.clearReconnectTimer();
+    this.stopHeartbeat();
     this.pendingMessages = [];
     this.lastSessionMessage = null;
     this.shouldAuthenticate = false;
+    this.authSent = false;
     this.reconnectAttempts = 0;
     if (this.socket) {
       this.socket.close();
@@ -154,16 +205,27 @@ class WebSocketManager {
     }
   }
 
-  private async sendAuth() {
+  // Returns true if an auth message was sent, false if there was no token / send failed.
+  private async sendAuth(): Promise<boolean> {
     try {
       const session = await authService.getCurrentSession();
       const token = session?.access_token;
-      if (token && this.socket && this.status === 'open') {
-        this.socket.send(JSON.stringify({ type: 'auth', payload: { token } }));
+      if (!token) {
+        console.error('WebSocket auth: no Supabase session token available.');
+        this.authSent = false;
+        return false;
       }
+      if (this.socket && this.status === 'open') {
+        this.socket.send(JSON.stringify({ type: 'auth', payload: { token } }));
+        this.authSent = true;
+        return true;
+      }
+      return false;
     } catch (e) {
       console.error('WebSocket auth failed to fetch session');
+      this.authSent = false;
       this.emitter.emit('error', e);
+      return false;
     }
   }
 
@@ -180,11 +242,29 @@ class WebSocketManager {
     }
   }
 
+  /**
+   * Sends a message once the socket is open, using a one-shot 'open' listener so it does
+   * NOT re-fire on every reconnect (the leak that stacked duplicate session/raise-hand
+   * senders). If already open, sends immediately.
+   */
+  sendWhenOpen(type: string, payload?: any) {
+    if (this.status === 'open') {
+      this.send(type, payload);
+      return;
+    }
+    this.once('open', () => this.send(type, payload));
+    this.connect();
+  }
+
   private sendRaw(message: WebSocketMessage) {
     this.socket?.send(JSON.stringify(message));
   }
 
   private flushPending() {
+    // Never flush as an unauthenticated socket when auth is required.
+    if (this.shouldAuthenticate && !this.authSent) {
+      return;
+    }
     const queued = this.pendingMessages;
     this.pendingMessages = [];
     for (const message of queued) {
@@ -194,6 +274,10 @@ class WebSocketManager {
 
   on(eventType: string, listener: (data?: any) => void) {
     this.emitter.on(eventType, listener);
+  }
+
+  once(eventType: string, listener: (data?: any) => void) {
+    this.emitter.once(eventType, listener);
   }
 
   off(eventType: string, listener: (data?: any) => void) {

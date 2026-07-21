@@ -3,8 +3,8 @@ import { Location, locationService, userTypeService, tourGroupSelectionService, 
 import { findNearestLocation } from '@/services/tourOrderUtils';
 import { findStopIdWithinGeofence } from '@/services/geofence';
 import { wsManager } from '@/services/ws';
+import { raiseHand } from '@/services/raiseHand';
 import { appStateManager } from '@/services/appStateManager';
-import * as ExpoLocation from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
@@ -14,6 +14,7 @@ import HamburgerMenu from '@/components/HamburgerMenu';
 import { LocationDetailsView } from '@/components/LocationDetailsView';
 import { useTourPause } from '@/contexts/TourPauseContext';
 import { useSchoolPrimaryColor } from '@/hooks/useSchoolPrimaryColor';
+import { useLocationWatcher } from '@/hooks/useLocationWatcher';
 
 
 export default function CurrentLocationScreen() {
@@ -26,10 +27,10 @@ export default function CurrentLocationScreen() {
   const [isAmbassador, setIsAmbassador] = useState<boolean>(false);
   const [isAmbassadorLedMember, setIsAmbassadorLedMember] = useState<boolean>(false);
   const [isSelfGuided, setIsSelfGuided] = useState(false);
-  const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
-  const [locationPermissionStatus, setLocationPermissionStatus] = useState<string | null>(null);
-  const [locationWatcher, setLocationWatcher] = useState<any>(null);
-  
+  // Track continuously while this tab is mounted — nearest-campus mode (paused/ended) also
+  // needs live coordinates to pick the closest location.
+  const { userLocation } = useLocationWatcher(true);
+
   // Tour state
   const [tourStops, setTourStops] = useState<Location[]>([]);
   const [visitedLocations, setVisitedLocations] = useState<string[]>([]);
@@ -107,18 +108,8 @@ export default function CurrentLocationScreen() {
             console.log('Current Location Tab: No tour state found in app state manager');
           }
           
-          // Get current location from tour progress (use `stops` from loaded state, not stale `tourStops`)
-          if (currentState?.tourProgress) {
-            const currentStopIndex = currentState.tourProgress.currentStopIndex;
-            const loadedStops = currentState.tourState?.stops ?? [];
-            if (currentStopIndex >= 0 && currentStopIndex < loadedStops.length) {
-              setCurrentLocationId(loadedStops[currentStopIndex]?.id || null);
-            } else {
-              setCurrentLocationId(null);
-            }
-          } else {
-            setCurrentLocationId(null);
-          }
+          // Restore the current stop directly from the persisted location id.
+          setCurrentLocationId(currentState?.tourState?.currentLocationId ?? null);
         } catch (error) {
           console.error('Error loading tour data:', error);
         }
@@ -162,71 +153,6 @@ export default function CurrentLocationScreen() {
       cleanup?.();
     };
   }, []);
-
-  // Request location permissions and start tracking
-  useEffect(() => {
-    const requestLocationPermission = async () => {
-      try {
-        const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
-        setLocationPermissionStatus(status);
-        
-        if (status === 'granted') {
-          await startLocationTracking();
-        }
-      } catch (error) {
-        console.error('Error requesting location permission:', error);
-      }
-    };
-
-    requestLocationPermission();
-
-    // Cleanup on unmount
-    return () => {
-      stopLocationTracking();
-    };
-  }, []);
-
-  // Start location tracking for geofencing
-  const startLocationTracking = async () => {
-    try {
-      // Get initial location
-      const location = await ExpoLocation.getCurrentPositionAsync({
-        accuracy: ExpoLocation.Accuracy.Balanced
-      });
-      
-      setUserLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude
-      });
-
-      // Start watching location changes
-      const watcher = await ExpoLocation.watchPositionAsync(
-        {
-          accuracy: ExpoLocation.Accuracy.Balanced,
-          timeInterval: 5000, // Check every 5 seconds
-          distanceInterval: 10 // Only update if moved 10 meters
-        },
-        (newLocation) => {
-          setUserLocation({
-            latitude: newLocation.coords.latitude,
-            longitude: newLocation.coords.longitude
-          });
-        }
-      );
-
-      setLocationWatcher(watcher);
-    } catch (error) {
-      console.error('Error starting location tracking:', error);
-    }
-  };
-
-  // Stop location tracking
-  const stopLocationTracking = () => {
-    if (locationWatcher) {
-      locationWatcher.remove();
-      setLocationWatcher(null);
-    }
-  };
 
   // Check geofences and update current location (self-guided / local only — ambassador-led follows leader WS state)
   useEffect(() => {
@@ -346,31 +272,11 @@ export default function CurrentLocationScreen() {
 
   // Handle "Raise Hand" button press for ambassador-led members
   const handleRaiseHand = async () => {
-    try {
-      const tourId = await tourGroupSelectionService.getSelectedTourGroup();
-      if (!tourId) {
-        Alert.alert('Error', 'No active tour session found.');
-        return;
-      }
-
-      // Ensure WebSocket is connected
-      if (wsManager.getStatus() !== 'open') {
-        wsManager.connect();
-        // Wait for connection to open
-        const onOpen = () => {
-          wsManager.send('ambassador:ping', { tourId });
-          wsManager.off('open', onOpen);
-        };
-        wsManager.on('open', onOpen);
-      } else {
-        wsManager.send('ambassador:ping', { tourId });
-      }
-
-      // Show confirmation feedback
+    const result = await raiseHand();
+    if (result.ok) {
       Alert.alert('Hand Raised', 'The ambassador has been notified.');
-    } catch (error) {
-      console.error('Error raising hand:', error);
-      Alert.alert('Error', 'Failed to notify the ambassador. Please try again.');
+    } else {
+      Alert.alert('Error', result.error || 'Failed to notify the ambassador. Please try again.');
     }
   };
 

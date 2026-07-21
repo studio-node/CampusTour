@@ -106,13 +106,18 @@ export default function TourTypeSelectionScreen() {
             <Text style={[styles.ambassadorButtonText, { fontSize: clamp(12, ms(14, width), 16) }]}>Ambassador</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.skipToMapButton, { paddingVertical: ms(8, width), paddingHorizontal: ms(16, width) }]} onPress={skipToMap}>
-            <Text style={{ color: '#fff' }}>Skip to map</Text>
-          </TouchableOpacity>
+          {/* Dev-only shortcuts — must never ship in a production build. */}
+          {__DEV__ && (
+            <>
+              <TouchableOpacity style={[styles.skipToMapButton, { paddingVertical: ms(8, width), paddingHorizontal: ms(16, width) }]} onPress={skipToMap}>
+                <Text style={{ color: '#fff' }}>Skip to map</Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.skipToMapButton, { paddingVertical: ms(8, width), paddingHorizontal: ms(16, width) }]} onPress={clearAsyncStorage}>
-            <Text style={{ color: '#fff' }}>Clear Async Storage</Text>
-          </TouchableOpacity>
+              <TouchableOpacity style={[styles.skipToMapButton, { paddingVertical: ms(8, width), paddingHorizontal: ms(16, width) }]} onPress={clearAsyncStorage}>
+                <Text style={{ color: '#fff' }}>Clear Async Storage</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         <Image

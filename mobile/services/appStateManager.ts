@@ -2,13 +2,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus } from 'react-native';
 import { Location, Region, UserType, leadsService } from './supabase';
 
-// Storage keys with consistent prefix
+// Storage keys with consistent prefix. clearAllState() removes everything under this
+// prefix, so new app-state keys can't be forgotten as long as they use it.
+const STATE_KEY_PREFIX = 'CAMPUS_TOUR_';
 const STORAGE_KEYS = {
-  APP_STATE: 'CAMPUS_TOUR_APP_STATE',
-  LAST_ACTIVE: 'CAMPUS_TOUR_LAST_ACTIVE',
+  APP_STATE: `${STATE_KEY_PREFIX}APP_STATE`,
+  LAST_ACTIVE: `${STATE_KEY_PREFIX}LAST_ACTIVE`,
 } as const;
 
-// Tour progress interface
+// Bump when the shape of PersistedAppState changes incompatibly. On load, a mismatch
+// (including missing version from pre-versioning builds) clears the persisted state rather
+// than trusting a blind cast.
+const SCHEMA_VERSION = 1;
+
+// Tour progress interface. This is DERIVED from tourState on read (see getTourProgress);
+// it is no longer persisted as its own field.
 export interface TourProgress {
   totalStops: number;
   visitedStops: number;
@@ -32,6 +40,7 @@ export interface SessionData {
 
 // Main persisted app state interface
 export interface PersistedAppState {
+  schemaVersion: number;
   lastUpdated: string;
   currentRoute: string;
   schoolId: string;
@@ -40,7 +49,14 @@ export interface PersistedAppState {
     stops: Location[];
     selectedInterests: string[];
     visitedLocations: string[];
-    currentStopIndex: number;
+    /**
+     * Id of the stop the user is currently at (null when not at any stop). We persist the
+     * id, not an index: ids survive stops being reordered or deleted, whereas an index
+     * silently points at the wrong stop after any such change.
+     */
+    currentLocationId: string | null;
+    /** ISO timestamp stamped once, the first time the tour reports started. */
+    tourStartedAt?: string | null;
     tourStarted: boolean;
     tourFinished: boolean;
     isEditingTour: boolean;
@@ -49,7 +65,21 @@ export interface PersistedAppState {
   };
   mapState: MapState;
   sessionData: SessionData;
-  tourProgress: TourProgress;
+}
+
+/**
+ * Minimal structural validation for state loaded off disk. Guards against shape changes
+ * (or corruption) shipping undefined-behavior to users with old state.
+ */
+function isValidPersistedState(value: unknown): value is PersistedAppState {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  if (v.schemaVersion !== SCHEMA_VERSION) return false;
+  const ts = v.tourState as Record<string, unknown> | undefined;
+  if (!ts || typeof ts !== 'object') return false;
+  if (!Array.isArray(ts.stops)) return false;
+  if (!Array.isArray(ts.visitedLocations)) return false;
+  return true;
 }
 
 // App state manager class
@@ -193,8 +223,24 @@ class AppStateManager {
         return null;
       }
 
-      const parsedState = JSON.parse(savedState) as PersistedAppState;
-      
+      let parsedState: unknown;
+      try {
+        parsedState = JSON.parse(savedState);
+      } catch (parseError) {
+        console.warn('Persisted state is not valid JSON, clearing...', parseError);
+        await this.clearAllState();
+        return null;
+      }
+
+      // Validate against the current schema instead of trusting a blind cast. A version
+      // mismatch (or missing version from a pre-versioning build) means the shape may be
+      // incompatible — clear and start fresh (acceptable: state expires at 7 days anyway).
+      if (!isValidPersistedState(parsedState)) {
+        console.log('Persisted state is missing/incompatible schemaVersion, clearing...');
+        await this.clearAllState();
+        return null;
+      }
+
       // Check if state is too old (7 days)
       const lastActive = await AsyncStorage.getItem(STORAGE_KEYS.LAST_ACTIVE);
       if (lastActive) {
@@ -210,7 +256,7 @@ class AppStateManager {
       }
 
       this.currentState = parsedState;
-      
+
       return parsedState;
     } catch (error) {
       console.error('Error loading persisted state:', error);
@@ -231,11 +277,30 @@ class AppStateManager {
       this.currentState = this.createEmptyState();
     }
 
-    this.currentState = {
+    const now = new Date().toISOString();
+    const prevTourState = this.currentState.tourState;
+
+    const merged: PersistedAppState = {
       ...this.currentState,
       ...updates,
-      lastUpdated: new Date().toISOString(),
+      schemaVersion: SCHEMA_VERSION,
+      lastUpdated: now,
     };
+
+    // tourStartedAt is stamped once, the first time a tour reports started, and preserved
+    // thereafter; it clears when the tour isn't started (so a fresh tour after a reset
+    // doesn't inherit a stale start time). Callers replacing tourState needn't manage it.
+    if (updates.tourState) {
+      const preservedStartedAt = prevTourState?.tourStartedAt ?? null;
+      merged.tourState = {
+        ...updates.tourState,
+        tourStartedAt: updates.tourState.tourStarted
+          ? (updates.tourState.tourStartedAt ?? preservedStartedAt ?? now)
+          : null,
+      };
+    }
+
+    this.currentState = merged;
 
     this.scheduleSave();
   }
@@ -362,19 +427,32 @@ class AppStateManager {
    */
   getTourProgress(): TourProgress | null {
     if (!this.currentState) return null;
-    
+
     const { tourState } = this.currentState;
-    const totalStops = tourState?.stops?.length || 0;
-    const visitedStops = tourState?.visitedLocations?.length || 0;
-    const currentStopIndex = tourState?.currentStopIndex || 0;
-    
+    const stops = tourState?.stops ?? [];
+    const totalStops = stops.length;
+    const visitedStops = tourState?.visitedLocations?.length ?? 0;
+    // Derive the index from the persisted location id so it stays correct across reorders.
+    const foundIndex = tourState?.currentLocationId
+      ? stops.findIndex((s) => s.id === tourState.currentLocationId)
+      : -1;
+    const currentStopIndex = foundIndex >= 0 ? foundIndex : 0;
+
     return {
       totalStops,
       visitedStops,
       currentStopIndex,
-      tourStartedAt: this.currentState.tourProgress?.tourStartedAt || new Date().toISOString(),
+      tourStartedAt: tourState?.tourStartedAt ?? this.currentState.lastUpdated,
       lastActiveAt: this.currentState.lastUpdated,
     };
+  }
+
+  /**
+   * The id of the stop the user is currently at (null when not at any stop).
+   * Read this instead of deriving from a persisted index.
+   */
+  getCurrentLocationId(): string | null {
+    return this.currentState?.tourState?.currentLocationId ?? null;
   }
 
   /**
@@ -414,25 +492,14 @@ class AppStateManager {
    */
   async clearAllState(): Promise<void> {
     try {
-      // Clear all tour-related state
-      const keysToRemove = [
-        STORAGE_KEYS.APP_STATE,
-        STORAGE_KEYS.LAST_ACTIVE,
-        'tourStops',
-        'selectedInterests',
-        'showInterestSelection',
-        'visitedLocations',
-        'tourStarted',
-        'tourFinished',
-        'locationPermissionStatus',
-        'currentLocationId',
-        'locationEntryTimes',
-        'previouslyEnteredLocations',
-        'isEditingTour',
-      ];
+      // Remove everything under our namespace prefix rather than a hand-maintained key list
+      // (which drifts as keys are added). All app-state keys live under STATE_KEY_PREFIX.
+      const allKeys = await AsyncStorage.getAllKeys();
+      const keysToRemove = allKeys.filter((k) => k.startsWith(STATE_KEY_PREFIX));
+      if (keysToRemove.length > 0) {
+        await AsyncStorage.multiRemove(keysToRemove);
+      }
 
-      await AsyncStorage.multiRemove(keysToRemove);
-      
       this.currentState = null;
       console.log('All app state cleared');
     } catch (error) {
@@ -445,6 +512,7 @@ class AppStateManager {
    */
   private createEmptyState(): PersistedAppState {
     return {
+      schemaVersion: SCHEMA_VERSION,
       lastUpdated: new Date().toISOString(),
       currentRoute: '/',
       schoolId: '',
@@ -453,18 +521,21 @@ class AppStateManager {
         stops: [],
         selectedInterests: [],
         visitedLocations: [],
-        currentStopIndex: 0,
+        currentLocationId: null,
+        tourStartedAt: null,
         tourStarted: false,
         tourFinished: false,
         isEditingTour: false,
         tourPaused: false,
       },
       mapState: {
+        // Neutral, zoomed-out fallback. The real region comes from the selected school;
+        // this is only used before one is loaded, so it must not hardcode any one campus.
         region: {
-          latitude: 37.10191426300314,
-          longitude: -113.56546471154138,
-          latitudeDelta: 0.007,
-          longitudeDelta: 0.007,
+          latitude: 39.5,
+          longitude: -98.35,
+          latitudeDelta: 60,
+          longitudeDelta: 60,
         },
         lastViewedLocationId: null,
       },
@@ -472,13 +543,6 @@ class AppStateManager {
         sessionId: '',
         leadId: null,
         tourAppointmentId: null,
-      },
-      tourProgress: {
-        totalStops: 0,
-        visitedStops: 0,
-        currentStopIndex: 0,
-        tourStartedAt: new Date().toISOString(),
-        lastActiveAt: new Date().toISOString(),
       },
     };
   }

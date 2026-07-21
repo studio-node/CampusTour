@@ -38,13 +38,29 @@ import { fetchWalkingRoute } from '@/services/directionsService';
 // Define the location type based on our supabase service
 type LocationItem = Location;
 
-// Default fallback region (Utah Tech University campus)
+// Neutral, zoomed-out fallback region used only until the selected school's coordinates
+// load. Must not hardcode any one campus (this app is multi-tenant).
 const FALLBACK_REGION: Region = {
-  latitude: 37.10191426300314, 
-  longitude: -113.56546471154138,
-  latitudeDelta: 0.007,
-  longitudeDelta: 0.007,
+  latitude: 39.5,
+  longitude: -98.35,
+  latitudeDelta: 60,
+  longitudeDelta: 60,
 };
+
+// Only refetch the walking route once the user strays this far from where the current
+// route was computed (or the destination changes). Keeps GPS ticks from re-billing Routes.
+const ROUTE_REFETCH_THRESHOLD_M = 30;
+
+function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000; // Earth radius in meters
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 function pickSearchParam(v: string | string[] | undefined): string | undefined {
   if (v == null) return undefined;
@@ -68,7 +84,7 @@ export default function MapScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [defaultRegion, setDefaultRegion] = useState<Region>(FALLBACK_REGION);
-  const [primaryColor, setPrimaryColor] = useState<string>('#990000'); // Utah Tech red as fallback
+  const [primaryColor, setPrimaryColor] = useState<string>('#334155'); // Neutral until the school's color loads
   
   // Modal state for tour generation prompt
   const [showTourModal, setShowTourModal] = useState(false);
@@ -102,6 +118,8 @@ export default function MapScreen() {
   const [isAmbassadorLedMember, setIsAmbassadorLedMember] = useState(false);
   const [isAmbassador, setIsAmbassador] = useState(false);
   const locationWatchSubRef = useRef<{ remove: () => void } | null>(null);
+  // Origin + destination of the last route we fetched, so we can skip redundant refetches.
+  const lastRouteFetchRef = useRef<{ destId: string; lat: number; lng: number } | null>(null);
 
   // Get the selected school ID and details
   useEffect(() => {
@@ -397,36 +415,46 @@ export default function MapScreen() {
     }
   }, [mapViewMode]);
 
-  // Fetch walking route when in Directions view with user location and a destination
+  // Fetch walking route when in Directions view with user location and a destination.
+  // Throttled: we only refetch when the destination changes, we have no route yet, or the
+  // user has strayed past ROUTE_REFETCH_THRESHOLD_M from where the current route was
+  // computed. The existing polyline stays rendered while a new one loads (no flicker).
   useEffect(() => {
-    console.log('[Map] directions effect fired', {
-      mapViewMode,
-      hasUserLocation: !!userLocation,
-      routeDestinationId: routeDestination?.id ?? null,
-    });
     if (mapViewMode !== 'directions' || !userLocation || !routeDestination) {
-      console.log('[Map] directions effect: early-exit', { mapViewMode, hasUserLocation: !!userLocation, hasDestination: !!routeDestination });
       return;
     }
-    let cancelled = false;
-    setRouteLoading(true);
-    setRouteCoordinates(null);
     const origin = { latitude: userLocation.latitude, longitude: userLocation.longitude };
     const destination = routeDestination.coordinates;
-    console.log('[Map] fetching route from', origin, 'to', destination);
+
+    const last = lastRouteFetchRef.current;
+    const destChanged = !last || last.destId !== routeDestination.id;
+    const movedMeters = last
+      ? distanceMeters(last.lat, last.lng, origin.latitude, origin.longitude)
+      : Infinity;
+    const haveRoute = !!routeCoordinates?.length;
+
+    if (!destChanged && haveRoute && movedMeters < ROUTE_REFETCH_THRESHOLD_M) {
+      return;
+    }
+
+    let cancelled = false;
+    setRouteLoading(true);
     fetchWalkingRoute(origin, destination, { deadzonePolygons: schoolDeadzones }).then((result) => {
-      console.log('[Map] fetchWalkingRoute result', result ? `${result.coordinates.length} points` : 'null', { cancelled });
       if (cancelled) return;
       setRouteLoading(false);
       if (result?.coordinates?.length) {
         setRouteCoordinates(result.coordinates);
+        lastRouteFetchRef.current = {
+          destId: routeDestination.id,
+          lat: origin.latitude,
+          lng: origin.longitude,
+        };
       }
     });
     return () => {
-      console.log('[Map] directions effect cleanup (cancelled)');
       cancelled = true;
     };
-  }, [mapViewMode, userLocation?.latitude, userLocation?.longitude, routeDestination?.id, schoolDeadzones]);
+  }, [mapViewMode, userLocation?.latitude, userLocation?.longitude, routeDestination?.id, routeCoordinates, schoolDeadzones]);
 
   // Fit map to route when route is loaded in Directions view
   useEffect(() => {
@@ -467,17 +495,8 @@ export default function MapScreen() {
             setTourStops([]);
             setVisitedLocations([]);
           }
-          if (currentState?.tourProgress) {
-            const currentStopIndex = currentState.tourProgress.currentStopIndex;
-            const loadedStops = currentState.tourState?.stops ?? [];
-            if (currentStopIndex >= 0 && currentStopIndex < loadedStops.length) {
-              setCurrentLocationId(loadedStops[currentStopIndex]?.id ?? null);
-            } else {
-              setCurrentLocationId(null);
-            }
-          } else {
-            setCurrentLocationId(null);
-          }
+          // Restore the current stop directly from the persisted location id.
+          setCurrentLocationId(currentState?.tourState?.currentLocationId ?? null);
         } catch (e) {
           console.error('Map tab: error loading tour highlight state', e);
         }

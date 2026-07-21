@@ -106,16 +106,9 @@ export default function TourDetailsScreen() {
                 ? sessionData.visited_locations 
                 : [];
               
-              // Find current stop index
-              let currentStopIndex = 0;
-              if (sessionData.current_location_id) {
-                const foundIndex = ordered.findIndex(loc => loc.id === sessionData.current_location_id);
-                currentStopIndex = foundIndex >= 0 ? foundIndex : 0;
-              }
-              
               // Get user type for state saving
               const currentUserType = await userTypeService.getUserType();
-              
+
               // Update app state with the current tour state
               appStateManager.updateState({
                 userType: currentUserType,
@@ -129,7 +122,7 @@ export default function TourDetailsScreen() {
                   stops: ordered,
                   selectedInterests: [],
                   visitedLocations: visitedLocations,
-                  currentStopIndex: currentStopIndex,
+                  currentLocationId: sessionData.current_location_id ?? null,
                   tourStarted: true,
                   tourFinished: false,
                   isEditingTour: false,
@@ -297,7 +290,7 @@ export default function TourDetailsScreen() {
                 stops: ordered,
                 selectedInterests: [], // Will be set when user selects interests
                 visitedLocations: [],
-                currentStopIndex: 0,
+                currentLocationId: null,
                 tourStarted: true,
                 tourFinished: false,
                 isEditingTour: false,
@@ -425,7 +418,7 @@ export default function TourDetailsScreen() {
                 stops: ordered,
                 selectedInterests: [],
                 visitedLocations: [],
-                currentStopIndex: 0,
+                currentLocationId: null,
                 tourStarted: true,
                 tourFinished: false,
                 isEditingTour: false,

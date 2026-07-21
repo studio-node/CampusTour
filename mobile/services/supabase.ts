@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import { AppState } from 'react-native';
 import 'react-native-url-polyfill/auto';
 
 // Supabase URL and anon key from .env (EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY)
@@ -12,7 +13,29 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// In React Native there is no localStorage, so supabase-js falls back to in-memory
+// session storage and the JWT/refresh token is lost on every app kill. Persist the
+// session in AsyncStorage so authenticated (ambassador) RLS queries and WS auth keep
+// working after a restart. detectSessionInUrl is false — there's no URL to parse in RN.
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
+
+// supabase-js needs AppState wired up in RN so it only refreshes tokens while the app is
+// foregrounded (a background timer would fail and can log the user out). Start refreshing
+// on 'active', stop otherwise.
+AppState.addEventListener('change', (state) => {
+  if (state === 'active') {
+    supabase.auth.startAutoRefresh();
+  } else {
+    supabase.auth.stopAutoRefresh();
+  }
+});
 
 // Auth interfaces
 export interface AuthUser {
@@ -163,26 +186,36 @@ export const authService = {
     }
   },
 
-  // Get authenticated user from AsyncStorage
+  // Get the authenticated user. Source of truth is the Supabase session (which now
+  // survives restarts via AsyncStorage persistence); the AUTH_USER_KEY copy is kept only
+  // as an offline display cache and refreshed opportunistically.
   async getStoredUser(): Promise<AuthUser | null> {
     try {
-      const userData = await AsyncStorage.getItem(AUTH_USER_KEY);
-      // console.log('userData', userData);
-      if (userData) {
-        return JSON.parse(userData) as AuthUser;
+      // Read the user from the persisted session (local, no network round-trip). This is
+      // the same source RLS/WS auth use, so it can't diverge from "am I authenticated".
+      const session = await this.getCurrentSession();
+      const user = (session?.user as AuthUser | undefined) ?? null;
+      if (user) {
+        // Refresh the display cache so offline reads stay reasonably current.
+        void this.saveAuthState(user);
+        return user;
       }
-      return null;
+      // No live session — fall back to the last-known cached user for display only.
+      const userData = await AsyncStorage.getItem(AUTH_USER_KEY);
+      return userData ? (JSON.parse(userData) as AuthUser) : null;
     } catch (error) {
       console.error('Error getting stored user:', error);
       return null;
     }
   },
 
-  // Check if user is authenticated (from AsyncStorage)
+  // Authentication is defined solely by having a valid Supabase session — the same thing
+  // RLS-gated queries and WebSocket auth depend on. This removes the divergence where
+  // AsyncStorage said "logged in" but the session (and therefore auth.uid()) was null.
   async isAuthenticated(): Promise<boolean> {
     try {
-      const userData = await AsyncStorage.getItem(AUTH_USER_KEY);
-      return userData !== null;
+      const session = await this.getCurrentSession();
+      return session !== null;
     } catch (error) {
       console.error('Error checking authentication:', error);
       return false;
@@ -706,18 +739,15 @@ export const leadsService = {
         throw leadsError;
       }
 
-      // Fetch interests for each participant from analytics events
-      const participantsWithInterests = await Promise.all(
-        (leads || []).map(async (lead) => {
-          const interests = await this.getParticipantInterests(lead.id as string, tourAppointmentId);
-          return {
-            ...lead,
-            interests
-          } as TourParticipant;
-        })
-      );
+      // Fetch interests for all participants in a single query (avoids an N+1 of one
+      // analytics_events query per participant), then group by lead client-side.
+      const leadIds = (leads || []).map((lead) => lead.id as string).filter(Boolean);
+      const interestsByLead = await this.getInterestsForLeads(leadIds, tourAppointmentId);
 
-      return participantsWithInterests;
+      return (leads || []).map((lead) => ({
+        ...lead,
+        interests: interestsByLead[lead.id as string] ?? [],
+      })) as TourParticipant[];
     } catch (error) {
       console.error('Error fetching tour participants:', error);
       throw error;
@@ -730,6 +760,41 @@ export const leadsService = {
    * @param tourAppointmentId - The tour appointment ID
    * @returns Promise<string[]>
    */
+  /**
+   * Batched version of getParticipantInterests: fetches the latest interests-chosen event
+   * for many leads in one query and returns a { [leadId]: interests } map.
+   */
+  async getInterestsForLeads(leadIds: string[], tourAppointmentId: string): Promise<Record<string, string[]>> {
+    if (leadIds.length === 0) return {};
+    try {
+      const { data, error } = await supabase
+        .from('analytics_events')
+        .select('lead_id, metadata, timestamp')
+        .eq('event_type', 'interests-chosen')
+        .eq('tour_appointment_id', tourAppointmentId)
+        .in('lead_id', leadIds)
+        .order('timestamp', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching participant interests (batched):', error);
+        return {};
+      }
+
+      // Rows are newest-first; keep the first (latest) seen per lead.
+      const byLead: Record<string, string[]> = {};
+      for (const row of data || []) {
+        const leadId = row.lead_id as string | null;
+        if (!leadId || byLead[leadId]) continue;
+        const selected = row.metadata?.selected_interests;
+        byLead[leadId] = Array.isArray(selected) ? selected : [];
+      }
+      return byLead;
+    } catch (error) {
+      console.error('Exception fetching participant interests (batched):', error);
+      return {};
+    }
+  },
+
   async getParticipantInterests(leadId: string, tourAppointmentId: string): Promise<string[]> {
     try {
       const { data, error } = await supabase
@@ -867,31 +932,23 @@ export const leadsService = {
    * @param tourAppointmentId - The tour appointment ID
    * @returns Promise<{ success: boolean; lead?: Lead; error?: string }>
    */
-  async verifyConfirmationCode(confirmationCode: string, tourAppointmentId: string): Promise<{ success: boolean; lead?: Lead; error?: string }> {
+  async verifyConfirmationCode(confirmationCode: string, tourAppointmentId: string): Promise<{ success: boolean; lead?: Pick<Lead, 'id' | 'first_name'>; error?: string }> {
     try {
-      console.log('confirmationCode', confirmationCode);
-      console.log('tourAppointmentId', tourAppointmentId);
-      const { data, error } = await supabase
-        .from('leads')
-        .select('*')
-        .eq('appointment_confirmation', confirmationCode)
-        .eq('tour_appointment_id', tourAppointmentId)
-        .single();
+      // Verified server-side (SECURITY DEFINER RPC) so the confirmation code and the rest
+      // of the lead row are never exposed to the client. Returns only id + first_name.
+      const { data, error } = await supabase.rpc('verify_lead_confirmation_code', {
+        p_tour_appointment_id: tourAppointmentId,
+        p_code: confirmationCode,
+      });
 
       if (error) {
-        console.log('error', error);
-        if (error.code === 'PGRST116') {
-          // No rows returned
-          return { success: false, error: 'Invalid confirmation code' };
-        }
         console.error('Error verifying confirmation code:', error);
         return { success: false, error: 'Failed to verify confirmation code' };
       }
 
-      console.log('data', data);
-
-      if (data) {
-        return { success: true, lead: data };
+      const lead = Array.isArray(data) && data.length > 0 ? data[0] : null;
+      if (lead?.id) {
+        return { success: true, lead: { id: lead.id, first_name: lead.first_name } };
       }
 
       return { success: false, error: 'Invalid confirmation code' };

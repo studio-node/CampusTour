@@ -51,20 +51,13 @@ async function restoreTourSessionState(tourId: string): Promise<boolean> {
     ? sessionData.visited_locations
     : [];
 
-  // Find current stop index
-  let currentStopIndex = 0;
-  if (sessionData.current_location_id) {
-    const foundIndex = ordered.findIndex(loc => loc.id === sessionData.current_location_id);
-    currentStopIndex = foundIndex >= 0 ? foundIndex : 0;
-  }
-
   // Update app state with the current tour state
   appStateManager.updateState({
     tourState: {
       stops: ordered,
       selectedInterests: [],
       visitedLocations: visitedLocations,
-      currentStopIndex: currentStopIndex,
+      currentLocationId: sessionData.current_location_id ?? null,
       tourStarted: true,
       tourFinished: false,
       isEditingTour: false,
@@ -80,9 +73,10 @@ function runWhenSocketOpen(callback: () => void): void {
   if (wsManager.getStatus() === 'open') {
     callback();
   } else {
-    wsManager.on('open', () => {
-      callback();
-    });
+    // once, not on: 'open' fires on every reconnect, so a persistent listener would stack
+    // another create_session/join_session sender on each reconnect and replay forever.
+    wsManager.once('open', callback);
+    wsManager.connect();
   }
 }
 

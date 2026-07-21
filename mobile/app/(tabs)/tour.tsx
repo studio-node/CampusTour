@@ -3,6 +3,8 @@ import { analyticsService, Location, locationService, userTypeService, UserType,
 import { orderTourStopsByNearestFirst } from '@/services/tourOrderUtils';
 import { findStopIdWithinGeofence } from '@/services/geofence';
 import { wsManager } from '@/services/ws';
+import { raiseHand } from '@/services/raiseHand';
+import { requireBackendUrl } from '@/services/config';
 import { appStateManager, PersistedAppState } from '@/services/appStateManager';
 import { Image } from 'expo-image';
 import * as ExpoLocation from 'expo-location';
@@ -15,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import { useTourPause } from '@/contexts/TourPauseContext';
 import { useSchoolPrimaryColor } from '@/hooks/useSchoolPrimaryColor';
+import { useLocationWatcher } from '@/hooks/useLocationWatcher';
 
 
 // Define the interface for a tour stop
@@ -253,15 +256,18 @@ export default function TourScreen() {
   const [tourUpdatedByAmbassador, setTourUpdatedByAmbassador] = useState<boolean>(false);
   
   // Location tracking and geofencing state
-  const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
-  const [locationPermissionStatus, setLocationPermissionStatus] = useState<string | null>(null);
   const [tourStarted, setTourStarted] = useState<boolean>(false);
-  const [locationWatcher, setLocationWatcher] = useState<any>(null);
   const [processingTourStart, setProcessingTourStart] = useState<boolean>(false);
   // Duration tracking state
   const [currentLocationId, setCurrentLocationId] = useState<string | null>(null);
   const [locationEntryTimes, setLocationEntryTimes] = useState<{[locationId: string]: number}>({});
   const [previouslyEnteredLocations, setPreviouslyEnteredLocations] = useState<Set<string>>(new Set());
+
+  // Track location whenever there's an active, unpaused tour with stops — driven by intent,
+  // not tour-lifecycle phase. (The old effect stopped watching the moment `tourStarted`
+  // flipped true at the first stop, which killed geofencing for every stop after the first.)
+  const shouldTrackLocation = !tourPaused && !tourFinished && !showInterestSelection && tourStops.length > 0;
+  const { userLocation, permissionStatus: locationPermissionStatus } = useLocationWatcher(shouldTrackLocation);
 
   // Tour editing mode state
   const [isEditingTour, setIsEditingTour] = useState<boolean>(false);
@@ -580,12 +586,8 @@ export default function TourScreen() {
       setTourStarted(tourState.tourStarted);
       setIsEditingTour(tourState.isEditingTour);
       
-      // Restore location tracking state (use location id, not index - DB expects UUID)
-      if (persistedState.tourProgress != null && tourState.stops?.length) {
-        const idx = persistedState.tourProgress.currentStopIndex;
-        const stop = tourState.stops[idx];
-        setCurrentLocationId(stop?.id ?? null);
-      }
+      // Restore the current stop directly from the persisted location id.
+      setCurrentLocationId(tourState.currentLocationId ?? null);
       
       console.log('Tour state restored from app state manager');
       syncTourPausedFromStorage();
@@ -617,7 +619,7 @@ export default function TourScreen() {
           stops: tourStops,
           selectedInterests,
           visitedLocations,
-          currentStopIndex: tourStops.findIndex(stop => stop.id === currentLocationId) || 0,
+          currentLocationId,
           tourStarted,
           tourFinished,
           isEditingTour,
@@ -710,7 +712,7 @@ export default function TourScreen() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout for AI processing
 
-      const response = await fetch('https://campustourbackend.onrender.com/generate-tour', {
+      const response = await fetch(`${requireBackendUrl()}/generate-tour`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -766,13 +768,18 @@ export default function TourScreen() {
         console.log('✅ Local tour generation completed as fallback');
       } catch (fallbackError) {
         console.error('❌ Error with fallback tour generation:', fallbackError);
-        // If everything fails, show default tour
+        // If everything fails, show default tour — but tell the user it isn't personalized
+        // rather than silently presenting a generic tour as if it were theirs.
         console.log('🔄 Falling back to default tour');
         const defaultTourStops = await getTourStops(false);
         const coords = await getCoordsForOrdering();
         setTourStops(orderTourStopsByNearestFirst(defaultTourStops, coords));
         setShowInterestSelection(false);
         setIsGeneratingTour(false);
+        Alert.alert(
+          'Showing the default tour',
+          "We couldn't build a personalized tour just now, so we've loaded the standard campus tour instead."
+        );
       }
     }
   };
@@ -801,7 +808,7 @@ export default function TourScreen() {
     setLocationEntryTimes({});
     setPreviouslyEnteredLocations(new Set());
     setIsEditingTour(false);
-    stopLocationTracking();
+    // Location tracking stops automatically once tourStops is empty (see useLocationWatcher).
   };
 
   // Toggle the visited status of a location
@@ -852,31 +859,11 @@ export default function TourScreen() {
   };
 
   const handleRaiseHand = async () => {
-    try {
-      const tourId = await tourGroupSelectionService.getSelectedTourGroup();
-      if (!tourId) {
-        Alert.alert('Error', 'No active tour session found.');
-        return;
-      }
-
-      // Ensure WebSocket is connected
-      if (wsManager.getStatus() !== 'open') {
-        wsManager.connect();
-        // Wait for connection to open
-        const onOpen = () => {
-          wsManager.send('ambassador:ping', { tourId });
-          wsManager.off('open', onOpen);
-        };
-        wsManager.on('open', onOpen);
-      } else {
-        wsManager.send('ambassador:ping', { tourId });
-      }
-
-      // Show confirmation feedback
+    const result = await raiseHand();
+    if (result.ok) {
       Alert.alert('Hand Raised', 'The ambassador has been notified.');
-    } catch (error) {
-      console.error('Error raising hand:', error);
-      Alert.alert('Error', 'Failed to notify the ambassador. Please try again.');
+    } else {
+      Alert.alert('Error', result.error || 'Failed to notify the ambassador. Please try again.');
     }
   }
 
@@ -1017,62 +1004,6 @@ export default function TourScreen() {
     });
   };
 
-  // Request location permissions
-  const requestLocationPermission = async () => {
-    try {
-      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
-      setLocationPermissionStatus(status);
-      
-      if (status === 'granted') {
-        await startLocationTracking();
-      }
-    } catch (error) {
-      console.error('Error requesting location permission:', error);
-    }
-  };
-
-  // Start location tracking for geofencing
-  const startLocationTracking = async () => {
-    try {
-      // Get initial location
-      const location = await ExpoLocation.getCurrentPositionAsync({
-        accuracy: ExpoLocation.Accuracy.Balanced
-      });
-      
-      setUserLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude
-      });
-
-      // Start watching location changes
-      const watcher = await ExpoLocation.watchPositionAsync(
-        {
-          accuracy: ExpoLocation.Accuracy.Balanced,
-          timeInterval: 5000, // Check every 5 seconds
-          distanceInterval: 10 // Only update if moved 10 meters
-        },
-        (newLocation) => {
-          setUserLocation({
-            latitude: newLocation.coords.latitude,
-            longitude: newLocation.coords.longitude
-          });
-        }
-      );
-
-      setLocationWatcher(watcher);
-    } catch (error) {
-      console.error('Error starting location tracking:', error);
-    }
-  };
-
-  // Stop location tracking
-  const stopLocationTracking = () => {
-    if (locationWatcher) {
-      locationWatcher.remove();
-      setLocationWatcher(null);
-    }
-  };
-
   // Check if user is within geofence of any tour stop and handle entry/exit
   const checkGeofences = async () => {
     if (tourFinished || !userLocation || !schoolId || tourStops.length === 0) {
@@ -1154,27 +1085,6 @@ export default function TourScreen() {
     // Update current location
     setCurrentLocationId(newCurrentLocationId);
   };
-
-  // Effect to handle location tracking when tour is active
-  useEffect(() => {
-    if (tourPaused || tourFinished) {
-      stopLocationTracking();
-      return;
-    }
-    if (!showInterestSelection && tourStops.length > 0 && !tourStarted) {
-      // Tour is active but not started yet - request location permission and start tracking
-      if (locationPermissionStatus !== 'granted') {
-        requestLocationPermission();
-      } else {
-        startLocationTracking();
-      }
-    }
-
-    // Cleanup on unmount or when tour ends
-    return () => {
-      stopLocationTracking();
-    };
-  }, [tourPaused, tourFinished, showInterestSelection, tourStops, locationPermissionStatus, tourStarted]);
 
   // Effect to check geofences when user location changes
   useEffect(() => {
