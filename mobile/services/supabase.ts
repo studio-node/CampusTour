@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { AppState } from 'react-native';
 import 'react-native-url-polyfill/auto';
+import EventEmitter from 'eventemitter3';
 
 // Supabase URL and anon key from .env (EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY)
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
@@ -320,6 +321,8 @@ export interface School {
   logo_url?: string;
   /** JSONB: array of polygons (each polygon is array of { latitude, longitude }). Use parseDeadzonesFromSchool() for routing. */
   deadzones?: unknown;
+  /** JSONB: [[lat, lng], [lat, lng]] bounding box for the map's building-outline overlay. Null/absent means no overlay. */
+  map_overlay_bounds?: unknown;
 }
 
 // School service
@@ -1171,6 +1174,13 @@ export type UserType = 'self-guided' | 'ambassador-led' | 'ambassador' | null;
 // Storage key for tour type
 const TOUR_TYPE_STORAGE_KEY = 'selectedTourType';
 
+// Notified whenever setUserType/clearUserType resolve. Listeners (e.g. RaiseHandContext)
+// that also react to Supabase's onAuthStateChange can otherwise race a sign-in flow that
+// awaits authService.signInAndStore(...) and only calls setUserType(...) afterward — the
+// auth event can fire and be handled before storage is actually updated. Subscribing here
+// guarantees a re-check happens exactly when the type actually changes.
+const userTypeEmitter = new EventEmitter();
+
 // User type service
 export const userTypeService = {
   // Get the current user type from storage
@@ -1194,6 +1204,8 @@ export const userTypeService = {
       }
     } catch (error) {
       console.error('Error setting user type:', error);
+    } finally {
+      userTypeEmitter.emit('changed', userType);
     }
   },
 
@@ -1209,7 +1221,15 @@ export const userTypeService = {
       await AsyncStorage.removeItem(TOUR_TYPE_STORAGE_KEY);
     } catch (error) {
       console.error('Error clearing user type:', error);
+    } finally {
+      userTypeEmitter.emit('changed', null);
     }
+  },
+
+  // Subscribe to user-type changes. Returns an unsubscribe function.
+  onUserTypeChange(listener: (userType: UserType) => void): () => void {
+    userTypeEmitter.on('changed', listener);
+    return () => userTypeEmitter.off('changed', listener);
   }
 };
 

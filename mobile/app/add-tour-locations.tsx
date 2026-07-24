@@ -5,7 +5,7 @@ import { useSchoolPrimaryColor } from '@/hooks/useSchoolPrimaryColor';
 import EmptyState from '@/components/EmptyState';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -32,7 +32,14 @@ export default function AddTourLocationsScreen() {
     useLocalSearchParams<{ schoolId?: string; currentTourStopIds?: string }>();
 
   const schoolId = schoolIdParam ?? null;
-  const currentTourStopIds = parseCurrentTourStopIds(currentTourStopIdsParam);
+  // Memoized on the raw param string: parseCurrentTourStopIds() returns a new array
+  // reference on every render otherwise, which recreated loadData below on every render,
+  // re-triggering its effect, which called setLocations with another new array reference,
+  // forcing yet another render — an infinite refetch loop against Supabase.
+  const currentTourStopIds = useMemo(
+    () => parseCurrentTourStopIds(currentTourStopIdsParam),
+    [currentTourStopIdsParam]
+  );
 
   const [locations, setLocations] = useState<Location[]>([]);
   const { primaryColor } = useSchoolPrimaryColor(schoolId);

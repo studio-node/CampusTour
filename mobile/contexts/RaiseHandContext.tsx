@@ -18,6 +18,14 @@ export function RaiseHandProvider({ children }: { children: ReactNode }) {
 
   // Check if user is an ambassador, and re-check whenever auth state changes
   // (the provider mounts at the root, before an ambassador signs in).
+  //
+  // Also listen for userTypeService's own change event, not just Supabase's auth
+  // state: ambassador-signin.tsx awaits authService.signInAndStore(...) (which fires
+  // the SIGNED_IN auth event asynchronously) and only calls setUserType('ambassador')
+  // afterward. If onAuthStateChange's callback ran first, checkUserType() could read
+  // the type before it was set and latch isAmbassador to false for the rest of the
+  // session, since no further auth event follows. Subscribing directly to the
+  // userTypeService event guarantees a re-check exactly when the type actually changes.
   useEffect(() => {
     const checkUserType = async () => {
       const ambassadorStatus = await userTypeService.isAmbassador();
@@ -29,8 +37,12 @@ export function RaiseHandProvider({ children }: { children: ReactNode }) {
     const { data: subscription } = authService.onAuthStateChange(() => {
       void checkUserType();
     });
+    const unsubscribeUserType = userTypeService.onUserTypeChange(() => {
+      void checkUserType();
+    });
     return () => {
       subscription?.subscription?.unsubscribe?.();
+      unsubscribeUserType();
     };
   }, []);
 

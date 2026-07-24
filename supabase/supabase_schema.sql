@@ -695,11 +695,12 @@ CREATE TABLE IF NOT EXISTS "public"."schools" (
     "state" "text",
     "created_at" timestamp with time zone DEFAULT "now"(),
     "coordinates" "jsonb",
-    "primary_color" "text" DEFAULT '#990000'::"text",
+    "primary_color" "text" DEFAULT '#334155'::"text",
     "logo_url" "text",
     "degrees_offered" "text"[],
     "deadzones" "jsonb" DEFAULT '[]'::"jsonb",
-    "timezone" "text"
+    "timezone" "text",
+    "map_overlay_bounds" "jsonb"
 );
 
 
@@ -711,6 +712,10 @@ COMMENT ON COLUMN "public"."schools"."deadzones" IS 'Polygons (array of {latitud
 
 
 COMMENT ON COLUMN "public"."schools"."timezone" IS 'IANA timezone identifier for this school (e.g. America/New_York). Used for tour appointment scheduling/display.';
+
+
+
+COMMENT ON COLUMN "public"."schools"."map_overlay_bounds" IS 'Two-point bounding box [[lat,lng],[lat,lng]] for the map building-outline overlay image. Null means no overlay for this school.';
 
 
 

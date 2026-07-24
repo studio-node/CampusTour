@@ -34,6 +34,8 @@ class WebSocketManager {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private lastActivityAt = 0;
   private intentionalClose = false;
+  private authRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private authRetryAttempts = 0;
   // Last create_session / join_session sent, replayed after a reconnect so the
   // server re-adds this socket to the session (server state is per-connection).
   private lastSessionMessage: WebSocketMessage | null = null;
@@ -99,6 +101,9 @@ class WebSocketManager {
       this.socket = null;
       this.authSent = false;
       this.stopHeartbeat();
+      // A full reconnect re-authenticates via onSocketOpen; don't let a stale
+      // auth-retry timer fire concurrently and race it.
+      this.clearAuthRetryTimer();
       this.emitter.emit('close');
       if (!this.intentionalClose) {
         this.scheduleReconnect();
@@ -114,8 +119,9 @@ class WebSocketManager {
       if (!authed) {
         // Don't replay session messages or flush pending sends as an unauthenticated
         // socket — the server would see an unauthenticated ambassador. Surface the failure
-        // and wait; a later authenticate() (once a token exists) will retry.
+        // and self-schedule a retry rather than relying on callers to react to the event.
         this.emitter.emit('auth_failed');
+        this.scheduleAuthRetry();
         return;
       }
     }
@@ -146,6 +152,33 @@ class WebSocketManager {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+  }
+
+  // Auth can fail transiently (token not refreshed yet, brief network hiccup). Without
+  // this, 'auth_failed' was a dead end — nothing in the app ever listened for it, so a
+  // failed auth just sat there until something unrelated (like a socket drop) happened
+  // to trigger a reconnect.
+  private scheduleAuthRetry() {
+    if (this.authRetryTimer || this.intentionalClose || !this.shouldAuthenticate) return;
+    const delay = Math.min(
+      RECONNECT_BASE_DELAY_MS * 2 ** this.authRetryAttempts,
+      RECONNECT_MAX_DELAY_MS
+    );
+    this.authRetryAttempts += 1;
+    this.authRetryTimer = setTimeout(() => {
+      this.authRetryTimer = null;
+      if (this.shouldAuthenticate && !this.authSent) {
+        void this.authenticate();
+      }
+    }, delay);
+  }
+
+  private clearAuthRetryTimer() {
+    if (this.authRetryTimer) {
+      clearTimeout(this.authRetryTimer);
+      this.authRetryTimer = null;
+    }
+    this.authRetryAttempts = 0;
   }
 
   private startHeartbeat() {
@@ -181,6 +214,7 @@ class WebSocketManager {
   close() {
     this.intentionalClose = true;
     this.clearReconnectTimer();
+    this.clearAuthRetryTimer();
     this.stopHeartbeat();
     this.pendingMessages = [];
     this.lastSessionMessage = null;
@@ -199,7 +233,15 @@ class WebSocketManager {
   async authenticate() {
     this.shouldAuthenticate = true;
     if (this.status === 'open') {
-      await this.sendAuth();
+      const authed = await this.sendAuth();
+      if (authed) {
+        // The socket was already open (no 'open' event will fire to trigger
+        // onSocketOpen's flush), so flush here or queued sends would sit forever.
+        this.flushPending();
+      } else {
+        this.emitter.emit('auth_failed');
+        this.scheduleAuthRetry();
+      }
     } else {
       this.connect();
     }
@@ -218,6 +260,7 @@ class WebSocketManager {
       if (this.socket && this.status === 'open') {
         this.socket.send(JSON.stringify({ type: 'auth', payload: { token } }));
         this.authSent = true;
+        this.clearAuthRetryTimer();
         return true;
       }
       return false;
@@ -234,7 +277,12 @@ class WebSocketManager {
     if (type === 'create_session' || type === 'join_session') {
       this.lastSessionMessage = message;
     }
-    if (this.socket && this.status === 'open') {
+    // Same gate as flushPending(): never let a message escape on a socket that's
+    // supposed to be authenticated but hasn't sent 'auth' yet (this used to be
+    // bypassed here, letting e.g. create_session reach the server unauthenticated
+    // while sendAuth()'s async token fetch was still in flight).
+    const authGateOpen = !this.shouldAuthenticate || this.authSent;
+    if (this.socket && this.status === 'open' && authGateOpen) {
       this.sendRaw(message);
     } else {
       this.pendingMessages.push(message);

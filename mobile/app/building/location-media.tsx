@@ -1,5 +1,6 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { LocationMedia, locationService, schoolService, tourGroupSelectionService } from '@/services/supabase';
+import { DEFAULT_PRIMARY_COLOR } from '@/hooks/useSchoolPrimaryColor';
 import { wsManager } from '@/services/ws';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -29,7 +30,7 @@ export default function LocationMediaScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [schoolId, setSchoolId] = useState<string | null>(null);
-  const [primaryColor, setPrimaryColor] = useState<string>('#990000');
+  const [primaryColor, setPrimaryColor] = useState<string>(DEFAULT_PRIMARY_COLOR);
 
   useEffect(() => {
     const getSchool = async () => {

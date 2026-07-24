@@ -42,7 +42,17 @@ export default function TourDetailsScreen() {
   const [participants, setParticipants] = useState<TourParticipant[]>([]);
   const [joinedMemberIds, setJoinedMemberIds] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  const [startingTour, setStartingTour] = useState(false);
   const sessionInitiatedRef = useRef(false);
+  const startTourTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearStartTourTimeout = () => {
+    if (startTourTimeoutRef.current) {
+      clearTimeout(startTourTimeoutRef.current);
+      startTourTimeoutRef.current = null;
+    }
+    setStartingTour(false);
+  };
 
   // Function to fetch joined members
   const fetchJoinedMembers = async (tourId: string) => {
@@ -75,6 +85,12 @@ export default function TourDetailsScreen() {
   };
 
   useEffect(() => {
+    // Some 'open' listeners below are registered inside async callbacks that may never
+    // fire before this effect unmounts (e.g. the user navigates away quickly). They must
+    // still be removed on cleanup or they stack across remounts and resend stale
+    // join_session/create_session payloads on every future reconnect.
+    const extraCleanupFns: Array<() => void> = [];
+
     const initialize = async () => {
       setLoading(true);
       const type = await userTypeService.getUserType();
@@ -151,9 +167,8 @@ export default function TourDetailsScreen() {
                 if (wsManager.getStatus() === 'open') {
                   joinSession();
                 } else {
-                  wsManager.on('open', () => {
-                    joinSession();
-                  });
+                  wsManager.once('open', joinSession);
+                  extraCleanupFns.push(() => wsManager.off('open', joinSession));
                 }
               }
               
@@ -313,6 +328,7 @@ export default function TourDetailsScreen() {
         } catch (e) {
           console.error('Failed to persist generated tour:', e);
         }
+        clearStartTourTimeout();
         router.replace('/map');
       }
       if (userType === 'ambassador' && message?.type === 'member_joined') {
@@ -454,11 +470,8 @@ export default function TourDetailsScreen() {
             join();
           } else {
             // Wait for connection to open
-            const onOpenForJoin = () => {
-              join();
-              wsManager.off('open', onOpenForJoin);
-            };
-            wsManager.on('open', onOpenForJoin);
+            wsManager.once('open', join);
+            extraCleanupFns.push(() => wsManager.off('open', join));
           }
         } else {
           console.error('No leadId or general member found. Cannot join session.');
@@ -470,6 +483,8 @@ export default function TourDetailsScreen() {
       wsManager.off('open', onOpen);
       wsManager.off('auth_ok', onAuthOk);
       wsManager.off('message', onMessage);
+      extraCleanupFns.forEach((fn) => fn());
+      clearStartTourTimeout();
     }
   }, [userType]);
 
@@ -494,7 +509,22 @@ export default function TourDetailsScreen() {
       tourId: tour.id,
       preconfiguredTourId: tour.preconfigured_tour_id,
     });
-    // Navigate after 'tour_started' message
+    // Navigate after 'tour_started' message; if it never arrives (dropped connection,
+    // server hiccup), surface that instead of leaving the ambassador stuck indefinitely.
+    setStartingTour(true);
+    if (startTourTimeoutRef.current) clearTimeout(startTourTimeoutRef.current);
+    startTourTimeoutRef.current = setTimeout(() => {
+      startTourTimeoutRef.current = null;
+      setStartingTour(false);
+      Alert.alert(
+        'Still working on it',
+        "The tour hasn't started yet. This can happen if the connection dropped. Try again?",
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Try Again', onPress: () => handleStartTour() },
+        ]
+      );
+    }, 15000);
   };
 
 
@@ -611,8 +641,12 @@ export default function TourDetailsScreen() {
                   )}
                 </View>
                 
-                <TouchableOpacity style={styles.button} onPress={handleStartTour}>
-                  <Text style={styles.buttonText}>Start Tour</Text>
+                <TouchableOpacity
+                  style={[styles.button, startingTour && styles.buttonDisabled]}
+                  onPress={handleStartTour}
+                  disabled={startingTour}
+                >
+                  <Text style={styles.buttonText}>{startingTour ? 'Starting Tour...' : 'Start Tour'}</Text>
                 </TouchableOpacity>
               </>
             ) : (
@@ -697,6 +731,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#3B82F6',
     padding: 15,
     borderRadius: 5,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: '#fff',

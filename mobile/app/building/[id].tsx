@@ -1,6 +1,7 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { LocationDetailsView } from '@/components/LocationDetailsView';
 import { Location, locationService, schoolService, userTypeService } from '@/services/supabase';
+import { DEFAULT_PRIMARY_COLOR } from '@/hooks/useSchoolPrimaryColor';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -16,7 +17,7 @@ export default function BuildingInfoScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [schoolId, setSchoolId] = useState<string | null>(null);
-  const [primaryColor, setPrimaryColor] = useState<string>('#990000'); // Utah Tech red as fallback
+  const [primaryColor, setPrimaryColor] = useState<string>(DEFAULT_PRIMARY_COLOR);
   const [isAmbassador, setIsAmbassador] = useState<boolean>(false);
   const [isSelfGuided, setIsSelfGuided] = useState(false);
 

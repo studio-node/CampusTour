@@ -235,7 +235,11 @@ export function useResumeTour(): UseResumeTourReturn {
         return;
       }
       
-      // For self-guided tours, clear all tour data
+      // For self-guided tours, clear all tour data. clearAllTourData() only wipes the
+      // AsyncStorage blob — it never touches appStateManager's in-memory singleton, so
+      // without this, the next updateState() call (which spreads the stale in-memory
+      // currentState) would resurrect the tour data "Start Fresh" was supposed to erase.
+      await appStateManager.clearAllState();
       await clearAllTourData();
       
       // Navigate to interest selection to start fresh

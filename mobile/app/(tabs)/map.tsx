@@ -34,9 +34,23 @@ import { LocationMapPin } from '@/components/LocationMapPin';
 import { useTourPause } from '@/contexts/TourPauseContext';
 import { parseDeadzonesFromSchool } from '@/services/deadzones';
 import { fetchWalkingRoute } from '@/services/directionsService';
+import { DEFAULT_PRIMARY_COLOR } from '@/hooks/useSchoolPrimaryColor';
 
 // Define the location type based on our supabase service
 type LocationItem = Location;
+
+/** Parses school.map_overlay_bounds (JSONB [[lat,lng],[lat,lng]]) into Overlay's bounds prop shape. */
+function parseMapOverlayBounds(raw: unknown): [[number, number], [number, number]] | null {
+  if (!Array.isArray(raw) || raw.length !== 2) return null;
+  const [a, b] = raw;
+  if (
+    Array.isArray(a) && a.length === 2 && typeof a[0] === 'number' && typeof a[1] === 'number' &&
+    Array.isArray(b) && b.length === 2 && typeof b[0] === 'number' && typeof b[1] === 'number'
+  ) {
+    return [[a[0], a[1]], [b[0], b[1]]];
+  }
+  return null;
+}
 
 // Neutral, zoomed-out fallback region used only until the selected school's coordinates
 // load. Must not hardcode any one campus (this app is multi-tenant).
@@ -84,7 +98,7 @@ export default function MapScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [defaultRegion, setDefaultRegion] = useState<Region>(FALLBACK_REGION);
-  const [primaryColor, setPrimaryColor] = useState<string>('#334155'); // Neutral until the school's color loads
+  const [primaryColor, setPrimaryColor] = useState<string>(DEFAULT_PRIMARY_COLOR); // Neutral until the school's color loads
   
   // Modal state for tour generation prompt
   const [showTourModal, setShowTourModal] = useState(false);
@@ -107,6 +121,7 @@ export default function MapScreen() {
   
   // School deadzones for route filtering (from school.deadzones)
   const [schoolDeadzones, setSchoolDeadzones] = useState<Array<Array<{ latitude: number; longitude: number }>>>([]);
+  const [mapOverlayBounds, setMapOverlayBounds] = useState<[[number, number], [number, number]] | null>(null);
   
   // Raise hand notification state from shared context
   const { tourPaused, tourFinished, syncTourPausedFromStorage } = useTourPause();
@@ -148,6 +163,11 @@ export default function MapScreen() {
         
         // Set deadzones for route filtering (areas to avoid when computing walking directions)
         setSchoolDeadzones(parseDeadzonesFromSchool(schoolDetails.deadzones));
+
+        // Building-outline overlay bounds, per-school (was hardcoded to a single school ID).
+        setMapOverlayBounds(parseMapOverlayBounds(schoolDetails.map_overlay_bounds));
+      } else {
+        setMapOverlayBounds(null);
       }
     };
 
@@ -271,7 +291,13 @@ export default function MapScreen() {
         loc.id.toLowerCase() === buildingId.toLowerCase()
       );
       
-      if (building && mapRef.current && mapReady) {
+      if (
+        building &&
+        mapRef.current &&
+        mapReady &&
+        Number.isFinite(building.coordinates?.latitude) &&
+        Number.isFinite(building.coordinates?.longitude)
+      ) {
         // Focus on the building
         const region = {
           latitude: building.coordinates.latitude,
@@ -805,15 +831,11 @@ export default function MapScreen() {
             zoomEnabled={true}
             onMapReady={() => setMapReady(true)}
           >
-            {/* ONlY UTAH TECH HAS THIS OVERLAY FOR NOW HEHE */}
-            {schoolId == "e5a9dfd2-0c88-419e-b891-0a62283b8abd" && (
-              <Overlay image={require('@/assets/images/buildings_overlay_3.png')} bounds={[
-              // [ 37.09798939695663, -113.57067719268706 ],
-              [ 37.09755260505361, -113.57264516743909 ],
-              [ 37.10815778141483, -113.55942540472526 ]
-              // [ 37.097589, -113.572708 ]
-              // new bottom left: 37.10815778141483, -113.55942540472526
-              ]}  />
+            {/* Building-outline overlay: per-school via schools.map_overlay_bounds.
+                Note the image asset itself is still a single bundled file shared by any
+                school that has bounds set — there's no per-school image upload path yet. */}
+            {mapOverlayBounds && (
+              <Overlay image={require('@/assets/images/buildings_overlay_3.png')} bounds={mapOverlayBounds} />
             )}
             {mapViewMode === 'directions' && !!routeCoordinates && routeCoordinates.length > 0 && (
               <Polyline
@@ -839,7 +861,13 @@ export default function MapScreen() {
                   strokeWidth={2}
                 />
               ))}
-            {locations.map((location) => {
+            {locations.filter((location) =>
+              // A location saved without coordinates (e.g. newly added via the admin
+              // dashboard before lat/lng is set) would otherwise hard-crash
+              // react-native-maps for every visitor.
+              Number.isFinite(location.coordinates?.latitude) &&
+              Number.isFinite(location.coordinates?.longitude)
+            ).map((location) => {
               const isHighlighted = highlightedLocationId === location.id;
               return (
               <Marker
@@ -1097,7 +1125,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#444',
   },
   viewToggleButtonActive: {
-    backgroundColor: '#990000',
+    // backgroundColor intentionally omitted: always overridden by dynamicStyles.viewToggleButtonActive
+    // (derived from the school's live primary_color), which is applied after this in the style array.
   },
   viewToggleLabel: {
     fontSize: 14,

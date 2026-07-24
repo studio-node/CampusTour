@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { schoolService } from '@/services/supabase';
 
-export const DEFAULT_PRIMARY_COLOR = '#990000';
+// Brand-neutral (not any one school's actual color) — matches the fallback already used
+// in mobile/app/(tabs)/map.tsx before this was centralized.
+export const DEFAULT_PRIMARY_COLOR = '#334155';
 
 interface UseSchoolPrimaryColorResult {
   schoolId: string | null;

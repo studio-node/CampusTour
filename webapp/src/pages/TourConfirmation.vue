@@ -36,7 +36,9 @@ const interestNames = {
   "career-services": "🎓 Career Services"
 }
 
-onMounted(async () => {
+const loadConfirmationData = async () => {
+  loading.value = true
+  error.value = ''
   try {
     // Get data from query parameters
     tourAppointmentId.value = route.query.tour_appointment_id || null
@@ -68,7 +70,9 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(loadConfirmationData)
 
 // Format date for display
 const formatDate = (dateString) => {
@@ -104,7 +108,21 @@ const formatTime = (dateString) => {
     <div v-else-if="error" class="text-center py-12">
       <div class="bg-red-900 border border-red-700 rounded-lg p-6">
         <h2 class="text-xl font-bold text-red-300 mb-2">Error</h2>
-        <p class="text-red-200">{{ error }}</p>
+        <p class="text-red-200 mb-4">{{ error }}</p>
+        <div class="flex items-center justify-center gap-3">
+          <button
+            @click="loadConfirmationData"
+            class="px-4 py-2 rounded-lg bg-red-700 text-white hover:bg-red-600"
+          >
+            Try Again
+          </button>
+          <router-link
+            to="/"
+            class="px-4 py-2 rounded-lg bg-gray-700 text-gray-200 hover:bg-gray-600"
+          >
+            Back to Home
+          </router-link>
+        </div>
       </div>
     </div>
 

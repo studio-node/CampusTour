@@ -206,8 +206,8 @@ export default function AmbassadorToursScreen() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
+  const getStatusColor = (status: string | null | undefined) => {
+    switch ((status || '').toLowerCase()) {
       case 'scheduled':
         return '#4CAF50'; // Green
       case 'active':
@@ -262,7 +262,7 @@ export default function AmbassadorToursScreen() {
           <View style={styles.tourHeader}>
             <Text style={styles.tourTitle}>{item.title}</Text>
             <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-              <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+              <Text style={styles.statusText}>{(item.status || 'unknown').toUpperCase()}</Text>
             </View>
           </View>
           
