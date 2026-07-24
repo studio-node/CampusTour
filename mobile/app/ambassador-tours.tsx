@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { openBrowserAsync } from 'expo-web-browser';
 import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
@@ -141,6 +142,15 @@ export default function AmbassadorToursScreen() {
         }
       ]
     );
+  };
+
+  const handleDeleteAccount = async () => {
+    const webappUrl = process.env.EXPO_PUBLIC_WEBAPP_URL;
+    if (!webappUrl) {
+      Alert.alert('Error', 'Account deletion is temporarily unavailable. Please try again later.');
+      return;
+    }
+    await openBrowserAsync(`${webappUrl}/admin/profile`);
   };
 
   const toggleTourExpansion = async (tourId: string) => {
@@ -336,9 +346,14 @@ export default function AmbassadorToursScreen() {
           <Text style={styles.welcomeText}>Welcome back,</Text>
           <Text style={styles.userName}>{user?.user_metadata?.full_name || user?.email}</Text>
         </View>
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={styles.signOutButtonText}>Sign Out</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
+            <Text style={styles.deleteAccountButtonText}>Delete My Account</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+            <Text style={styles.signOutButtonText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Content */}
@@ -428,6 +443,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 4,
   },
+  headerActions: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
   signOutButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingVertical: 8,
@@ -439,6 +458,15 @@ const styles = StyleSheet.create({
   signOutButtonText: {
     color: '#fff',
     fontSize: 14,
+    fontWeight: '500',
+  },
+  deleteAccountButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  deleteAccountButtonText: {
+    color: '#F44336',
+    fontSize: 12,
     fontWeight: '500',
   },
   content: {

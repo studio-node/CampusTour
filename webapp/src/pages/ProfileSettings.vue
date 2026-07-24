@@ -1,12 +1,19 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { supabase } from '../supabase.js'
+import { useAuth } from '../composables/useAuth.js'
+import { deleteOwnAccount } from '../services/accountService.js'
+
+const router = useRouter()
+const { user: authUser } = useAuth()
 
 const user = ref({
-  name: 'Admin User',
-  email: 'admin@utahtech.edu',
-  role: 'Super Admin',
-  phone: '+1 (555) 123-4567',
-  organization: 'Utah Tech University'
+  name: '',
+  email: '',
+  role: '',
+  phone: '',
+  organization: ''
 })
 
 const settings = ref({
@@ -19,14 +26,70 @@ const settings = ref({
 
 const activeTab = ref('profile')
 
+const loadProfile = async () => {
+  if (!authUser.value) return
+
+  user.value.email = authUser.value.email || ''
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('full_name, role')
+    .eq('id', authUser.value.id)
+    .single()
+
+  if (!error && data) {
+    user.value.name = data.full_name || ''
+    user.value.role = data.role || ''
+  }
+}
+
+onMounted(loadProfile)
+
 const saveProfile = () => {
   // TODO: Save profile changes
   alert('Profile saved successfully!')
 }
 
 const saveSettings = () => {
-  // TODO: Save settings changes  
+  // TODO: Save settings changes
   alert('Settings saved successfully!')
+}
+
+// Delete account
+const showDeleteModal = ref(false)
+const deleteConfirmText = ref('')
+const deleting = ref(false)
+const deleteError = ref('')
+
+const openDeleteModal = () => {
+  deleteConfirmText.value = ''
+  deleteError.value = ''
+  showDeleteModal.value = true
+}
+
+const closeDeleteModal = () => {
+  if (deleting.value) return
+  showDeleteModal.value = false
+}
+
+const confirmDeleteAccount = async () => {
+  if (deleteConfirmText.value !== 'DELETE') return
+
+  deleting.value = true
+  deleteError.value = ''
+
+  const result = await deleteOwnAccount()
+
+  if (!result.success) {
+    deleteError.value = result.error || 'Failed to delete account. Please try again.'
+    deleting.value = false
+    return
+  }
+
+  // The account no longer exists server-side, so only clear local session state —
+  // a 'global' sign-out would try (and harmlessly fail) to invalidate it remotely.
+  await supabase.auth.signOut({ scope: 'local' })
+  router.push('/')
 }
 </script>
 
@@ -173,6 +236,53 @@ const saveSettings = () => {
               Enable 2FA
             </button>
           </div>
+
+          <div class="border-t border-gray-700 pt-6">
+            <h3 class="text-lg font-medium text-white mb-4">Danger Zone</h3>
+            <p class="text-sm text-gray-400 mb-4">
+              Permanently delete your account and all associated data. This cannot be undone.
+            </p>
+            <button @click="openDeleteModal" class="bg-red-700 text-white px-4 py-2 rounded-lg hover:bg-red-800 transition-colors">
+              Delete My Account
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Account Confirmation Modal -->
+    <div v-if="showDeleteModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-4">
+      <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 max-w-md w-full">
+        <h3 class="text-lg font-bold text-white mb-2">Delete Your Account</h3>
+        <p class="text-sm text-gray-400 mb-4">
+          This permanently deletes your account and sign-in credentials. Any tour appointments
+          assigned to you will be unassigned rather than deleted. This action cannot be undone.
+        </p>
+        <label class="block text-sm font-medium text-gray-300 mb-2">
+          Type <span class="font-mono text-red-400">DELETE</span> to confirm
+        </label>
+        <input
+          v-model="deleteConfirmText"
+          type="text"
+          :disabled="deleting"
+          class="w-full border border-gray-600 bg-gray-700 text-white rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+        >
+        <p v-if="deleteError" class="text-sm text-red-400 mb-4">{{ deleteError }}</p>
+        <div class="flex justify-end gap-3">
+          <button
+            @click="closeDeleteModal"
+            :disabled="deleting"
+            class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            @click="confirmDeleteAccount"
+            :disabled="deleteConfirmText !== 'DELETE' || deleting"
+            class="bg-red-700 text-white px-4 py-2 rounded-lg hover:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {{ deleting ? 'Deleting...' : 'Permanently Delete' }}
+          </button>
         </div>
       </div>
     </div>

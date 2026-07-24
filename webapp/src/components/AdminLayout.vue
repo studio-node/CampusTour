@@ -38,7 +38,7 @@ const navigation = [
   { name: 'Tour Appointments', href: '/admin/appointments', icon: '🗓️' },
   { name: 'Tour Templates', href: '/admin/preconfigured-tours', icon: '🗺️' },
   // { name: 'Ambassador Tours', href: '/admin/ambassador-tours', icon: '🎓' },
-  // { name: 'Profile & Settings', href: '/admin/profile', icon: '⚙️' }
+  { name: 'Profile & Settings', href: '/admin/profile', icon: '⚙️' }
 ]
 
 // Handle sign out
