@@ -1,11 +1,11 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { openBrowserAsync } from 'expo-web-browser';
 import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Linking,
   RefreshControl,
   StyleSheet,
   Text,
@@ -150,7 +150,7 @@ export default function AmbassadorToursScreen() {
       Alert.alert('Error', 'Account deletion is temporarily unavailable. Please try again later.');
       return;
     }
-    await openBrowserAsync(`${webappUrl}/admin/profile`);
+    await Linking.openURL(`${webappUrl}`);
   };
 
   const toggleTourExpansion = async (tourId: string) => {
