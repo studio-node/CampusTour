@@ -422,7 +422,7 @@ export default function TourScreen() {
     };
 
     const handleTourStateUpdated = (data: any) => {
-      const { state } = data;
+      const { state } = data.payload;
       if (state) {
         console.log('Received tour state update from ambassador:', state);
         
@@ -446,47 +446,42 @@ export default function TourScreen() {
       }
     };
 
-    const handleTourStructureUpdated = async (data: any) => {
-      const { changes } = data;
-      if (changes?.new_structure) {
-        const { new_structure } = changes;
-        // Handle both array format (new) and object format (backward compatibility)
-        const locationIds: string[] = Array.isArray(new_structure)
-          ? new_structure
-          : (new_structure?.generated_tour_order || []);
-        
-        if (locationIds.length > 0) {
-          console.log('Received tour structure update from ambassador:', locationIds);
-          
-          try {
-            // Fetch location details for the received location IDs
-            if (schoolId) {
-              const allLocations = await locationService.getTourStops(schoolId);
-              const orderedLocations: Location[] = locationIds
-                .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
-                .filter((loc: Location | undefined): loc is Location => Boolean(loc));
+    const handleTourStarted = async (data: any) => {
+      const locationIds: string[] = Array.isArray(data.payload?.generated_tour_order)
+        ? data.payload.generated_tour_order
+        : [];
 
-              setTourStops(orderedLocations);
-            }
-          } catch (error) {
-            console.error('Error fetching location details for structure update:', error);
+      if (locationIds.length > 0) {
+        console.log('Received tour start from ambassador:', locationIds);
+
+        try {
+          // Fetch location details for the received location IDs
+          if (schoolId) {
+            const allLocations = await locationService.getTourStops(schoolId);
+            const orderedLocations: Location[] = locationIds
+              .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
+              .filter((loc: Location | undefined): loc is Location => Boolean(loc));
+
+            setTourStops(orderedLocations);
           }
-          
-          // Show notification that tour was updated
-          setTourUpdatedByAmbassador(true);
-          setTimeout(() => setTourUpdatedByAmbassador(false), 5000);
+        } catch (error) {
+          console.error('Error fetching location details for tour start:', error);
         }
+
+        // Show notification that tour was updated
+        setTourUpdatedByAmbassador(true);
+        setTimeout(() => setTourUpdatedByAmbassador(false), 5000);
       }
     };
 
     wsManager.on('tour_list_changed', handleTourListChanged);
     wsManager.on('tour_state_updated', handleTourStateUpdated);
-    wsManager.on('tour_structure_updated', handleTourStructureUpdated);
+    wsManager.on('tour_started', handleTourStarted);
 
     return () => {
       wsManager.off('tour_list_changed', handleTourListChanged);
       wsManager.off('tour_state_updated', handleTourStateUpdated);
-      wsManager.off('tour_structure_updated', handleTourStructureUpdated);
+      wsManager.off('tour_started', handleTourStarted);
     };
   }, [isAmbassadorLedMember, schoolId]);
 

@@ -154,7 +154,8 @@ export function useResumeTour(): UseResumeTourReturn {
       if (user?.id) {
         // Wait for websocket to open, then authenticate and create/attach to session
         runWhenSocketOpen(async () => {
-          // Await so the auth token reaches the server before create_session below.
+          // Await so auth is sent before create_session. The server handles a socket's messages
+          // in order, so the token is verified before create_session is processed.
           await wsManager.authenticate();
           // Create or attach to the live tour session
           wsManager.send('create_session', {

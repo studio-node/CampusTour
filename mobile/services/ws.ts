@@ -81,6 +81,9 @@ class WebSocketManager {
         // 'pong' is a heartbeat reply — recording activity above is enough; don't emit it.
         if (data?.type === 'pong') return;
         console.log('WebSocket Message:', JSON.stringify(data, null, 2));
+        if (data?.type === 'session_ended' || data?.type === 'tour_ended_confirmation') {
+          this.dropEndedSession();
+        }
         // Emit by specific type and a generic message event
         if (data?.type) {
           this.emitter.emit(data.type, data);
@@ -226,6 +229,17 @@ class WebSocketManager {
       this.socket = null;
       this.status = 'closed';
     }
+  }
+
+  // The server ended our tour session. Forget it so a reconnect can't replay join/create_session
+  // into it, and close without reconnecting (the server also closes members' sockets). Unlike
+  // close(), auth is kept so the next connect() for a new tour re-authenticates.
+  private dropEndedSession() {
+    this.lastSessionMessage = null;
+    this.pendingMessages = [];
+    this.intentionalClose = true;
+    this.clearReconnectTimer();
+    this.socket?.close();
   }
 
   // Sends the current Supabase access token to the server for verification.

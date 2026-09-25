@@ -120,7 +120,7 @@ export default function TourRosterScreen() {
 
   useEffect(() => {
     const onMemberJoined = (msg?: any) => {
-      const member = msg?.member;
+      const member = msg?.payload?.member;
       if (member?.is_general && member?.id && member?.first_name) {
         setGeneralRows((prev) => {
           const next = prev.filter((m) => m.id !== member.id);
@@ -132,8 +132,9 @@ export default function TourRosterScreen() {
       void loadRoster();
     };
     const onMemberLeft = (msg?: any) => {
-      if (msg?.is_general && msg?.leftMemberId) {
-        setGeneralRows((prev) => prev.filter((m) => m.id !== msg.leftMemberId));
+      const left = msg?.payload;
+      if (left?.is_general && left?.leftMemberId) {
+        setGeneralRows((prev) => prev.filter((m) => m.id !== left.leftMemberId));
       }
       void loadRoster();
     };

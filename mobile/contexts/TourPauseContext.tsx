@@ -6,7 +6,10 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import { Alert } from 'react-native';
 import { appStateManager } from '@/services/appStateManager';
+import { tourGroupSelectionService, userTypeService } from '@/services/supabase';
+import { wsManager } from '@/services/ws';
 
 type TourPauseContextValue = {
   tourPaused: boolean;
@@ -18,6 +21,13 @@ type TourPauseContextValue = {
 };
 
 const TourPauseContext = createContext<TourPauseContextValue | null>(null);
+
+// When the ambassador finishes, the live session ends for the whole group too.
+async function endLiveSessionIfAmbassador() {
+  if ((await userTypeService.getUserType()) !== 'ambassador') return;
+  const tourId = await tourGroupSelectionService.getSelectedTourGroup();
+  if (tourId) wsManager.send('tour:end', { tourId });
+}
 
 export function TourPauseProvider({ children }: { children: React.ReactNode }) {
   const [tourPaused, setTourPausedState] = useState(false);
@@ -49,7 +59,7 @@ export function TourPauseProvider({ children }: { children: React.ReactNode }) {
     setTourPausedState(paused);
   }, []);
 
-  const markTourFinished = useCallback(async (finished: boolean) => {
+  const persistTourFinished = useCallback(async (finished: boolean) => {
     const s = appStateManager.getCurrentState();
     if (!s) {
       setTourFinishedState(finished);
@@ -64,6 +74,22 @@ export function TourPauseProvider({ children }: { children: React.ReactNode }) {
     await appStateManager.saveCurrentState();
     setTourFinishedState(finished);
   }, []);
+
+  const markTourFinished = useCallback(async (finished: boolean) => {
+    await persistTourFinished(finished);
+    if (finished) await endLiveSessionIfAmbassador();
+  }, [persistTourFinished]);
+
+  // The server ended the session (ambassador ended it, or it timed out). The session is already
+  // gone, so only update local state.
+  useEffect(() => {
+    const onSessionEnded = (msg?: { payload?: { message?: string } }) => {
+      void persistTourFinished(true);
+      Alert.alert('Tour Ended', msg?.payload?.message || 'This tour has ended.');
+    };
+    wsManager.on('session_ended', onSessionEnded);
+    return () => wsManager.off('session_ended', onSessionEnded);
+  }, [persistTourFinished]);
 
   const value = useMemo(
     () => ({

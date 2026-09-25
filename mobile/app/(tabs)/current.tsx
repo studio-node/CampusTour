@@ -123,8 +123,8 @@ export default function CurrentLocationScreen() {
   useEffect(() => {
     let cleanup: (() => void) | undefined;
     const attachLiveUpdates = async () => {
-      const isAmbassadorUser = await userTypeService.isAmbassador();
-      if (isAmbassadorUser) return;
+      // Only ambassador-led members join; a lingering tour group from an earlier tour doesn't count.
+      if ((await userTypeService.getUserType()) !== 'ambassador-led') return;
       const tourId = await tourGroupSelectionService.getSelectedTourGroup();
       if (!tourId) return;
       const leadId = await leadsService.getStoredLeadId();
@@ -135,8 +135,8 @@ export default function CurrentLocationScreen() {
       }
       wsManager.connect();
       const onMessage = (msg: any) => {
-        if (msg?.type === 'tour_state_updated' && msg?.state) {
-          const { current_location_id, visited_locations } = msg.state;
+        if (msg?.type === 'tour_state_updated' && msg?.payload?.state) {
+          const { current_location_id, visited_locations } = msg.payload.state;
           if (current_location_id) setCurrentLocationId(current_location_id);
           if (Array.isArray(visited_locations)) setVisitedLocations(visited_locations);
         }

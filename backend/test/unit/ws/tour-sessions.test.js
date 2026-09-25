@@ -40,7 +40,7 @@ test('non-ambassador cannot send tour mutation events', async () => {
   assert.equal(ws.sentMessages[0].message, 'Unauthorized action.');
 });
 
-test('tour:start sent by ambassador broadcasts structure update to members', async () => {
+test('tour:start sent by ambassador sends tour_started to the ambassador and members', async () => {
   const supabase = createSupabaseMock();
   const tourId = 'tour-start';
   const tourSessions = new Map();
@@ -70,8 +70,12 @@ test('tour:start sent by ambassador broadcasts structure update to members', asy
   emitClientMessage(ambassador, { type: 'tour:start', payload: { tourId } });
   await flushAsync();
 
-  const memberEvents = member.sentMessages.map((m) => m.type);
-  assert.ok(memberEvents.includes('tour_structure_updated'));
+  const memberStarted = member.sentMessages.find((m) => m.type === 'tour_started');
+  assert.ok(memberStarted);
+  assert.deepEqual(memberStarted.payload.generated_tour_order, [
+    '11111111-1111-4111-8111-111111111111',
+    '22222222-2222-4222-8222-222222222222',
+  ]);
 
   const ambassadorEvents = ambassador.sentMessages.map((m) => m.type);
   assert.ok(ambassadorEvents.includes('tour_started'));

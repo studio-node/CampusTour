@@ -251,7 +251,7 @@ export default function TourDetailsScreen() {
       
       if (currentUserType === 'ambassador' && message?.type === 'session_created') {
         // Extract joined_members from the sessionData in the message
-        const joinedMembers = message?.sessionData?.joined_members || [];
+        const joinedMembers = message?.payload?.sessionData?.joined_members || [];
         if (Array.isArray(joinedMembers) && joinedMembers.length > 0) {
           setJoinedMemberIds(new Set(joinedMembers));
           console.log('Loaded joined members from session_created:', joinedMembers);
@@ -284,13 +284,6 @@ export default function TourDetailsScreen() {
             const ordered: Location[] = message.payload.generated_tour_order
               .map((id: string) => allLocations.find((loc: Location) => loc.id === id))
               .filter((loc: Location | undefined): loc is Location => Boolean(loc));
-            const orderedIds = ordered.map((l) => l.id);
-
-            // Persist ambassador-visible ordering into Supabase so members can fetch it
-            // from `live_tour_sessions` and match the ambassador's screen.
-            if (tourId) {
-              await leadsService.setLiveTourStructure(tourId, orderedIds);
-            }
 
             // Update app state with the generated tour and save tour ID
             appStateManager.updateState({
@@ -315,15 +308,6 @@ export default function TourDetailsScreen() {
             
             // Save state to persist tour ID
             await appStateManager.saveCurrentState();
-
-            // Broadcast the initial tour structure to all group members immediately.
-            // Otherwise members won't see a tour list until the ambassador later edits/saves.
-            if (tourId) {
-              wsManager.send('tour:tour-list-changed', {
-                tourId,
-                newTourStructure: orderedIds,
-              });
-            }
           }
         } catch (e) {
           console.error('Failed to persist generated tour:', e);
@@ -332,7 +316,7 @@ export default function TourDetailsScreen() {
         router.replace('/map');
       }
       if (userType === 'ambassador' && message?.type === 'member_joined') {
-        const joined = message?.lead || message?.member;
+        const joined = message?.payload?.lead || message?.payload?.member;
         if (joined?.id) {
           setJoinedMemberIds(prev => new Set([...prev, joined.id]));
 
@@ -358,7 +342,7 @@ export default function TourDetailsScreen() {
         }
       }
       if (userType === 'ambassador' && message?.type === 'member_left') {
-        const leftId = message?.leadId || message?.leftMemberId;
+        const leftId = message?.payload?.leadId || message?.payload?.leftMemberId;
         if (leftId) {
           setJoinedMemberIds(prev => {
             const updated = new Set(prev);
@@ -367,31 +351,8 @@ export default function TourDetailsScreen() {
           });
         }
       }
-      if (userType === 'ambassador-led' && message?.type === 'tour_structure_updated') {
-        // Save tour ID and user type when tour starts
-        const tId = await tourGroupSelectionService.getSelectedTourGroup();
-        const schoolId = await schoolService.getSelectedSchool();
-        const currentUserType = await userTypeService.getUserType();
-        
-        if (tId && schoolId) {
-          appStateManager.updateState({
-            userType: currentUserType,
-            schoolId: schoolId,
-            sessionData: {
-              sessionId: '',
-              leadId: await leadsService.getStoredLeadId(),
-              tourAppointmentId: tId,
-            },
-          });
-          await appStateManager.saveCurrentState();
-        }
-        
-        // Navigate to map when tour actually starts
-        router.replace('/map');
-      }
-
-      // Ambassador-led members: server implementations differ in which message indicates tour start.
-      // Handle `tour_started` and `tour_list_changed` as start signals so members move on immediately.
+      // Ambassador-led members: `tour_started` is the start signal. A `tour_list_changed` (an
+      // edit to a running tour) also moves along a member who joined the lobby too late to get it.
       if (
         userType === 'ambassador-led' &&
         (message?.type === 'tour_started' || message?.type === 'tour_list_changed')
@@ -448,6 +409,13 @@ export default function TourDetailsScreen() {
         }
 
         router.replace('/map');
+      }
+
+      // The tour ended (or timed out) while waiting here, so there's nothing left to wait for.
+      if (message?.type === 'session_ended') {
+        clearStartTourTimeout();
+        Alert.alert('Tour Ended', message?.payload?.message || 'This tour has ended.');
+        router.dismissTo('/');
       }
     };
     wsManager.on('message', onMessage);

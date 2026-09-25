@@ -63,12 +63,13 @@ export function PushedLocationMediaProvider({ children }: { children: ReactNode 
   // listen unconditionally — non-members simply never see these messages.
   useEffect(() => {
     wsManager.connect();
-    const onMessage = (msg: { type?: string; locationId?: string; media?: PushedMediaItem }) => {
-      if (msg?.type === 'media_added_to_detail' && msg.locationId && msg.media) {
-        addMediaToLocation(msg.locationId, msg.media);
+    const onMessage = (msg: { type?: string; payload?: { locationId?: string; media?: PushedMediaItem } }) => {
+      const { locationId, media } = msg?.payload ?? {};
+      if (msg?.type === 'media_added_to_detail' && locationId && media) {
+        addMediaToLocation(locationId, media);
       }
-      if (msg?.type === 'media_takeover' && msg.media) {
-        setTakeoverMedia(msg.media);
+      if (msg?.type === 'media_takeover' && media) {
+        setTakeoverMedia(media);
         setTakeoverVisible(true);
       }
     };
